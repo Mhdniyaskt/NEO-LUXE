@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Account | NEO-LUXE</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            dark: '#050508',
+                            card: '#0B0C12',
+                            input: '#121217',
+                            accent: '#00A3FF',
+                            cyan: '#00E0FF',
+                            error: '#FF4B4B'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-brand-dark text-white font-sans min-h-screen flex flex-col">
+
+    <main class="flex-1 flex flex-col lg:flex-row items-center justify-center px-6 lg:px-20 pt-32 pb-16 gap-12 lg:gap-24">
+        
+        <div class="w-full max-w-xl order-2 lg:order-1">
+            <div class="bg-brand-card p-8 lg:p-12 rounded-[2rem] border border-white/5 shadow-2xl">
+                <div class="mb-10">
+                    <h1 class="text-3xl font-bold">Create Your Account</h1>
+                    <p class="text-gray-500 text-sm mt-2 font-light">Experience the future of horology today.</p>
+                </div>
+
+                <div id="error-container" class="hidden mb-6 p-4 rounded-xl bg-brand-error/10 border border-brand-error/20 text-brand-error text-sm flex items-center gap-3">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span id="error-text"></span>
+                </div>
+
+                <form id="signup-form" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-2">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Full Name</label>
+                            <input name="fullName" type="text"  class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Email Address</label>
+                            <input name="email" type="email" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Phone Number</label>
+                            <input name="mobileNumber" type="tel"  class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Referral Code</label>
+                            <input name="referralCode" type="text" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition" placeholder="Optional">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Password</label>
+                            <input name="password" type="password"  class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Confirm Password</label>
+                            <input name="confirmPassword" type="password"  class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                        </div>
+                    </div>
+                      
+                    <button type="submit" id="submit-btn" class="w-full py-4 mt-4 rounded-xl bg-gradient-to-r from-brand-accent to-brand-cyan text-black font-bold text-xs uppercase tracking-[0.2em] shadow-[0_0_25px_rgba(0,163,255,0.3)] hover:scale-[1.01] transition flex items-center justify-center gap-2">
+                        <span id="btn-text">Create Account</span>
+                        <i id="btn-icon" class="fa-solid fa-arrow-right text-[10px]"></i>
+                    </button>
+                </form>
+
+                <div class="mt-10 relative text-center">
+                    <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-800/50"></div></div>
+                    <span class="relative bg-brand-card px-4 text-[9px] text-gray-600 uppercase font-bold tracking-[0.3em]">Or continue with</span>
+                </div>
+
+                <div class="mt-8">
+                    <button class="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl border border-gray-800 bg-brand-input text-xs font-bold hover:bg-white/5 transition">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4" alt="Google">
+                        Sign up with Google
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full max-w-xl order-1 lg:order-2">
+            <div class="relative group rounded-3xl bg-gradient-to-b from-brand-card to-black p-8 border border-white/5 mb-12 flex items-center justify-center overflow-hidden">
+                <div class="absolute inset-0 bg-brand-accent/5 blur-[120px] rounded-full scale-75"></div>
+                <img src="https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&q=80&w=600" 
+                     alt="Neo-Luxe Tactical" 
+                     class="relative z-10 w-full lg:w-4/5 drop-shadow-[0_35px_35px_rgba(0,0,0,0.6)] group-hover:scale-105 transition-transform duration-700">
+            </div>
+
+            <div class="space-y-6 px-4">
+                <h2 class="text-4xl lg:text-5xl font-bold leading-tight">Timeless Style <br> <span class="text-brand-cyan">Starts Here</span></h2>
+                <p class="text-gray-400 text-sm leading-relaxed font-light max-w-md">
+                    Join the inner circle of neo-luxury horology. Gain access to limited prototypes and private collection drops.
+                </p>
+
+                <div class="pt-8 grid grid-cols-3 gap-8 border-t border-gray-800/50">
+                    <div class="space-y-1">
+                        <p class="text-lg font-bold">12K+</p>
+                        <p class="text-[9px] text-gray-600 uppercase font-bold tracking-widest">Members</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-lg font-bold">48</p>
+                        <p class="text-[9px] text-gray-600 uppercase font-bold tracking-widest">Exclusives</p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-lg font-bold">24/7</p>
+                        <p class="text-[9px] text-gray-600 uppercase font-bold tracking-widest">Concierge</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const form = e.target;
+            const errorContainer = document.getElementById('error-container');
+            const errorText = document.getElementById('error-text');
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = document.getElementById('btn-text');
+            const btnIcon = document.getElementById('btn-icon');
+
+            // Reset UI state
+            errorContainer.classList.add('hidden');
+            submitBtn.disabled = true;
+            btnText.innerText = 'Processing...';
+            btnIcon.className = 'fa-solid fa-spinner fa-spin text-[10px]';
+
+            // Prepare Data
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            // Basic Password Validation (Frontend)
+            if (data.password !== data.confirmPassword) {
+                showError("Passwords do not match.");
+                resetBtn();
+                return;
+            }
+
+            try {
+                const response = await fetch('/signup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Success: Redirect to OTP page
+                    window.location.href = '/verify-email';
+                } else {
+                    // Bad Request or Server Error: Show backend message
+                    showError(result.message || "Something went wrong. Please try again.");
+                    resetBtn();
+                }
+            } catch (error) {
+                showError("Unable to connect to server. Check your internet.");
+                resetBtn();
+            }
+        });
+
+        function showError(msg) {
+            const errorContainer = document.getElementById('error-container');
+            const errorText = document.getElementById('error-text');
+            errorText.innerText = msg;
+            errorContainer.classList.remove('hidden');
+            errorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        function resetBtn() {
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = document.getElementById('btn-text');
+            const btnIcon = document.getElementById('btn-icon');
+            submitBtn.disabled = false;
+            btnText.innerText = 'Create Account';
+            btnIcon.className = 'fa-solid fa-arrow-right text-[10px]';
+        }
+    </script>
+</body>
+</html>

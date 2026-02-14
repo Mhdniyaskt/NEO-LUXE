@@ -1,0 +1,165 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Verification | NEO-LUXE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            dark: '#050508',
+                            card: '#0B0C12',
+                            input: '#1A1A22',
+                            accent: '#00A3FF',
+                            cyan: '#00E0FF',
+                            error: '#FF4B4B'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-brand-dark text-white font-sans min-h-screen flex flex-col">
+
+    <main class="flex-1 flex items-center justify-center px-6">
+        <div class="relative w-full max-w-md">
+            <div class="absolute -inset-10 bg-brand-accent/5 blur-[100px] rounded-full"></div>
+
+            <div class="relative bg-brand-card p-10 lg:p-12 rounded-[2.5rem] border border-white/5 shadow-2xl text-center">
+                
+                <div class="w-12 h-12 rounded-full border border-brand-cyan/30 bg-brand-cyan/5 flex items-center justify-center mx-auto mb-8 shadow-[0_0_15px_rgba(0,224,255,0.1)]">
+                    <i class="fa-solid fa-shield-halved text-brand-cyan text-lg"></i>
+                </div>
+
+                <h1 class="text-2xl font-bold mb-4 tracking-wider uppercase">Security Verification</h1>
+                <p class="text-gray-500 text-xs leading-relaxed mb-10 max-w-[280px] mx-auto font-light">
+                    Enter the 6-digit code sent to your device.
+                </p>
+
+                <div id="error-container" class="hidden mb-6 p-3 rounded-xl bg-brand-error/10 border border-brand-error/20 text-brand-error text-[10px] uppercase font-bold tracking-wider">
+                    <span id="error-text"></span>
+                </div>
+
+                <form id="otp-form" class="space-y-8">
+                    <div class="flex justify-between gap-2">
+                        <input type="text" data-index="0" inputmode="numeric" maxlength="1" class="otp-field w-12 h-14 sm:w-14 sm:h-16 bg-brand-input border border-gray-800 rounded-xl text-center text-xl font-bold text-brand-cyan focus:outline-none focus:border-brand-accent transition">
+                        <input type="text" data-index="1" inputmode="numeric" maxlength="1" class="otp-field w-12 h-14 sm:w-14 sm:h-16 bg-brand-input border border-gray-800 rounded-xl text-center text-xl font-bold text-white focus:outline-none focus:border-brand-accent transition">
+                        <input type="text" data-index="2" inputmode="numeric" maxlength="1" class="otp-field w-12 h-14 sm:w-14 sm:h-16 bg-brand-input border border-gray-800 rounded-xl text-center text-xl font-bold text-white focus:outline-none focus:border-brand-accent transition">
+                        <input type="text" data-index="3" inputmode="numeric" maxlength="1" class="otp-field w-12 h-14 sm:w-14 sm:h-16 bg-brand-input border border-gray-800 rounded-xl text-center text-xl font-bold text-white focus:outline-none focus:border-brand-accent transition">
+                        <input type="text" data-index="4" inputmode="numeric" maxlength="1" class="otp-field w-12 h-14 sm:w-14 sm:h-16 bg-brand-input border border-gray-800 rounded-xl text-center text-xl font-bold text-white focus:outline-none focus:border-brand-accent transition">
+                        <input type="text" data-index="5" inputmode="numeric" maxlength="1" class="otp-field w-12 h-14 sm:w-14 sm:h-16 bg-brand-input border border-gray-800 rounded-xl text-center text-xl font-bold text-white focus:outline-none focus:border-brand-accent transition">
+                    </div>
+
+                    <button type="submit" id="submit-btn" class="w-full py-4 rounded-xl bg-gradient-to-r from-brand-accent to-brand-cyan text-black font-bold text-xs uppercase tracking-[0.2em] shadow-[0_10px_20px_rgba(0,163,255,0.3)] hover:scale-[1.01] transition">
+                        <span id="btn-text">Verify Account</span>
+                    </button>
+                </form>
+
+                <div class="mt-8 space-y-4">
+                    <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                        Didn't receive the code? <button class="text-brand-cyan hover:underline ml-1">Resend code</button>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const fields = document.querySelectorAll('.otp-field');
+
+        fields.forEach((field, index) => {
+            // Handle typing the number
+            field.addEventListener('input', (e) => {
+                const val = e.target.value;
+                
+                // If the user entered a number, move to next field
+                if (val.length === 1 && index < fields.length - 1) {
+                    fields[index + 1].focus();
+                }
+            });
+
+            // Handle backspace and cursor movement
+            field.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace') {
+                    // If current field is empty, move focus to previous and clear it
+                    if (!field.value && index > 0) {
+                        fields[index - 1].focus();
+                    }
+                }
+            });
+
+            // Prevent letters/special characters
+            field.addEventListener('keypress', (e) => {
+                if (!/[0-9]/.test(e.key)) {
+                    e.preventDefault();
+                }
+            });
+        });
+
+        // AJAX SUBMISSION
+        document.getElementById('otp-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = document.getElementById('btn-text');
+            const errorContainer = document.getElementById('error-container');
+
+            // Combine the 6 values
+            const otpValue = Array.from(fields).map(f => f.value).join('');
+
+            if (otpValue.length < 6) {
+                showError("Please enter all 6 digits");
+                return;
+            }
+
+            // UI Loading State
+            submitBtn.disabled = true;
+            btnText.innerText = "Verifying...";
+            errorContainer.classList.add('hidden');
+
+            try {
+                const response = await fetch('/verify-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ otp: otpValue })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    window.location.href = '/'; // Success redirect
+                } else {
+                    showError(result.message || "Invalid OTP");
+                    resetBtn();
+                }
+            } catch (err) {
+                showError("Server error. Try again.");
+                resetBtn();
+            }
+        });
+
+        function showError(msg) {
+            const container = document.getElementById('error-container');
+            document.getElementById('error-text').innerText = msg;
+            container.classList.remove('hidden');
+        }
+
+        function resetBtn() {
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = document.getElementById('btn-text');
+            submitBtn.disabled = false;
+            btnText.innerText = "Verify Account";
+        }
+    </script>
+</body>
+</html>

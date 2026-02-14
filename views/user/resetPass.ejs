@@ -1,0 +1,73 @@
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo-Luxe | Set New Password</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-[#05080d] text-white min-h-screen flex flex-col">
+
+    
+    <main class="flex-grow flex flex-col items-center justify-center px-4 py-12 bg-gradient-to-b from-[#0a0f18] to-[#05080d]">
+        
+        <div class="glass-card w-full max-w-md rounded-[2.5rem] p-10 shadow-2xl">
+            <div class="text-center mb-10">
+                <h1 class="text-2xl font-bold tracking-[0.2em] uppercase mb-2">Set New Password</h1>
+                <p class="text-gray-500 text-xs tracking-wide">Enter your new credentials to access your vault.</p>
+            </div>
+
+            <form class="space-y-8">
+                <div>
+                    <label class="block text-[10px] font-bold text-[#00a3ff] uppercase tracking-widest mb-3">New Password</label>
+                    <div class="relative">
+                        <input type="password" class="w-full bg-gray-900/50 border border-gray-800 rounded-xl py-4 px-5 text-sm outline-none focus:border-[#00a3ff] transition">
+                        <svg class="w-5 h-5 absolute right-4 top-4 text-gray-600 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-width="2"></path></svg>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-[#00a3ff] uppercase tracking-widest mb-3">Confirm Password</label>
+                    <div class="relative">
+                        <input type="password" class="w-full bg-gray-900/50 border border-gray-800 rounded-xl py-4 px-5 text-sm outline-none focus:border-[#00a3ff] transition">
+                        <svg class="w-5 h-5 absolute right-4 top-4 text-gray-600 cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"></path><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke-width="2"></path></svg>
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full bg-gradient-to-r from-[#0095ff] to-[#00d1ff] text-white font-bold py-4 rounded-xl shadow-[0_0_30px_rgba(0,149,255,0.3)] hover:opacity-90 transition transform active:scale-[0.98] uppercase tracking-widest text-xs">
+                    Update Access
+                </button>
+            </form>
+        </div>
+
+        <div class="mt-8 flex items-center gap-2 bg-gray-900/40 border border-gray-800 px-4 py-2 rounded-full">
+            <svg class="w-4 h-4 text-[#00a3ff]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-width="2"></path></svg>
+            <span class="text-[9px] uppercase tracking-[0.15em] text-gray-400 font-medium">Secure 256-bit SSL Encrypted Connection</span>
+        </div>
+    </main>
+
+   
+
+    <script>
+        const profileBtn = document.getElementById('profileBtn');
+        const profileMenu = document.getElementById('profileMenu');
+
+        profileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            profileMenu.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', () => {
+            profileMenu.classList.add('hidden');
+        });
+    </script>
+</body>
+</html>

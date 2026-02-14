@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customers | NEO-LUXE Admin</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            darkest: '#050508',
+                            sidebar: '#0B0C14',
+                            card: '#0F111A',
+                            accent: '#00C2FF',
+                            danger: '#FF4D4D',
+                            success: '#00E0FF'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-brand-darkest text-gray-300 font-sans flex min-h-screen">
+
+    <aside class="w-64 bg-brand-sidebar border-r border-gray-800 flex flex-col fixed h-full">
+        <div class="p-6">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="text-white font-bold tracking-widest text-xl uppercase">Neo-Luxe</span>
+            </div>
+            <p class="text-[10px] text-gray-500 uppercase tracking-tighter">Premium Watch Admin</p>
+        </div>
+
+        <nav class="flex-1 px-4 space-y-2 mt-4 text-sm">
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-brand-accent transition"><i class="fa-solid fa-table-cells-large w-5"></i> Dashboard</a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-brand-accent transition"><i class="fa-solid fa-clock w-5"></i> Watches</a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-brand-accent transition"><i class="fa-solid fa-layer-group w-5"></i> Categories</a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-brand-accent transition"><i class="fa-solid fa-tag w-5"></i> Brands</a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-brand-accent transition"><i class="fa-solid fa-cart-flatbed w-5"></i> Orders</a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 bg-brand-accent/10 text-brand-accent rounded-lg font-medium"><i class="fa-solid fa-users w-5"></i> Customers</a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-brand-accent transition"><i class="fa-solid fa-ticket w-5"></i> Coupons</a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-brand-accent transition"><i class="fa-solid fa-chart-line w-5"></i> Sales Reports</a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-brand-accent transition"><i class="fa-solid fa-share-nodes w-5"></i> Referrals</a>
+            <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-400 hover:text-brand-accent transition"><i class="fa-solid fa-gear w-5"></i> Settings</a>
+        </nav>
+
+        <div class="p-6 border-t border-gray-800">
+            <a href="#" class="flex items-center gap-3 text-gray-400 hover:text-brand-danger transition text-sm"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </div>
+    </aside>
+
+    <main class="ml-64 flex-1 p-8">
+        <header class="mb-8">
+            <div class="flex items-center gap-2 text-[10px] text-gray-500 uppercase tracking-widest mb-2">
+                <i class="fa-solid fa-house"></i> <span>/</span> <span>Admin</span> <span>/</span> <span class="text-brand-accent">Customers</span>
+            </div>
+            <h1 class="text-3xl font-bold text-white mb-1">Customers</h1>
+            <p class="text-sm text-gray-500">Manage registered customers.</p>
+        </header>
+
+        <section class="bg-brand-card p-6 rounded-xl border border-gray-800 mb-6 flex flex-wrap gap-4 items-end">
+            <div class="flex-1 min-w-[300px]">
+                <label class="block text-[10px] uppercase font-bold text-gray-500 mb-2">Search Customer</label>
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-600 text-sm"></i>
+                    <input type="text" placeholder="Search by name, email or phone..." class="w-full bg-brand-darkest border border-gray-800 rounded-lg py-2.5 pl-12 pr-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                </div>
+            </div>
+            <div class="w-48">
+                <label class="block text-[10px] uppercase font-bold text-gray-500 mb-2">Status</label>
+                <select class="w-full bg-brand-darkest border border-gray-800 rounded-lg py-2.5 px-4 text-sm focus:outline-none focus:border-brand-accent appearance-none">
+                    <option>All Status</option>
+                    <option>Active</option>
+                    <option>Blocked</option>
+                </select>
+            </div>
+            <button class="bg-gray-800 hover:bg-gray-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium transition flex items-center gap-2"><i class="fa-solid fa-filter-circle-xmark"></i> Clear</button>
+            <button class="bg-brand-accent hover:bg-cyan-500 text-black px-8 py-2.5 rounded-lg text-sm font-bold transition flex items-center gap-2 shadow-[0_0_15px_rgba(0,194,255,0.3)]"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+        </section>
+
+        <section class="bg-brand-card rounded-xl border border-gray-800 overflow-hidden">
+            <div class="p-6 border-b border-gray-800 flex justify-between items-center">
+                <h2 class="font-bold flex items-center gap-2 text-white"><i class="fa-solid fa-users text-brand-accent"></i> Registered Users</h2>
+                <span class="text-[10px] text-gray-500 uppercase tracking-widest">Showing 1-10 of 1,248 customers</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead class="bg-brand-darkest/50 text-[10px] uppercase tracking-widest text-gray-500 border-b border-gray-800">
+                        <tr>
+                            <th class="px-6 py-4 font-bold">Customer Name</th>
+                            <th class="px-6 py-4 font-bold">Email Address</th>
+                            <th class="px-6 py-4 font-bold">Phone Number</th>
+                            <th class="px-6 py-4 font-bold text-center">Joined Date</th>
+                            <th class="px-6 py-4 font-bold text-center">Status</th>
+                            <th class="px-6 py-4 font-bold text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-800/50">
+                        <tr class="hover:bg-white/5 transition">
+                            <td class="px-6 py-4 flex items-center gap-3 font-medium text-white">
+                                <div class="w-8 h-8 rounded-full bg-brand-accent/20 flex items-center justify-center text-[10px] text-brand-accent font-bold">RV</div>
+                                Rahul Verma
+                            </td>
+                            <td class="px-6 py-4 text-gray-400">rahul.verma@example.com</td>
+                            <td class="px-6 py-4 text-gray-400">+91 98765 43210</td>
+                            <td class="px-6 py-4 text-center text-gray-500">Oct 12, 2022</td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="px-2 py-1 rounded bg-brand-success/10 text-brand-success text-[9px] font-bold uppercase border border-brand-success/20">Active</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button class="text-brand-danger/80 hover:text-brand-danger text-[10px] font-bold uppercase border border-brand-danger/30 hover:border-brand-danger px-3 py-1 rounded transition">Block User</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition">
+                            <td class="px-6 py-4 flex items-center gap-3 font-medium text-white">
+                                <div class="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center text-[10px] text-purple-400 font-bold">SK</div>
+                                Sneha Kapoor
+                            </td>
+                            <td class="px-6 py-4 text-gray-400">sneha.kapoor@example.com</td>
+                            <td class="px-6 py-4 text-gray-400">+91 98123 45678</td>
+                            <td class="px-6 py-4 text-center text-gray-500">Sep 05, 2023</td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="px-2 py-1 rounded bg-brand-success/10 text-brand-success text-[9px] font-bold uppercase border border-brand-success/20">Active</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button class="text-brand-danger/80 hover:text-brand-danger text-[10px] font-bold uppercase border border-brand-danger/30 hover:border-brand-danger px-3 py-1 rounded transition">Block User</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-white/5 transition bg-brand-danger/5">
+                            <td class="px-6 py-4 flex items-center gap-3 font-medium text-white">
+                                <div class="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-[10px] text-orange-400 font-bold">AM</div>
+                                Amit Mishra
+                            </td>
+                            <td class="px-6 py-4 text-gray-400">amit.mishra@example.com</td>
+                            <td class="px-6 py-4 text-gray-400">+91 91234 56789</td>
+                            <td class="px-6 py-4 text-center text-gray-500">Jan 22, 2024</td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="px-2 py-1 rounded bg-brand-danger/10 text-brand-danger text-[9px] font-bold uppercase border border-brand-danger/20">Blocked</span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <button class="text-brand-accent/80 hover:text-brand-accent text-[10px] font-bold uppercase border border-brand-accent/30 hover:border-brand-accent px-3 py-1 rounded transition">Unblock User</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="p-6 border-t border-gray-800 flex justify-between items-center text-xs">
+                <p class="text-gray-500">Showing 1 to 10 of 1248 entries</p>
+                <div class="flex gap-2">
+                    <button class="w-8 h-8 rounded border border-gray-800 flex items-center justify-center hover:bg-gray-800 transition"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>
+                    <button class="w-8 h-8 rounded bg-brand-accent text-black font-bold flex items-center justify-center">1</button>
+                    <button class="w-8 h-8 rounded border border-gray-800 flex items-center justify-center hover:bg-gray-800 transition">2</button>
+                    <button class="w-8 h-8 rounded border border-gray-800 flex items-center justify-center hover:bg-gray-800 transition">3</button>
+                    <span class="px-2 py-2">...</span>
+                    <button class="w-8 h-8 rounded border border-gray-800 flex items-center justify-center hover:bg-gray-800 transition">12</button>
+                    <button class="w-8 h-8 rounded border border-gray-800 flex items-center justify-center hover:bg-gray-800 transition"><i class="fa-solid fa-chevron-right text-[10px]"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <footer class="mt-12 text-center text-[10px] text-gray-600 uppercase tracking-widest">
+            © 2024 Watch Store Admin Panel. All Rights Reserved.
+        </footer>
+    </main>
+
+</body>
+</html>

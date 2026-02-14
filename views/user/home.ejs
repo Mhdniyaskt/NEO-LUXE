@@ -1,0 +1,199 @@
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEO-LUXE | Redefine Time</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            blue: '#00A3FF',
+                            dark: '#050507',
+                            card: '#0F1014',
+                            light: '#EAEAEA'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom Glow Effects */
+        .hero-glow {
+            background: radial-gradient(circle, rgba(0, 163, 255, 0.15) 0%, rgba(5, 5, 7, 0) 70%);
+        }
+        .text-glow {
+            text-shadow: 0 0 20px rgba(0, 163, 255, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-brand-dark text-white font-sans antialiased overflow-x-hidden">
+
+   
+    <header class="relative pt-32 pb-16 lg:pt-40 lg:pb-24 px-8 lg:px-20 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        
+        <div class="z-10 space-y-6">
+            <span class="bg-gray-900 border border-gray-700 text-brand-blue text-[10px] tracking-widest px-3 py-1 rounded uppercase font-semibold">
+                Future of Horology
+            </span>
+            <h1 class="text-5xl lg:text-7xl font-bold leading-tight">
+                Redefine <br>
+                Time with <br>
+                <span class="text-brand-blue text-glow">Precision.</span>
+            </h1>
+            <p class="text-gray-400 max-w-md font-light leading-relaxed">
+                Experience the pinnacle of engineering with our neo-luxury collection. Designed for the futuristic minimalist who values absolute chronometric integrity.
+            </p>
+            <div class="flex gap-4 pt-4">
+                <button class="bg-brand-blue hover:bg-blue-600 text-black font-semibold px-8 py-3 rounded text-sm transition shadow-[0_0_15px_rgba(0,163,255,0.4)]">
+                    EXPLORE COLLECTION <i class="fa-solid fa-arrow-right ml-2 text-xs"></i>
+                </button>
+                <button class="border border-gray-600 hover:border-white text-white px-8 py-3 rounded text-sm transition">
+                    VIEW FILM
+                </button>
+            </div>
+        </div>
+
+        <div class="relative z-10 flex justify-center hero-glow rounded-full">
+            <div class="absolute inset-0 bg-brand-blue blur-[100px] opacity-20 rounded-full transform scale-75"></div>
+            <img src="/images/image1.png" 
+                 alt="Neo-Luxe Watch" 
+                 class="relative w-80 lg:w-[450px] drop-shadow-2xl hover:scale-105 transition duration-500 object-contain mix-blend-lighten">
+        </div>
+    </header>
+
+    <section class="py-10 border-y border-gray-900 bg-black/50">
+        <div class="text-center mb-6">
+            <span class="text-[10px] tracking-[0.3em] text-gray-500 uppercase">Endorsed by Technical Masters</span>
+        </div>
+        <div class="flex flex-wrap justify-center gap-12 opacity-40 grayscale hover:grayscale-0 transition duration-500">
+            <span class="text-xl font-bold font-mono tracking-tighter">AETHER</span>
+            <span class="text-xl font-serif font-bold tracking-widest">ZENITH</span>
+            <span class="text-xl font-sans font-black italic">KINETIC</span>
+            <span class="text-xl font-mono border-2 border-white px-1">VERTEX</span>
+        </div>
+    </section>
+
+    <section class="py-20 px-8 lg:px-20 max-w-7xl mx-auto">
+        <h2 class="text-2xl font-bold mb-10">Browse by Category</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-brand-card p-8 rounded-xl group hover:bg-gray-900 transition border border-transparent hover:border-gray-800 relative overflow-hidden">
+                <div class="h-48 flex items-center justify-center mb-6">
+                    <img src="https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&q=80&w=300" class="h-full object-contain mix-blend-screen group-hover:scale-110 transition duration-500">
+                </div>
+                <h3 class="text-xl font-semibold">Heritage Series</h3>
+                <p class="text-xs text-gray-500 mt-2 mb-4">Timeless mechanical excellence.</p>
+                <a href="#" class="text-brand-blue text-xs font-bold tracking-wider uppercase group-hover:text-white transition">Discover <i class="fa-solid fa-arrow-right ml-1"></i></a>
+            </div>
+
+            <div class="bg-brand-card p-8 rounded-xl group hover:bg-gray-900 transition border border-transparent hover:border-gray-800 relative overflow-hidden">
+                <div class="h-48 flex items-center justify-center mb-6">
+                    <img src="https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&q=80&w=300" class="h-full object-contain mix-blend-screen group-hover:scale-110 transition duration-500">
+                </div>
+                <h3 class="text-xl font-semibold">Tactical Collection</h3>
+                <p class="text-xs text-gray-500 mt-2 mb-4">Uncompromised field performance.</p>
+                <a href="#" class="text-brand-blue text-xs font-bold tracking-wider uppercase group-hover:text-white transition">Discover <i class="fa-solid fa-arrow-right ml-1"></i></a>
+            </div>
+
+            <div class="bg-brand-card p-8 rounded-xl group hover:bg-gray-900 transition border border-transparent hover:border-gray-800 relative overflow-hidden">
+                <div class="h-48 flex items-center justify-center mb-6">
+                    <img src="https://images.unsplash.com/photo-1579586337378-5e697c58c2e4?auto=format&fit=crop&q=80&w=300" class="h-full object-contain mix-blend-screen group-hover:scale-110 transition duration-500">
+                </div>
+                <h3 class="text-xl font-semibold">Futuristic Line</h3>
+                <p class="text-xs text-gray-500 mt-2 mb-4">Cybernetic aesthetics & smart tech.</p>
+                <a href="#" class="text-brand-blue text-xs font-bold tracking-wider uppercase group-hover:text-white transition">Discover <i class="fa-solid fa-arrow-right ml-1"></i></a>
+            </div>
+        </div>
+    </section>
+
+    <!-- <section class="px-8 lg:px-20 max-w-7xl mx-auto mb-20">
+        <div class="bg-gradient-to-r from-[#00A3FF] to-[#0066FF] rounded-2xl p-8 md:p-12 flex flex-col md:flex-row justify-between items-center shadow-[0_0_40px_rgba(0,163,255,0.3)]">
+            <div class="mb-6 md:mb-0">
+                <h2 class="text-3xl font-bold text-white mb-2">Limited Innovation Sale</h2>
+                <p class="text-blue-100 text-sm">15% off your first watch acquisition. Use code <span class="font-bold text-white">NEO2024</span></p>
+            </div>
+            <button class="bg-white text-blue-600 px-8 py-3 rounded font-bold text-sm hover:bg-gray-100 transition shadow-lg">
+                REDEEM OFFER
+            </button>
+        </div>
+    </section> -->
+
+    <section class="py-10 px-8 lg:px-20 max-w-7xl mx-auto">
+        <div class="flex justify-between items-end mb-10">
+            <div>
+                <h2 class="text-2xl font-bold">Best Sellers</h2>
+                <p class="text-xs text-gray-500 mt-1">Most coveted pieces in this quarter.</p>
+            </div>
+            <a href="#" class="text-brand-blue text-xs font-bold">VIEW ALL <i class="fa-solid fa-border-all ml-1"></i></a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-brand-card p-4 rounded-xl hover:translate-y-[-5px] transition duration-300 border border-gray-900 hover:border-gray-700">
+                <div class="bg-gradient-to-b from-gray-800 to-brand-card h-40 rounded-lg mb-4 flex items-center justify-center p-4">
+                    <img src="https://images.unsplash.com/photo-1623998021446-45cd96e35f5e?auto=format&fit=crop&q=80&w=200" class="h-full object-contain mix-blend-normal">
+                </div>
+                <span class="text-[9px] text-brand-blue uppercase tracking-widest font-bold">Auto-Chrono</span>
+                <h4 class="font-bold mt-1 text-sm">Aether-X Chrono</h4>
+                <p class="text-[10px] text-gray-500 mb-3">Titanium / Sapphire Glass / Auto</p>
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-lg">$2,450</span>
+                    <button class="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-xs hover:bg-brand-blue hover:text-black transition">+</button>
+                </div>
+            </div>
+
+            <div class="bg-brand-card p-4 rounded-xl hover:translate-y-[-5px] transition duration-300 border border-gray-900 hover:border-gray-700">
+                <div class="bg-gradient-to-b from-gray-800 to-brand-card h-40 rounded-lg mb-4 flex items-center justify-center p-4">
+                    <img src="https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&q=80&w=200" class="h-full object-contain mix-blend-normal">
+                </div>
+                <span class="text-[9px] text-brand-blue uppercase tracking-widest font-bold">Dress Series</span>
+                <h4 class="font-bold mt-1 text-sm">Zenith Minimalist</h4>
+                <p class="text-[10px] text-gray-500 mb-3">Rose Gold / Swiss Movement</p>
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-lg">$1,890</span>
+                    <button class="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-xs hover:bg-brand-blue hover:text-black transition">+</button>
+                </div>
+            </div>
+
+            <div class="bg-brand-card p-4 rounded-xl hover:translate-y-[-5px] transition duration-300 border border-gray-900 hover:border-gray-700">
+                <div class="bg-gradient-to-b from-gray-800 to-brand-card h-40 rounded-lg mb-4 flex items-center justify-center p-4">
+                    <img src="https://images.unsplash.com/photo-1622434641406-a158123450f9?auto=format&fit=crop&q=80&w=200" class="h-full object-contain mix-blend-normal">
+                </div>
+                <span class="text-[9px] text-brand-blue uppercase tracking-widest font-bold">Diver Pro</span>
+                <h4 class="font-bold mt-1 text-sm">Deep Sea Vertex</h4>
+                <div class="text-[10px] text-gray-500 mb-3">300m WR / Rotating Bezel</div>
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-lg">$3,120</span>
+                    <button class="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-xs hover:bg-brand-blue hover:text-black transition">+</button>
+                </div>
+            </div>
+
+            <div class="bg-brand-card p-4 rounded-xl hover:translate-y-[-5px] transition duration-300 border border-gray-900 hover:border-gray-700">
+                <div class="bg-gradient-to-b from-gray-800 to-brand-card h-40 rounded-lg mb-4 flex items-center justify-center p-4">
+                    <img src="https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?auto=format&fit=crop&q=80&w=200" class="h-full object-contain mix-blend-normal">
+                </div>
+                <span class="text-[9px] text-brand-blue uppercase tracking-widest font-bold">Connected</span>
+                <h4 class="font-bold mt-1 text-sm">Cyber-Unit G2</h4>
+                <p class="text-[10px] text-gray-500 mb-3">OLED Display / Biometric</p>
+                <div class="flex justify-between items-center">
+                    <span class="font-bold text-lg">$995</span>
+                    <button class="w-8 h-8 rounded bg-gray-800 flex items-center justify-center text-xs hover:bg-brand-blue hover:text-black transition">+</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</body>

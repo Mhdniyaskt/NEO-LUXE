@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel | NEO-LUXE</title>
+
+    <!-- Tailwind CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#020204',
+                            card: '#0B0C10',
+                            input: '#121216',
+                            blue: '#00A3FF',
+                            cyan: '#00E0FF',
+                            border: '#1F2026'
+                        }
+                    },
+                    boxShadow: {
+                        'glow-btn': '0 0 25px rgba(0, 224, 255, 0.4)',
+                        'glow-card': '0 0 60px rgba(0, 163, 255, 0.05)',
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.8s ease-out forwards',
+                        'slide-up': 'slideUp 0.8s ease-out forwards',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { opacity: '0', transform: 'translateY(20px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom Styles -->
+    <style>
+        body {
+            background-color: #020204;
+            background-image: radial-gradient(circle at center, #0a0f1d 0%, #020204 100%);
+        }
+
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px #121216 inset !important;
+            -webkit-text-fill-color: white !important;
+        }
+    </style>
+</head>
+
+<body class="text-white font-sans min-h-screen w-full grid grid-rows-[auto_1fr_auto] overflow-hidden">
+
+    <!-- CENTER CONTENT -->
+    <main class="flex flex-col items-center justify-center">
+
+        <!-- TOP LABEL -->
+        <div class="text-[10px] uppercase tracking-[0.3em] text-brand-blue font-bold mb-6 animate-fade-in opacity-0"
+             style="animation-delay: 0.1s;">
+            Admin Panel
+        </div>
+
+        <!-- CARD -->
+        <div class="w-full max-w-md bg-brand-card p-10 rounded-2xl border border-brand-border shadow-glow-card animate-slide-up opacity-0"
+             style="animation-delay: 0.2s;">
+
+            <div class="text-center mb-10">
+                <h1 class="text-3xl font-bold mb-2">Admin Sign In</h1>
+                <p class="text-gray-500 text-xs font-light">
+                    Access the administration dashboard
+                </p>
+            </div>
+
+            <form class="space-y-6">
+
+                <!-- EMAIL -->
+                <div class="group">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 group-focus-within:text-brand-blue transition-colors">
+                        Email Address
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center">
+                            <i class="fa-regular fa-envelope text-gray-500 text-sm group-focus-within:text-brand-cyan"></i>
+                        </div>
+                        <input type="email"
+                               class="w-full bg-brand-input border border-brand-border text-white text-sm rounded-lg pl-11 py-3 px-3.5 focus:outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/50 transition-all placeholder-gray-700"
+                               placeholder="admin@neoluxe.com">
+                    </div>
+                </div>
+
+                <!-- PASSWORD -->
+                <div class="group">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 group-focus-within:text-brand-blue transition-colors">
+                        Password
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center">
+                            <i class="fa-solid fa-lock text-gray-500 text-sm group-focus-within:text-brand-cyan"></i>
+                        </div>
+                        <input type="password"
+                               class="w-full bg-brand-input border border-brand-border text-white text-sm rounded-lg pl-11 py-3 px-3.5 focus:outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/50 transition-all placeholder-gray-700"
+                               placeholder="••••••••••••">
+                        <div class="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer text-gray-600 hover:text-white">
+                            <i class="fa-regular fa-eye"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- BUTTON -->
+                <button type="button"
+                        class="w-full mt-8 bg-gradient-to-r from-brand-blue to-brand-cyan text-black font-bold text-sm py-3.5 rounded-lg shadow-glow-btn hover:opacity-90 hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2 leading-none">
+                    SIGN IN <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </button>
+
+            </form>
+
+            <!-- NOTE -->
+            <div class="mt-8 pt-6 border-t border-brand-border text-center">
+                <div class="flex items-center justify-center gap-2 text-gray-600">
+                    <i class="fa-solid fa-shield-halved text-xs"></i>
+                    <span class="text-[10px] uppercase tracking-wide">
+                        Authorized personnel only
+                    </span>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="pb-8 text-center text-[10px] text-gray-700 font-mono tracking-widest uppercase animate-fade-in opacity-0"
+            style="animation-delay: 0.5s;">
+        © 2024 Luxe Time Admin Panel
+    </footer>
+
+</body>
+</html>

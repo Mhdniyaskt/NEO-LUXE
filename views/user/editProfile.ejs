@@ -1,0 +1,58 @@
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile - NEO-LUXE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-[#020617] text-white font-sans min-h-screen flex flex-col">
+
+
+    <main class="flex-grow flex flex-col items-center justify-center px-4 py-12">
+        <div class="w-full max-w-2xl">
+            <div class="flex justify-between items-end mb-6">
+                <div>
+                    <h1 class="text-4xl font-semibold mb-1">Edit Profile</h1>
+                    <p class="text-gray-400 text-sm">Update your personal information</p>
+                </div>
+                <button class="bg-gray-800 hover:bg-gray-700 text-[10px] py-2 px-4 rounded-md flex items-center gap-2 transition uppercase tracking-wider">
+                    <i class="fas fa-arrow-left text-[9px]"></i> Back to Profile
+                </button>
+            </div>
+
+            <div class="bg-[#0f172a] rounded-xl p-10 border border-gray-800 shadow-2xl">
+                <h2 class="text-lg font-medium mb-10">Personal Information</h2>
+                
+                <form class="space-y-8">
+                    <div>
+                        <label class="block text-[10px] font-bold text-cyan-500 uppercase tracking-widest mb-3">Full Name</label>
+                        <input type="text" placeholder="Enter your full name" class="w-full bg-[#020617] border border-gray-700 rounded-lg p-3.5 focus:outline-none focus:border-cyan-500 transition placeholder:text-gray-700">
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-cyan-500 uppercase tracking-widest mb-3">Phone Number</label>
+                        <input type="tel" placeholder="Enter your phone number" class="w-full bg-[#020617] border border-gray-700 rounded-lg p-3.5 focus:outline-none focus:border-cyan-500 transition placeholder:text-gray-700">
+                    </div>
+
+                    <div class="flex items-center justify-between pt-6">
+                        <div class="flex items-center gap-8">
+                            <button type="submit" class="bg-cyan-400 hover:bg-cyan-300 text-black font-bold py-2.5 px-10 rounded-lg shadow-[0_0_20px_rgba(34,211,238,0.2)] transition text-sm">
+                                Save Changes
+                            </button>
+                            <button type="button" class="text-gray-400 hover:text-white text-sm transition">Cancel</button>
+                        </div>
+                        
+                        <button type="button" class="bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-300 py-2.5 px-6 rounded-lg flex items-center gap-2 text-xs transition">
+                            <i class="fas fa-key text-[10px]"></i> Update Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+   
+
+</body>
+</html>
