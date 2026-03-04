@@ -128,7 +128,7 @@
             errorContainer.classList.add('hidden');
 
             try {
-                const response = await fetch('/verify-email', {
+                const response = await fetch('/verify-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ otp: otpValue })
@@ -136,12 +136,16 @@
 
                 const result = await response.json();
 
-                if (response.ok) {
-                    window.location.href = '/'; // Success redirect
-                } else {
-                    showError(result.message || "Invalid OTP");
-                    resetBtn();
-                }
+              if (result.success) {
+    if (result.redirect) {
+        window.location.href = result.redirect;
+    } else {
+        window.location.href = "/";
+    }
+} else {
+    showError(result.message || "Invalid OTP");
+    resetBtn();
+}
             } catch (err) {
                 showError("Server error. Try again.");
                 resetBtn();

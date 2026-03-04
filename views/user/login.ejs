@@ -155,14 +155,16 @@
 
                 const result = await response.json();
 
-                if (response.ok) {
-                    // Redirect on Success (e.g., to Dashboard)
-                    window.location.href = '/';
-                } else {
-                    // Display error from backend
-                    showError(result.message || "Invalid credentials. Please try again.");
-                    resetBtn();
-                }
+               if (result.success) {
+    if (result.redirect) {
+        window.location.href = result.redirect;
+    } else {
+        window.location.href = "/";
+    }
+} else {
+    showError(result.message || "Invalid credentials. Please try again.");
+    resetBtn();
+}
             } catch (error) {
                 showError("Connection lost. Please check your network.");
                 resetBtn();

@@ -32,7 +32,7 @@ const userSchema = new mongoose.Schema(
       default: ""
     },
 
-    mobileNumber: {
+    phoneNumber: {
       type: Number
     },
 

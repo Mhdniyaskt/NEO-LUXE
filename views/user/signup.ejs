@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Account | NEO-LUXE</title>
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -40,40 +39,45 @@
                     <p class="text-gray-500 text-sm mt-2 font-light">Experience the future of horology today.</p>
                 </div>
 
-                <div id="error-container" class="hidden mb-6 p-4 rounded-xl bg-brand-error/10 border border-brand-error/20 text-brand-error text-sm flex items-center gap-3">
+                <div id="mainError" class="hidden mb-6 p-4 rounded-xl bg-brand-error/10 border border-brand-error/20 text-brand-error text-sm flex items-center gap-3">
                     <i class="fa-solid fa-circle-exclamation"></i>
-                    <span id="error-text"></span>
+                    <span id="mainErrorText"></span>
                 </div>
 
-                <form id="signup-form" class="space-y-6">
+                <form id="signup-form" class="space-y-6" action="/signup" method="POST">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-2">
                             <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Full Name</label>
-                            <input name="fullName" type="text"  class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <input id="name" name="fullName" type="text" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <p id="nameError" class="text-brand-error text-[10px] hidden font-medium"></p>
                         </div>
                         <div class="space-y-2">
                             <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Email Address</label>
-                            <input name="email" type="email" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <input id="email" name="email" type="email" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <p id="emailError" class="text-brand-error text-[10px] hidden font-medium"></p>
                         </div>
                         <div class="space-y-2">
                             <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Phone Number</label>
-                            <input name="mobileNumber" type="tel"  class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <input id="phone" name="phoneNumber" type="tel" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <p id="phoneError" class="text-brand-error text-[10px] hidden font-medium"></p>
                         </div>
                         <div class="space-y-2">
                             <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Referral Code</label>
-                            <input name="referralCode" type="text" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition" placeholder="Optional">
+                            <input id="referral" name="referralCode" type="text" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition" placeholder="Optional">
                         </div>
                         <div class="space-y-2">
                             <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Password</label>
-                            <input name="password" type="password"  class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <input id="password" name="password" type="password" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <p id="passwordError" class="text-brand-error text-[10px] hidden font-medium"></p>
                         </div>
                         <div class="space-y-2">
                             <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Confirm Password</label>
-                            <input name="confirmPassword" type="password"  class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <input id="confirm_password" name="confirmPassword" type="password" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <p id="confirmPasswordError" class="text-brand-error text-[10px] hidden font-medium"></p>
                         </div>
                     </div>
                       
-                    <button type="submit" id="submit-btn" class="w-full py-4 mt-4 rounded-xl bg-gradient-to-r from-brand-accent to-brand-cyan text-black font-bold text-xs uppercase tracking-[0.2em] shadow-[0_0_25px_rgba(0,163,255,0.3)] hover:scale-[1.01] transition flex items-center justify-center gap-2">
+                    <button type="submit" id="submit-btn" class="w-full py-4 mt-4 rounded-xl bg-gradient-to-r from-brand-accent to-brand-cyan text-black font-bold text-xs uppercase tracking-[0.2em] shadow-[0_0_25px_rgba(0,163,255,0.3)] hover:scale-[1.01] transition flex items-center justify-center gap-2 active:scale-95">
                         <span id="btn-text">Create Account</span>
                         <i id="btn-icon" class="fa-solid fa-arrow-right text-[10px]"></i>
                     </button>
@@ -125,73 +129,110 @@
         </div>
     </main>
 
-    <script>
-        document.getElementById('signup-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
+<script>
+    const form = document.getElementById("signup-form");
+    const submitBtn = document.getElementById("submit-btn");
+    const btnText = document.getElementById("btn-text");
 
-            const form = e.target;
-            const errorContainer = document.getElementById('error-container');
-            const errorText = document.getElementById('error-text');
-            const submitBtn = document.getElementById('submit-btn');
-            const btnText = document.getElementById('btn-text');
-            const btnIcon = document.getElementById('btn-icon');
+    function showError(id, message) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = message;
+            el.classList.remove("hidden");
+        }
+    }
 
-            // Reset UI state
-            errorContainer.classList.add('hidden');
-            submitBtn.disabled = true;
-            btnText.innerText = 'Processing...';
-            btnIcon.className = 'fa-solid fa-spinner fa-spin text-[10px]';
-
-            // Prepare Data
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
-
-            // Basic Password Validation (Frontend)
-            if (data.password !== data.confirmPassword) {
-                showError("Passwords do not match.");
-                resetBtn();
-                return;
-            }
-
-            try {
-                const response = await fetch('/signup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    // Success: Redirect to OTP page
-                    window.location.href = '/verify-email';
-                } else {
-                    // Bad Request or Server Error: Show backend message
-                    showError(result.message || "Something went wrong. Please try again.");
-                    resetBtn();
-                }
-            } catch (error) {
-                showError("Unable to connect to server. Check your internet.");
-                resetBtn();
-            }
+    function clearErrors() {
+        document.querySelectorAll("p[id$='Error']").forEach(el => {
+            el.textContent = "";
+            el.classList.add("hidden");
         });
+        document.getElementById("mainError").classList.add("hidden");
+    }
 
-        function showError(msg) {
-            const errorContainer = document.getElementById('error-container');
-            const errorText = document.getElementById('error-text');
-            errorText.innerText = msg;
-            errorContainer.classList.remove('hidden');
-            errorContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Add real-time clearing of errors
+    ["name", "email", "phone", "password", "confirm_password"].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener("input", () => {
+                const errorEl = document.getElementById(id + "Error");
+                if (errorEl) errorEl.classList.add("hidden");
+            });
+        }
+    });
+
+    form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        clearErrors();
+
+        const name = document.getElementById("name").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const phone = document.getElementById("phone").value.trim();
+        const password = document.getElementById("password").value;
+        const confirmPassword = document.getElementById("confirm_password").value;
+
+        let isValid = true;
+
+        // Validation Logic
+        if (name.length < 3) {
+            showError("nameError", "Name must be at least 3 characters");
+            isValid = false;
         }
 
-        function resetBtn() {
-            const submitBtn = document.getElementById('submit-btn');
-            const btnText = document.getElementById('btn-text');
-            const btnIcon = document.getElementById('btn-icon');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showError("emailError", "Please enter a valid email");
+            isValid = false;
+        }
+
+        const phoneRegex = /^[6-9]\d{9}$/;
+        if (!phoneRegex.test(phone)) {
+            showError("phoneError", "Enter valid 10 digit phone");
+            isValid = false;
+        }
+
+        if (password.length < 6) {
+            showError("passwordError", "Password must be at least 6 characters");
+            isValid = false;
+        }
+
+        if (password !== confirmPassword) {
+            showError("confirmPasswordError", "Passwords do not match");
+            isValid = false;
+        }
+
+        if (!isValid) return;
+
+        // UI Loading State
+        submitBtn.disabled = true;
+        btnText.innerText = "Processing...";
+
+        try {
+            const response = await fetch(form.action, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, email, phone, password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                window.location.href = data.redirect;
+            } else {
+                document.getElementById("mainErrorText").innerText = data.message || "Signup failed";
+                document.getElementById("mainError").classList.remove("hidden");
+                submitBtn.disabled = false;
+                btnText.innerText = "Create Account";
+            }
+
+        } catch (error) {
+            document.getElementById("mainErrorText").innerText = "Server error. Please try again later.";
+            document.getElementById("mainError").classList.remove("hidden");
             submitBtn.disabled = false;
-            btnText.innerText = 'Create Account';
-            btnIcon.className = 'fa-solid fa-arrow-right text-[10px]';
+            btnText.innerText = "Create Account";
         }
-    </script>
+    });
+</script>
+    
 </body>
 </html>

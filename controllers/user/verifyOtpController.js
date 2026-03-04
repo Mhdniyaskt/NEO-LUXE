@@ -1,95 +1,122 @@
-import Otp from "../../models/EmailOtp.js"
+import OTP from "../../models/EmailOtp.js";
 import User from "../../models/userModel.js";
+import crypto from "crypto";
+import { sendOTP } from "../../utils/sendOtpMail.js";
+import { HTTP_STATUS } from "../../constants/httStatus.js";
+import asyncHandler from "../../utils/asyncHandler.js";
 
-export const getVerifyEmail=(req,res)=>{
-  try {
-    res.render("user/verifyEmail",{ layout: "layouts/user" })
-  } catch (error) {
-    console.log(error)
-  }
+
+export const showVerifyOTP = (req,res)=>{
+
+     return res.render("user/verifyEmail",{layout: "layouts/user",
+        actionUrl: "/verify-otp",
+        resendUrl: "/resend-otp",
+    });
 }
 
+export const verifyOTP = asyncHandler(async (req, res) => {
 
-export const verifyEmail = async (req, res) => {
-  try {
-    const { otp } = req.body;
-    console.log(otp)
-    const email = req.session.signupEmail;
-console.log(email)
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Session expired. Signup again.",
-      });
+    const email = req.session.email;
+    const purpose = req.session.otpPurpose;
+
+    if (!email || !purpose) {
+        return res.status(400).json({
+            success: false,
+            message: "Session expired. Please signup again."
+        });
     }
 
-    const otpRecord = await Otp.findOne({ email, otp });
+    const { otp } = req.body;
+
+    const otpRecord = await OTP.findOne({ email, purpose }).sort({ createdAt: -1 });
 
     if (!otpRecord) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid or expired OTP",
-      });
+        return res.json({
+            success: false,
+            message: "OTP invalid or expired"
+        });
     }
 
-    await User.findOneAndUpdate(
-      { email },
-      { isVerified: true }
-    );
+    if (otpRecord.attempts >= 5) {
+        await OTP.deleteOne({ _id: otpRecord._id });
 
-    await Otp.deleteMany({ email });
+        return res.json({
+            success: false,
+            message: "Too many attempts. Request new OTP."
+        });
+    }
 
-    req.session.signupEmail = null;
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
-    return res.status(200).json({
-      success: true,
-      message: "Email verified successfully",
-    });
+    if (otpRecord.otp !== hashedOtp) {
+        otpRecord.attempts += 1;
+        await otpRecord.save();
 
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Verification failed",
-    });
-  }
+        return res.json({
+            success: false,
+            message: `OTP incorrect. ${5 - otpRecord.attempts} attempts remaining`
+        });
+    }
+
+    // SIGNUP
+    if (purpose === "SIGNUP") {
+        await User.findOneAndUpdate(
+            { email },
+            {  isEmailVerified: true },
+            { new: true }
+        );
+
+        await OTP.deleteMany({ email, purpose });
+
+        return res.json({
+            success: true,
+            redirect: "/login",
+            message: "Email verified successfully"
+        });
+    }
+
+    // FORGOT PASSWORD
+    if (purpose === "FORGOT_PASSWORD") {
+        req.session.allowPasswordReset = true;
+
+        return res.json({
+            success: true,
+            redirect: "/reset-password"
+        });
+    }
+});
+
+export const resendOTP = async (req,res)=>{
+    try{
+
+        const email = req.session?req.session.email:null;
+        const purpose = req.session.otpPurpose;
+
+        console.log(email,purpose);
+        
+
+        if(!email || !purpose){
+            return res.status(400).json({message:"Session expired.Please signup again."});
+        }
+
+        await sendOTP(email,purpose);
+
+        let message;
+       
+        if(purpose === "SIGNUP"){
+            message = "New OTP Sent to your email. Verify to Continue.";
+        }else if(purpose === "FORGOT_PASSWORD"){
+            message = "If an account exists with this email,You will receive an OTP shortly";
+        }else{
+            message = "If an account exists with this email,You will receive an OTP shortly";
+        }
+
+
+        return res.status(200).json({message});
+
+    }catch(error){
+
+        return res.status(500).json({message:"Failed to resend OTP"});
+
+    }
 };
-
-export const resendOtp = async (req, res) => {
-  try {
-    const email = req.session.signupEmail;
-
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Session expired",
-      });
-    }
-
-    const existingOtp = await Otp.findOne({ email });
-
-    if (existingOtp) {
-      return res.status(400).json({
-        success: false,
-        message: "Wait 5 minutes before resending",
-      });
-    }
-
-    const otp = generateOtp();
-
-    await Otp.create({ email, otp });
-
-    await sendOtpMail(email, otp);
-
-    return res.status(200).json({
-      success: true,
-      message: "OTP resent successfully",
-    });
-
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Resend failed",
-    });
-  }
-};
-
