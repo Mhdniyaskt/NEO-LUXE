@@ -9,6 +9,9 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import { checkUser} from "./middleware/auth.middleware.js";
 
+import methodOverride from 'method-override';
+
+// ... after other app.use calls
 
 dotenv.config();
 
@@ -39,7 +42,7 @@ app.use(
   })
 );
 app.use(checkUser);
-
+app.use(methodOverride('_method'));
 // 4. Static Files & View Engine
 app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");

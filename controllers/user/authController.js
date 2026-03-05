@@ -23,7 +23,7 @@ export const loadSignup = async (req, res) => {
 
 
 export const handleSignup = asyncHandler(async (req, res) => {
-  const { name, email, phone, password } = req.body;
+  const { name, email, phoneNumber, password } = req.body;
  console.log(req.body)
   if (!name || !/^[A-Za-z ]+$/.test(name)) {
     return res.json({ success: false, message: "Name can only contain letters" });
@@ -66,7 +66,7 @@ export const handleSignup = asyncHandler(async (req, res) => {
     { email },
     {
       name,
-      phone,
+      phoneNumber,
       password: hashedPassword,
       isVerified: false,
     },
@@ -163,18 +163,19 @@ export const logout = (req, res) => {
 
 
 
-
-
-// export const getChangePassword = async (req, res) => {
+ 
+// export const showChangePasswordPage = async (req, res) => {
 //   try {
- //Clear any previous OTP
-    // delete req.session.email;
-    // delete req.session.otpPurpose;
-    // delete req.session.allowPasswordReset;
-//     res.render("user/changePass", { layout: "layouts/user" });
+
+//     res.render("user/changePass", {
+//       layout: "layouts/user"
+//     });
+
 //   } catch (error) {
-//     console.error(error);
+
+//     console.error("Change password page error:", error);
 //     res.redirect("/profile");
+
 //   }
 // };
 
