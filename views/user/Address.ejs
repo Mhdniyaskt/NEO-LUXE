@@ -6,13 +6,15 @@
     <title>My Addresses - NEO-LUXE</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .modal-active { display: flex !important; }
+        /* Smooth transition for hover effects */
+        .address-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .address-card:hover { transform: translateY(-5px); border-color: #22d3ee; }
     </style>
 </head>
 <body class="bg-[#020617] text-white font-sans min-h-screen flex flex-col">
-
-    
 
     <main class="flex-grow max-w-7xl mx-auto w-full px-8 py-10">
         <nav class="text-[10px] text-gray-500 uppercase tracking-widest mb-8">
@@ -50,20 +52,50 @@
                     </button>
                 </div>
 
-                <div class="bg-[#0f172a] rounded-xl border border-gray-800 p-8 max-w-xl relative">
-                    <div class="flex justify-between items-start mb-4">
-                        <span class="bg-cyan-400/10 text-cyan-400 text-[9px] font-bold px-3 py-1 rounded uppercase tracking-widest">Home</span>
-                        <div class="flex gap-4 text-gray-500">
-                            <button onclick="toggleModal('edit')" class="hover:text-white transition"><i class="fas fa-pencil-alt text-xs"></i></button>
-                            <button class="hover:text-red-400 transition"><i class="far fa-trash-alt text-xs"></i></button>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <% if (addresses && addresses.length > 0) { %>
+                        <% addresses.forEach(addr => { %>
+                            <div class="address-card bg-[#0f172a] rounded-xl border border-gray-800 p-8 relative">
+                                <div class="flex justify-between items-start mb-4">
+                                    <span class="bg-cyan-400/10 text-cyan-400 text-[9px] font-bold px-3 py-1 rounded uppercase tracking-widest">
+                                        <%= addr.addressType || 'Home' %>
+                                    </span>
+                                    <div class="flex gap-4 text-gray-500">
+                                        <button onclick="editAddress('<%= JSON.stringify(addr) %>')" class="hover:text-white transition">
+                                            <i class="fas fa-pencil-alt text-xs"></i>
+                                        </button>
+                                        <button onclick="deleteAddress('<%= addr._id %>')" class="hover:text-red-400 transition">
+                                            <i class="far fa-trash-alt text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <h3 class="text-lg font-bold mb-2"><%= addr.fullName %></h3>
+                                <p class="text-gray-400 text-sm mb-6">
+                                    <%= addr.streetAddress %>,<br>
+                                    <%= addr.city %>, <%= addr.state %> - <%= addr.pincode %>
+                                </p>
+                                <div class="pt-6 border-t border-gray-800 text-gray-400 text-sm flex items-center gap-3">
+                                    <i class="fas fa-phone-alt text-xs"></i> <%= addr.phone %>
+                                </div>
+                            </div>
+                        <% }) %>
+                    <% } else { %>
+                        <div class="col-span-2 text-center py-20 bg-[#0f172a] rounded-xl border border-dashed border-gray-700">
+                            <p class="text-gray-500">No addresses found. Add one to get started!</p>
                         </div>
-                    </div>
-                    <h3 class="text-lg font-bold mb-2">Alexander Doe</h3>
-                    <p class="text-gray-400 text-sm mb-6">123 Luxury Avenue, Penthouse Suite 4B,<br>Beverly Hills, CA 90210</p>
-                    <div class="pt-6 border-t border-gray-800 text-gray-400 text-sm flex items-center gap-3">
-                        <i class="fas fa-phone-alt text-xs"></i> +1 (555) 123-4567
-                    </div>
+                    <% } %>
                 </div>
+
+                <% if (totalPages > 1) { %>
+                    <div class="mt-8 flex justify-center gap-2">
+                        <% for(let i = 1; i <= totalPages; i++) { %>
+                            <a href="?page=<%= i %>" 
+                               class="px-4 py-2 rounded-lg border <%= currentPage === i ? 'bg-cyan-400 text-black border-cyan-400' : 'border-gray-800 text-gray-400 hover:bg-gray-800' %> transition">
+                                <%= i %>
+                            </a>
+                        <% } %>
+                    </div>
+                <% } %>
             </section>
         </div>
     </main>
@@ -75,66 +107,189 @@
                 <button onclick="toggleModal()" class="text-gray-400 hover:text-white transition"><i class="fas fa-times text-lg"></i></button>
             </div>
 
-            <form class="px-8 pb-8 space-y-5">
+            <form id="addressForm" class="px-8 pb-8 space-y-5">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div class="space-y-1">
                         <label class="text-[11px] font-medium text-gray-400 ml-1">Full Name</label>
-                        <input type="text" class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
+                        <input type="text" name="fullName" required class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
                     </div>
                     <div class="space-y-1">
                         <label class="text-[11px] font-medium text-gray-400 ml-1">Mobile Number</label>
-                        <input type="tel" class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
+                        <input type="tel" name="phone" required class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
                     </div>
                 </div>
                 <div class="space-y-1">
-                    <label class="text-[11px] font-medium text-gray-400 ml-1">Address Line 1</label>
-                    <input type="text" class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
+                    <label class="text-[11px] font-medium text-gray-400 ml-1">Street Address</label>
+                    <input type="text" name="streetAddress" required class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <input type="text" placeholder="City" class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
-                    <input type="text" placeholder="State" class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
-                    <input type="text" placeholder="Pincode" class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
+                    <input type="text" name="city" placeholder="City" required class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
+                    <input type="text" name="state" placeholder="State" required class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
+                    <input type="text" name="pincode" placeholder="Pincode" required class="w-full bg-[#334155] text-white rounded-xl p-3.5 focus:ring-1 focus:ring-cyan-500 outline-none">
                 </div>
                 
                 <div class="space-y-3">
                     <label class="text-[11px] font-medium text-gray-400">Address Type</label>
                     <div class="flex gap-4">
-                        <label class="flex items-center gap-2 px-5 py-2.5 rounded-full border border-cyan-500 bg-cyan-500/10 cursor-pointer text-sm">
-                            <input type="radio" name="type" checked class="accent-cyan-400"> Home
+                        <label class="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-600 cursor-pointer text-sm text-gray-400 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/10 has-[:checked]:text-white transition">
+                            <input type="radio" name="addressType" value="Home" checked class="hidden"> Home
                         </label>
-                        <label class="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-600 cursor-pointer text-sm text-gray-400">
-                            <input type="radio" name="type" class="accent-cyan-400"> Office
+                        <label class="flex items-center gap-2 px-5 py-2.5 rounded-full border border-gray-600 cursor-pointer text-sm text-gray-400 has-[:checked]:border-cyan-500 has-[:checked]:bg-cyan-500/10 has-[:checked]:text-white transition">
+                            <input type="radio" name="addressType" value="Office" class="hidden"> Office
                         </label>
                     </div>
                 </div>
-            </form>
 
-            <div class="bg-[#2d3a4d] px-8 py-5 flex justify-end items-center gap-6">
-                <button onclick="toggleModal()" class="text-gray-400 hover:text-white text-sm">Cancel</button>
-                <button id="saveBtn" class="bg-cyan-400 hover:bg-cyan-300 text-black font-bold py-2.5 px-8 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.4)] transition">
-                    Save Address
-                </button>
-            </div>
+                <div class="pt-4 flex justify-end items-center gap-6">
+                    <button type="button" onclick="toggleModal()" class="text-gray-400 hover:text-white text-sm">Cancel</button>
+                    <button type="submit" id="saveBtn" class="bg-cyan-400 hover:bg-cyan-300 text-black font-bold py-2.5 px-8 rounded-full shadow-[0_0_15px_rgba(34,211,238,0.4)] transition">
+                        Save Address
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
     <script>
-        function toggleModal(mode) {
-            const modal = document.getElementById('addressModal');
-            const title = document.getElementById('modalTitle');
-            const saveBtn = document.getElementById('saveBtn');
+    // Toggle Modal Utility
+    function toggleModal(mode) {
+        const modal = document.getElementById('addressModal');
+        const title = document.getElementById('modalTitle');
+        const saveBtn = document.getElementById('saveBtn');
+        const form = document.getElementById('addressForm');
 
-            if (mode === 'add') {
-                title.innerText = "Add New Address";
-                saveBtn.innerText = "Save Address";
-                modal.classList.add('modal-active');
-            } else if (mode === 'edit') {
-                title.innerText = "Edit Address";
-                saveBtn.innerText = "Save Changes";
-                modal.classList.add('modal-active');
+        if (mode === 'add') {
+            title.innerText = "Add New Address";
+            saveBtn.innerText = "Save Address";
+            form.reset();
+            form.action = "/addresses/add";
+            modal.classList.add('modal-active');
+        } else if (mode === 'edit') {
+            title.innerText = "Edit Address";
+            saveBtn.innerText = "Save Changes";
+            modal.classList.add('modal-active');
+        } else {
+            modal.classList.remove('modal-active');
+        }
+    }
+
+    // Populate Edit Form
+    function editAddress(dataString) {
+        const addr = JSON.parse(dataString);
+        const form = document.getElementById('addressForm');
+        
+        form.querySelector('[name="fullName"]').value = addr.fullName;
+        form.querySelector('[name="phone"]').value = addr.phone;
+        form.querySelector('[name="streetAddress"]').value = addr.streetAddress;
+        form.querySelector('[name="city"]').value = addr.city;
+        form.querySelector('[name="state"]').value = addr.state;
+        form.querySelector('[name="pincode"]').value = addr.pincode;
+
+        const radios = form.querySelectorAll('[name="addressType"]');
+        radios.forEach(r => {
+            if(r.value === addr.addressType) r.checked = true;
+        });
+
+        form.action = `/addresses/edit/${addr._id}`;
+        toggleModal('edit');
+    }
+
+    // AJAX Form Submission (Add/Edit)
+    document.getElementById('addressForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+            const response = await fetch(this.action, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: result.message,
+                    background: '#1e293b',
+                    color: '#fff',
+                    confirmButtonColor: '#22d3ee'
+                });
+                window.location.reload();
             } else {
-                modal.classList.remove('modal-active');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Oops...',
+                    text: result.message,
+                    background: '#1e293b',
+                    color: '#fff'
+                });
+            }
+        } catch (err) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Something went wrong. Please try again.',
+                background: '#1e293b',
+                color: '#fff'
+            });
+        }
+    });
+
+    // AJAX Delete Implementation
+    async function deleteAddress(id) {
+        const result = await Swal.fire({
+            title: 'Are you sure?',
+            text: "This address will be permanently removed!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#334155',
+            confirmButtonText: 'Yes, delete it!',
+            background: '#0f172a',
+            color: '#fff'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch(`/addresses/delete/${id}`, {
+                    method: 'DELETE' // Matches router.delete
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Deleted!',
+                        text: data.message,
+                        background: '#0f172a',
+                        color: '#fff'
+                    });
+                    window.location.reload();
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message,
+                        background: '#0f172a',
+                        color: '#fff'
+                    });
+                }
+            } catch (err) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Unable to delete address.',
+                    background: '#0f172a',
+                    color: '#fff'
+                });
             }
         }
+    }
     </script>
 </body>
+</html>

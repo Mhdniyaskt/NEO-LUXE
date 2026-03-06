@@ -1,9 +1,7 @@
 import User from "../../models/userModel.js";
 import bcrypt from "bcrypt";
-import asyncHandler from "../../utils/asyncHandler.js"
+import asyncHandler from "../../utils/asyncHandler.js";
 import { sendOTP } from "../../utils/sendOtpMail.js";
-import { generateAccessToken, generateRefreshToken } from "../../utils/userTokens.utils.js";
-
 
 
 export const loadHome = async (req, res) => {
@@ -13,6 +11,7 @@ export const loadHome = async (req, res) => {
     res.status(500).send("Server Error");
   }
 };
+
 export const loadSignup = async (req, res) => {
   try {
     res.render("user/signup", { layout: "layouts/user" });
@@ -21,74 +20,120 @@ export const loadSignup = async (req, res) => {
   }
 };
 
-
 export const handleSignup = asyncHandler(async (req, res) => {
-  const { name, email, phoneNumber, password } = req.body;
- console.log(req.body)
-  if (!name || !/^[A-Za-z ]+$/.test(name)) {
-    return res.json({ success: false, message: "Name can only contain letters" });
-  }
+  let { name, email, phone, password } = req.body;
 
-  if (name.length > 30 || name.length < 3) {
-    return res.json({ success: false, message: "Name should be between 3-30 characters" });
-  }
+console.log(req.body)
+  name = name?.trim();
+  email = email?.trim().toLowerCase();
+  phone = phone?.trim();
+  password = password?.trim();
+  
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.json({ success: false, message: "Please enter a valid email address" });
-  }
-
-  const phoneRegex = /^[6-9]\d{9}$/;
-  if (!phoneRegex.test(phone)) {
-    return res.json({ success: false, message: "Please enter a valid Phone Number" });
-  }
-
-  if (password.length < 6) {
-    return res.json({ success: false, message: "Password need minimum 6 characters" });
-  }
-
-  const existingUser = await User.findOne({ email });
-
-  if (existingUser && existingUser.googleId && !existingUser.password) {
+ 
+  if (!name || !email || !phone || !password ) {
     return res.json({
       success: false,
-      message: "Email Already registered with Google login",
+      message: "All fields are required",
     });
   }
 
-  if (existingUser && existingUser.isVerified) {
-    return res.json({ success: false, message: "Email Already Registered" });
+  if (!/^[A-Za-z ]+$/.test(name)) {
+    return res.json({
+      success: false,
+      message: "Name can only contain letters",
+    });
+  }
+
+  if (name.length < 3 || name.length > 30) {
+    return res.json({
+      success: false,
+      message: "Name must be between 3 and 30 characters",
+    });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  if (!emailRegex.test(email)) {
+    return res.json({
+      success: false,
+      message: "Please enter a valid email address",
+    });
+  }
+
+ 
+  const phoneRegex = /^[6-9]\d{9}$/;
+
+  if (!phoneRegex.test(phone)) {
+    return res.json({
+      success: false,
+      message: "Please enter a valid phone number",
+    });
+  }
+
+  if (password.length < 8) {
+    return res.json({
+      success: false,
+      message: "Password must be at least 8 characters long",
+    });
+  }
+
+ 
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+
+  if (!passwordRegex.test(password)) {
+    return res.json({
+      success: false,
+      message:
+        "Password must include uppercase, lowercase, number and special character",
+    });
+  }
+
+
+  const existingUser = await User.findOne({ email });
+
+  if (existingUser?.googleId && !existingUser.password) {
+    return res.json({
+      success: false,
+      message: "Email already registered with Google login",
+    });
+  }
+
+  if (existingUser?.isVerified) {
+    return res.json({
+      success: false,
+      message: "Email already registered",
+    });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
+
 
   await User.findOneAndUpdate(
     { email },
     {
       name,
-      phoneNumber,
+      email,
+      phone,
       password: hashedPassword,
       isVerified: false,
     },
     { upsert: true, new: true }
   );
 
-  try {
-    await sendOTP(email, "SIGNUP");
-  } catch (error) {
-    return res.json({ success: false, message: error.message });
-  }
+  req.session.email=email
+  await sendOTP(email, "SIGNUP");
 
-  req.session.email = email;
-  req.session.otpPurpose = "SIGNUP";
+  
+   req.session.otpPurpose = "SIGNUP";
+ 
 
   return res.json({
     success: true,
     redirect: "/verify-otp",
   });
 });
-
-
 
 export const loadLogin = async (req, res) => {
   try {
@@ -101,155 +146,190 @@ export const loadLogin = async (req, res) => {
 export const handleLogin = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
-
-  if (!user || !user.isEmailVerified) {
+ 
+  if (!email || !password) {
     return res.json({
       success: false,
-      message: "Incorrect Email or Password"
+      message: "Email and Password are required",
     });
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+
+  
+  const user = await User.findOne({ email: normalizedEmail });
+
+  if (!user) {
+    return res.json({
+      success: false,
+      message: "Incorrect Email or Password",
+    });
+  }
+
+ 
+  if (!user.isEmailVerified) {
+    return res.json({
+      success: false,
+      message: "Please verify your email first",
+    });
+  }
+
+  
   if (user.isBlocked) {
     return res.json({
       success: false,
-      message: "Your account is blocked"
+      message: "Your account is blocked",
     });
   }
+
 
   if (user.role === "admin") {
     return res.json({
       success: false,
-      message: "Admins cannot login from user login"
+      message: "Admins cannot login from user login",
     });
   }
 
-  const isMatch = await bcrypt.compare(password, user.password);
+ 
+  const isPasswordValid = await bcrypt.compare(password, user.password);
 
-  if (!isMatch) {
+  if (!isPasswordValid) {
     return res.json({
       success: false,
-      message: "Incorrect Email or Password"
+      message: "Incorrect Email or Password",
     });
   }
 
-  // ✅ Store user in session
   req.session.user = {
     id: user._id,
     email: user.email,
-    role: user.role
+    role: user.role,
   };
 
   return res.json({
     success: true,
-    redirect: "/"
+    redirect: "/",
   });
 });
 
-
 export const logout = (req, res) => {
-  try {
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken");
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Logout Error:", err);
+      return res.redirect("/");
+    }
 
+    res.clearCookie("connect.sid"); 
     return res.redirect("/");
-  } catch (error) {
-    console.error("Logout Error:", error);
-    return res.redirect("/");
-  }
+  });
 };
 
-
-
-
-
 export const showForgotPassword = (req, res) => {
-
-  // Clear any previous OTP session data
+ 
   delete req.session.email;
   delete req.session.otpPurpose;
   delete req.session.allowPasswordReset;
 
-  // Render forgot password page
-  res.render("user/forgotPass",{layout:"layouts/user"});
-
+  res.render("user/forgotPass", { layout: "layouts/user" });
 };
 
 export const handleForgotPassword = asyncHandler(async (req, res) => {
-  const { email } = req.body;
+  let { email } = req.body;
+
+  email = email?.trim().toLowerCase();
 
   if (!email) {
     return res.json({
       success: false,
-      message: "Enter email address",
+      message: "Email address is required",
     });
   }
 
+ 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   if (!emailRegex.test(email)) {
     return res.json({
       success: false,
-      message: "Enter valid email address",
+      message: "Enter a valid email address",
     });
   }
 
   const user = await User.findOne({ email });
 
-  if (user && user.isEmailVerified && !user.isBlocked) {
-    try {
-      await sendOTP(email, "FORGOT_PASSWORD");
 
-      req.session.email = email;
-      req.session.otpPurpose = "FORGOT_PASSWORD";
-
-      return res.json({
-        success: true,
-        redirect: "/verify-otp",
-      });
-
-    } catch (error) {
-      return res.json({
-        success: false,
-        message: "Failed to send OTP. Try again",
-      });
-    }
+  if (!user || !user.isEmailVerified || user.isBlocked) {
+    return res.json({
+      success: false,
+      message: "Invalid email address",
+    });
   }
 
+  await sendOTP(email, "FORGOT_PASSWORD");
+
+    req.session.resetPassword = email
+   
+    req.session.purpose= "FORGOT_PASSWORD"
+ 
+
   return res.json({
-    success: false,
-    message: "Invalid email",
+    success: true,
+    redirect: "/verify-otp",
   });
 });
+
+
 
 export const showResetPassword = (req, res) => {
   if (!req.session.allowPasswordReset || !req.session.email) {
     return res.redirect("/forgot-password");
   }
-  res.render("user/resetPass",{layout:"layouts/user"});
+  res.render("user/resetPass", { layout: "layouts/user" });
 };
+
 export const handleResetPassword = asyncHandler(async (req, res) => {
+  let { password, confirmPassword } = req.body;
 
-  const { password, confirmPassword } = req.body;
+  password = password?.trim();
+  confirmPassword = confirmPassword?.trim();
 
+ 
   if (!req.session.allowPasswordReset || !req.session.email) {
     return res.json({
       success: false,
-      redirect: "/forgot-password"
+      redirect: "/forgot-password",
     });
   }
 
-  if (!password || password.length < 6) {
+  if (!password || !confirmPassword) {
     return res.json({
       success: false,
-      message: "Password must be at least 6 characters"
+      message: "Both password fields are required",
+    });
+  }
+
+  if (password.length < 8) {
+    return res.json({
+      success: false,
+      message: "Password must be at least 8 characters long",
+    });
+  }
+
+  const passwordRegex =
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
+
+  if (!passwordRegex.test(password)) {
+    return res.json({
+      success: false,
+      message:
+        "Password must include uppercase, lowercase, number and special character",
     });
   }
 
   if (password !== confirmPassword) {
     return res.json({
       success: false,
-      message: "Passwords do not match"
+      message: "Passwords do not match",
     });
   }
 
@@ -258,7 +338,17 @@ export const handleResetPassword = asyncHandler(async (req, res) => {
   if (!user) {
     return res.json({
       success: false,
-      redirect: "/forgot-password"
+      redirect: "/forgot-password",
+    });
+  }
+
+ 
+  const isSamePassword = await bcrypt.compare(password, user.password);
+
+  if (isSamePassword) {
+    return res.json({
+      success: false,
+      message: "New password cannot be the same as old password",
     });
   }
 
@@ -268,17 +358,15 @@ export const handleResetPassword = asyncHandler(async (req, res) => {
   user.passwordChangedAt = new Date();
   await user.save();
 
-
-
-  // cleanup session
+ 
   delete req.session.allowPasswordReset;
   delete req.session.email;
   delete req.session.otpPurpose;
-delete req.session.userId
+  delete req.session.userId;
+
   return res.json({
     success: true,
+    message: "Password reset successful",
     redirect: "/login",
-    message: "Password reset successful"
   });
-
 });

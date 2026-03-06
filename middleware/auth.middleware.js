@@ -14,7 +14,7 @@ export const checkUser = (req, res, next) => {
   next();
 };
 export const requireAuth = (req,res,next)=>{
-    if(req.user){
+    if(req.session.user){
         return next();
     }else{
         return res.redirect("/login");
@@ -22,7 +22,8 @@ export const requireAuth = (req,res,next)=>{
 }
 
 export const redirectIfAuthenticated = (req,res,next)=>{
-    if(req.user){
+    if(req.session.user){
+      console.log(req.user)
         return res.redirect("/home");
     }
     next();

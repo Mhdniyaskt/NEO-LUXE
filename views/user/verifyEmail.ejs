@@ -65,11 +65,19 @@
                     </button>
                 </form>
 
-                <div class="mt-8 space-y-4">
-                    <p class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-                        Didn't receive the code? <button class="text-brand-cyan hover:underline ml-1">Resend code</button>
-                    </p>
-                </div>
+               <div class="mt-8 space-y-4">
+    <p id="timerText" class="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+        <span id="timerWrapper">
+            Resend code in <span id="timer" class="text-brand-cyan">30</span>s
+        </span>
+        <span id="resendMessage" class="hidden">Didn't receive the code?</span>
+    </p>
+    <button type="button" id="resendBtn" onclick="resendOTP()" 
+            class="text-brand-cyan text-[10px] uppercase font-bold tracking-widest opacity-40 cursor-not-allowed transition-all" 
+            disabled>
+        Resend code
+    </button>
+</div>
             </div>
         </div>
     </main>
@@ -164,6 +172,93 @@
             submitBtn.disabled = false;
             btnText.innerText = "Verify Account";
         }
+
+        /* ---------------- TIMER LOGIC ---------------- */
+let countdownInterval = null;
+const TIMER_DURATION = 30;
+const STORAGE_KEY = "otp_target_time";
+
+const resendBtn = document.getElementById("resendBtn");
+const timerEl = document.getElementById("timer");
+const timerWrapper = document.getElementById("timerWrapper");
+const resendMessage = document.getElementById("resendMessage");
+
+function startTimer(seconds, isNew = true) {
+    clearInterval(countdownInterval);
+    const now = Date.now();
+    let targetTime;
+
+    if (isNew) {
+        targetTime = now + (seconds * 1000);
+        localStorage.setItem(STORAGE_KEY, targetTime);
+    } else {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        targetTime = stored ? parseInt(stored, 10) : now + (seconds * 1000);
+    }
+
+    const tick = () => {
+        const currentTime = Date.now();
+        const secondsLeft = Math.ceil((targetTime - currentTime) / 1000);
+
+        if (secondsLeft <= 0) {
+            clearInterval(countdownInterval);
+            localStorage.removeItem(STORAGE_KEY);
+            timerWrapper.classList.add("hidden");
+            resendMessage.classList.remove("hidden");
+            resendBtn.disabled = false;
+            resendBtn.classList.remove("opacity-40", "cursor-not-allowed");
+            resendBtn.classList.add("hover:text-white");
+        } else {
+            timerWrapper.classList.remove("hidden");
+            resendMessage.classList.add("hidden");
+            resendBtn.disabled = true;
+            resendBtn.classList.add("opacity-40", "cursor-not-allowed");
+            resendBtn.classList.remove("hover:text-white");
+            timerEl.textContent = secondsLeft;
+        }
+    };
+
+    tick();
+    countdownInterval = setInterval(tick, 1000);
+}
+
+// Initializing the timer on page load
+const savedTime = localStorage.getItem(STORAGE_KEY);
+if (savedTime && parseInt(savedTime, 10) > Date.now()) {
+    startTimer(null, false);
+} else {
+    startTimer(TIMER_DURATION, true);
+}
+
+/* ---------------- RESEND OTP (AJAX) ---------------- */
+async function resendOTP() {
+    try {
+        // Clear UI errors
+        document.getElementById('error-container').classList.add('hidden');
+        
+        // Show loading state on resend button
+        resendBtn.innerText = "Sending...";
+        resendBtn.disabled = true;
+
+        const response = await fetch('/resend-otp', { method: 'POST' });
+        const data = await response.json();
+
+        if (response.ok) {
+            // Restart timer and update UI
+            resendBtn.innerText = "Resend code";
+            startTimer(TIMER_DURATION, true);
+            // Optional: show a small success toast/message here
+        } else {
+            showError(data.message || "Failed to resend OTP");
+            resendBtn.innerText = "Resend code";
+            resendBtn.disabled = false;
+        }
+    } catch (err) {
+        showError("Connection error. Try again.");
+        resendBtn.innerText = "Resend code";
+        resendBtn.disabled = false;
+    }
+}
     </script>
 </body>
 </html>

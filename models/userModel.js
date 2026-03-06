@@ -26,13 +26,18 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"],
       default: "user"
     },
-
-    profileImage: {
-      type: String,
-      default: ""
+    
+    pendingEmail:{
+        type:String,
+        trim:true
     },
 
-    phoneNumber: {
+    profilePhoto: {
+      url: String,
+      public_id:String
+    },
+
+    phone: {
       type: Number
     },
 
@@ -44,7 +49,12 @@ const userSchema = new mongoose.Schema(
         type:String,
         unique:true,
         sparse:true
-    },
+    },addresses: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Address"
+        }
+    ],
 
     referredBy: {
       type: String
@@ -57,6 +67,8 @@ const userSchema = new mongoose.Schema(
     isEmailVerified: {
       type: Boolean,
       default: false
+    },passwordChangedAt:{
+        type:Date
     }
   },
   {
