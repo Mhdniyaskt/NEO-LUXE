@@ -1,5 +1,5 @@
 import express from "express";
-import {loadHome,loadSignup,handleSignup, loadLogin,  handleLogin, logout}from "../controllers/user/authController.js"
+import {loadHome,loadSignup,handleSignup, loadLogin,  handleLogin, logout, showForgotPassword, handleForgotPassword, showResetPassword}from "../controllers/user/authController.js"
 import { showVerifyOTP,verifyOTP,resendOTP } from "../controllers/user/verifyOtpController.js";
 
 import{showProfile, uploadProfilePhoto}from"../controllers/user/profileController.js"
@@ -36,8 +36,11 @@ router.get("/profile", noCache,showProfile);
 
 
 // router.get("/changeEmail",getChangeEmail)
-// router.get("/changePass",getChangePassword)
-// router.get("/resetPass",getResetPassword)
+ router.get("/forgot-password",showForgotPassword)
+ router.post("/forgot-password",handleForgotPassword)
+
+ router.get("/reset-password",showResetPassword)
+  router.post("/reset-password",handleForgotPassword)
 router.post("/profile/upload-photo", upload.single("profileImage"), uploadProfilePhoto);
 
 export default router;

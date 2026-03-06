@@ -163,117 +163,122 @@ export const logout = (req, res) => {
 
 
 
- 
-// export const showChangePasswordPage = async (req, res) => {
-//   try {
+export const showForgotPassword = (req, res) => {
 
-//     res.render("user/changePass", {
-//       layout: "layouts/user"
-//     });
+  // Clear any previous OTP session data
+  delete req.session.email;
+  delete req.session.otpPurpose;
+  delete req.session.allowPasswordReset;
 
-//   } catch (error) {
+  // Render forgot password page
+  res.render("user/forgotPass",{layout:"layouts/user"});
 
-//     console.error("Change password page error:", error);
-//     res.redirect("/profile");
+};
 
-//   }
-// };
+export const handleForgotPassword = asyncHandler(async (req, res) => {
+  const { email } = req.body;
 
-// export const handleForgotPassword = asyncHandler(async (req, res) => {
-//   const { email } = req.body;
+  if (!email) {
+    return res.json({
+      success: false,
+      message: "Enter email address",
+    });
+  }
 
-//   if (!email) {
-//     req.flash("error", "Enter email Address");
-//     return res.redirect("/forgot-password");
-//   }
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-//   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.json({
+      success: false,
+      message: "Enter valid email address",
+    });
+  }
 
-//   if (!emailRegex.test(email)) {
-//     req.flash("error", "Enter valid email Address");
-//     return res.redirect("/forgot-password");
-//   }
+  const user = await User.findOne({ email });
 
-//   const user = await User.findOne({ email });
+  if (user && user.isEmailVerified && !user.isBlocked) {
+    try {
+      await sendOTP(email, "FORGOT_PASSWORD");
 
-//   if (user && user.isVerified && !user.isBlocked && user.password) {
+      req.session.email = email;
+      req.session.otpPurpose = "FORGOT_PASSWORD";
+
+      return res.json({
+        success: true,
+        redirect: "/verify-otp",
+      });
+
+    } catch (error) {
+      return res.json({
+        success: false,
+        message: "Failed to send OTP. Try again",
+      });
+    }
+  }
+
+  return res.json({
+    success: false,
+    message: "Invalid email",
+  });
+});
+
+export const showResetPassword = (req, res) => {
+  if (!req.session.allowPasswordReset || !req.session.email) {
+    return res.redirect("/forgot-password");
+  }
+  res.render("user/resetPass",{layout:"layouts/user"});
+};
+export const handleResetPassword = asyncHandler(async (req, res) => {
+
+  const { password, confirmPassword } = req.body;
+
+  if (!req.session.allowPasswordReset || !req.session.email) {
+    return res.json({
+      success: false,
+      redirect: "/forgot-password"
+    });
+  }
+
+  if (!password || password.length < 6) {
+    return res.json({
+      success: false,
+      message: "Password must be at least 6 characters"
+    });
+  }
+
+  if (password !== confirmPassword) {
+    return res.json({
+      success: false,
+      message: "Passwords do not match"
+    });
+  }
+
+  const user = await User.findOne({ email: req.session.email });
+
+  if (!user) {
+    return res.json({
+      success: false,
+      redirect: "/forgot-password"
+    });
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  user.password = hashedPassword;
+  user.passwordChangedAt = new Date();
+  await user.save();
 
 
-//   try {
 
-//   await sendOTP(email, "FORGOT_PASSWORD");
+  // cleanup session
+  delete req.session.allowPasswordReset;
+  delete req.session.email;
+  delete req.session.otpPurpose;
+delete req.session.userId
+  return res.json({
+    success: true,
+    redirect: "/login",
+    message: "Password reset successful"
+  });
 
-// } catch (error) {
-
-//   return res.render("user/forgot-password", { error: error.message });
-// }
-
-
-
-
-//     req.session.email = email;
-//     req.session.otpPurpose = "FORGOT_PASSWORD";
-//     req.flash(
-//       "success",
-//       "If an account exists with this email,You will receive an OTP shortly"
-//     );
-//     return res.redirect("/verify-otp");
-//   }
-
-//   req.flash("error", "Invalid Email");
-//   return res.redirect("/forgot-password");
-// });
-// export const getResetPassword = async (req, res) => {
-//   try {
-  // if (!req.session.allowPasswordReset || !req.session.email) {
-  //   return res.redirect("/forgot-password");
-  // }
-//     res.render("user/resetPass", { layout: "layouts/user" });
-//   } catch (error) {
-//     console.error(error);
-//     res.redirect("/profile");
-//   }
-// };
-
-
-// export const handleResetPassword = asyncHandler(async (req, res) => {
-//   const { password, confirmPassword } = req.body;
-
-//   if (!req.session.allowPasswordReset || !req.session.email) {
-//     return res.redirect("/forgot-password");
-//   }
-
-//   if (password.length < 6) {
-//     req.flash("error", "Password must be atleast 6 characters");
-//     return res.redirect("/reset-password");
-//   }
-
-//   if (password !== confirmPassword) {
-//     req.flash("error", "Passwords do not match");
-//     return res.redirect("/reset-password");
-//   }
-
-//   const user = await User.findOne({ email: req.session.email });
-//   if (!user) {
-//     return res.redirect("/forgot-password");
-//   }
-
-//   const hashedPassword = await bcrypt.hash(password, 10);
-
-//   user.password = hashedPassword;
-//   user.passwordChangedAt = new Date();
-//   await user.save();
-
-//   //invalidate
-
-//   res.clearCookie("accessToken");
-//   res.clearCookie("refreshToken");
-
-//   // Cleanup
-//   delete req.session.allowPasswordReset;
-//   delete req.session.email;
-//   delete req.session.otpPurpose;
-
-//   req.flash("success", "Password reset Successful.Please Login.");
-//   return res.redirect("/login");
-// });
+});

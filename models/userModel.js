@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: true
+     default:"null"
     },
 
     role: {
@@ -39,6 +39,11 @@ const userSchema = new mongoose.Schema(
     isBlocked: {
       type: Boolean,
       default: false
+    },
+      googleId:{
+        type:String,
+        unique:true,
+        sparse:true
     },
 
     referredBy: {

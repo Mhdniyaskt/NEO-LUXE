@@ -54,7 +54,7 @@
                     <div>
                         <div class="flex justify-between mb-2">
                             <label class="block text-[10px] uppercase font-bold text-gray-500">Password</label>
-                            <a href="/verify-email" class="text-[10px] text-brand-accent font-bold hover:text-brand-cyan transition">Forgot?</a>
+                            <a href="/forgot-password" class="text-[10px] text-brand-accent font-bold hover:text-brand-cyan transition">Forgot?</a>
                         </div>
                         <div class="relative">
                             <input id="password-field" name="password" type="password" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
@@ -74,9 +74,13 @@
                 </div>
 
                 <div class="mt-6 grid grid-cols-1 gap-4">
-                    <button class="flex items-center justify-center gap-2 py-3 rounded-full border border-gray-800 bg-brand-input text-[10px] font-bold hover:bg-white/5 transition">
-                        <i class="fa-brands fa-google"></i> Google
+                     <button class="flex items-center justify-center gap-2 py-3 rounded-full border border-gray-800 bg-brand-input text-[10px] font-bold hover:bg-white/5 transition">
+                         <a href="/auth/google">
+                       <i class="fa-brands fa-google"></i> Google
+                    </a>
                     </button>
+                   
+                    
                    
                 </div>
 

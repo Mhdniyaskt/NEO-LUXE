@@ -48,13 +48,15 @@
                     Precision security is our heritage. Enter your email and we'll transmit instructions to restore access.
                 </p>
 
-                <form class="space-y-6 text-left">
+                <form  id="forgotForm" class="space-y-6 text-left">
                     <div class="space-y-2">
                         <label class="block text-[9px] uppercase font-bold text-brand-cyan tracking-[0.2em]">Identity Verification</label>
                         <div class="relative">
-                            <input type="email" class="w-full bg-brand-input border border-gray-800 rounded-xl py-4 px-5 text-sm focus:outline-none focus:border-brand-accent transition pr-12">
-                            <i class="fa-solid fa-at absolute right-5 top-4.5 text-gray-700"></i>
+                            <input id="email" type="email"  type="email" class="w-full bg-brand-input border border-gray-800 rounded-xl py-4 px-5 text-sm focus:outline-none focus:border-brand-accent transition pr-12">
+                            
+                        <p id="errorMessage" class="text-red-400 text-xs mt-2 hidden"></p>
                         </div>
+
                     </div>
 
                     <button class="w-full py-4 rounded-xl bg-gradient-to-r from-brand-accent to-brand-cyan text-black font-bold text-xs uppercase tracking-[0.2em] shadow-[0_0_20px_rgba(0,163,255,0.4)] hover:scale-[1.01] transition flex items-center justify-center gap-2">
@@ -71,5 +73,48 @@
         </div>
     </main>
 
-    
+    <script>
+
+document.getElementById("forgotForm").addEventListener("submit", async function(e){
+
+    e.preventDefault()
+
+    const email = document.getElementById("email").value
+    const errorBox = document.getElementById("errorMessage")
+
+    errorBox.classList.add("hidden")
+
+    try{
+
+        const response = await fetch("/forgot-password", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ email })
+        })
+
+        const data = await response.json()
+
+        if(data.success){
+
+            window.location.href = data.redirect
+
+        }else{
+
+            errorBox.innerText = data.message
+            errorBox.classList.remove("hidden")
+
+        }
+
+    }catch(err){
+
+        errorBox.innerText = "Something went wrong"
+        errorBox.classList.remove("hidden")
+
+    }
+
+})
+
+</script>
 </body>

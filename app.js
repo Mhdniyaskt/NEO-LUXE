@@ -4,7 +4,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import userRoutes from "./routes/userRoutes.js"
 import adminRoutes from "./routes/adminRoutes.js"
+import googleAuthRoutes from "./routes/googleAuthRoute.js"
 import session from "express-session";
+ import passport from "./config/passport.js";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import { checkUser} from "./middleware/auth.middleware.js";
@@ -41,6 +43,7 @@ app.use(
     },
   })
 );
+app.use(passport.session());
 app.use(checkUser);
 app.use(methodOverride('_method'));
 // 4. Static Files & View Engine
@@ -48,9 +51,10 @@ app.use(express.static(path.join(__dirname, "public")));
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(experssLayouts);
-
+ app.use(passport.initialize());
 // 5. Routes
 app.use("/", userRoutes);
 app.use("/admin", adminRoutes);
+app.use("/auth",googleAuthRoutes);
 
 export default app;

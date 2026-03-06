@@ -1,12 +1,6 @@
 import User from "../../models/userModel.js";
 
-// show customers
 
-
-  
-
-
-// Show Customers Page
 export const showCustomers = async (req, res) => {
   try {
 
