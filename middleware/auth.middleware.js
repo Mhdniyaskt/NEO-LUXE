@@ -1,18 +1,38 @@
 export const checkUser = (req, res, next) => {
+    // 1. Check if the session exists and has a user
+    if (req.session && req.session.user) {
+        res.locals.isLoggedIn = true;
+        res.locals.user = req.session.user;
+        req.user = req.session.user; 
+    } else {
+        res.locals.isLoggedIn = false;
+        res.locals.user = null;
+        req.user = null;
+    }
 
-  if (req.session && req.session.user) {
-    res.locals.isLoggedIn = true;
-    res.locals.user = req.session.user;
+    /** * 2. BROWSER CACHE CONTROL (The fix for your back-button issue)
+     * This forces the browser to talk to the server every time the user 
+     * navigates, ensuring the header accurately reflects the logout state.
+     */
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); // HTTP 1.1
+    res.setHeader('Pragma', 'no-cache'); // HTTP 1.0
+    res.setHeader('Expires', '0'); // Proxies
 
-    console.log("User logged in:", req.session.user.email);
-
-  } else {
-    res.locals.isLoggedIn = false;
-    res.locals.user = null;
-  }
-
-  next();
+    next();
 };
+
+export const redirectIfAuthenticated = (req, res, next) => {
+    if (req.session && req.session.user) {
+        // Logged in users cannot see Login/Signup/Verify-OTP
+        return res.redirect("/");
+    }
+    next();
+};
+
+
+
+
+
 export const requireAuth = (req,res,next)=>{
     if(req.session.user){
         return next();
@@ -21,13 +41,6 @@ export const requireAuth = (req,res,next)=>{
     }
 }
 
-export const redirectIfAuthenticated = (req,res,next)=>{
-    if(req.session.user){
-      console.log(req.user)
-        return res.redirect("/home");
-    }
-    next();
-}
 
 export const silentRefresh = async (req, res, next) => {
   const accessToken = req.cookies?.accessToken;

@@ -27,152 +27,211 @@
         }
     </script>
     <style>
-        body { background-color: #05070A; color: #94A3B8; }
+        body { background-color: #05070A; color: #E2E8F0; font-family: 'Outfit', sans-serif; }
+        .card-bg { background-color: #0B1120; border: 1px solid #1E293B; }
+        .sidebar-bg { background-color: #05070A; border-right: 1px solid #1E293B; }
         
         /* Custom Scrollbar */
-        .custom-scroll::-webkit-scrollbar { width: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #05070A; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 10px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #334155; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #05070A; }
+        ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #22D3EE; }
 
-        .sidebar-item:hover { background: rgba(34, 211, 238, 0.05); color: white; }
-        .sidebar-active { color: #22D3EE; background: rgba(34, 211, 238, 0.05); }
+        /* Mobile Sidebar Overlay */
+        #sidebar-overlay.active { display: block; }
     </style>
 </head>
-<body class="antialiased overflow-hidden bg-[#05070A] text-slate-300 font-sans">
+<body class="antialiased overflow-hidden">
 
-    <div class="flex h-screen w-full">
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden lg:hidden"></div>
+
+    <div class="flex h-screen w-full relative">
         
-        <%- include('../partials/admin-sidebar') %>
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 sidebar-bg flex flex-col p-6 transform -translate-x-full transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 shrink-0">
+            <div class="flex justify-between items-center mb-10">
+                <div>
+                    <h1 class="text-xl font-bold tracking-widest text-white uppercase">Neo-Luxe</h1>
+                    <p class="text-[10px] text-slate-500 uppercase tracking-tighter">Premium Watch Admin</p>
+                </div>
+                <button onclick="toggleSidebar()" class="lg:hidden text-slate-400">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
 
-        <main class="flex-1 overflow-y-auto p-8 custom-scroll">
-            
-            <header class="mb-10">
-                <div class="flex items-center gap-2 text-[10px] text-slate-600 uppercase tracking-[0.2em] mb-3">
-                    <i class="fa-solid fa-house text-[8px]"></i> <span>/</span> <span>Admin</span> <span>/</span> <span class="text-cyan-400">Customers</span>
-                </div>
-                <h1 class="text-3xl font-bold text-white uppercase tracking-tight mb-1">Customers</h1>
-                <p class="text-sm text-slate-500 font-light">Manage registered customers and account statuses.</p>
-            </header>
+            <nav class="flex-1 space-y-1 overflow-y-auto">
+                <a href="/admin/dashboard" class="flex items-center space-x-3 p-3 rounded-lg transition text-slate-400 hover:bg-slate-800/50 hover:text-white">
+                    <i class="fas fa-th-large w-5"></i> 
+                    <span class="text-sm font-medium">Dashboard</span>
+                </a>
+                <a href="/admin/customers" class="flex items-center space-x-3 p-3 rounded-lg transition bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500">
+                    <i class="fas fa-users w-5"></i> 
+                    <span class="text-sm font-medium">Customers</span>
+                </a>
+            </nav>
 
-            <form action="/admin/customers" method="GET" class="bg-[#0B1120] border border-slate-800/60 p-6 rounded-2xl mb-8 flex items-end gap-4 shadow-xl">
-                <div class="flex-[3]">
-                    <label class="block text-[10px] uppercase font-bold text-slate-500 mb-3 tracking-widest">Search Customer</label>
-                    <div class="relative">
-                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 text-xs"></i>
-                        <input type="text" name="search" value="<%= typeof search !== 'undefined' ? search : '' %>" placeholder="Search by name, email or phone..." 
-                               class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-3 pl-12 pr-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all">
-                    </div>
-                </div>
-
-                <div class="flex-1">
-                    <label class="block text-[10px] uppercase font-bold text-slate-500 mb-3 tracking-widest">Status</label>
-                    <select name="status" class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 appearance-none cursor-pointer">
-                        <option value="">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="blocked">Blocked</option>
-                    </select>
-                </div>
-                
-                <div class="flex gap-3">
-                    <a href="/admin/customers" class="bg-slate-800/50 border border-slate-700 hover:bg-slate-700 text-white px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition flex items-center gap-2">
-                        <i class="fa-solid fa-filter-circle-xmark"></i> Clear
-                    </a>
-                    <button type="submit" class="bg-cyan-400 hover:brightness-110 text-black px-10 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition shadow-[0_0_20px_rgba(34,211,238,0.2)] flex items-center gap-2">
-                        <i class="fa-solid fa-magnifying-glass"></i> Search
-                    </button>
-                </div>
-            </form>
-
-            <section class="bg-[#0B1120] border border-slate-800/60 rounded-2xl overflow-hidden shadow-2xl">
-                <div class="px-8 py-6 border-b border-slate-800/60 flex justify-between items-center bg-slate-900/10">
-                    <h2 class="font-bold flex items-center gap-3 text-white text-xs uppercase tracking-[0.15em]">
-                        <i class="fa-solid fa-users text-cyan-400"></i> Registered Users
-                    </h2>
-                    <span class="text-[10px] text-slate-500 uppercase tracking-widest font-medium">
-                        Showing 1 to <%= customers.length %> of 1,248 customers
-                    </span>
-                </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-slate-900/40 text-[10px] uppercase tracking-[0.15em] text-slate-500 border-b border-slate-800/60">
-                            <tr>
-                                <th class="px-8 py-5 font-bold">Customer Name</th>
-                                <th class="px-6 py-5 font-bold">Email Address</th>
-                                <th class="px-6 py-5 font-bold">Phone Number</th>
-                                <th class="px-6 py-5 font-bold">Joined Date</th>
-                                <th class="px-6 py-5 font-bold text-center">Status</th>
-                                <th class="px-8 py-5 font-bold text-right">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/40">
-                            <% if (customers && customers.length > 0) { %>
-                                <% customers.forEach(user => { %>
-                                    <tr class="hover:bg-white/[0.02] transition-colors group">
-                                        <td class="px-8 py-5">
-                                            <div class="flex items-center gap-4">
-                                                <div class="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-[10px] text-cyan-400 font-bold border border-slate-700 group-hover:border-cyan-400/30 transition-all">
-                                                    <%= user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'U' %>
-                                                </div>
-                                                <span class="font-semibold text-white text-sm"><%= user.name %></span>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-5 text-slate-400 text-xs font-light"><%= user.email %></td>
-                                        <td class="px-6 py-5 text-slate-400 text-xs font-light tracking-wide"><%= user.phoneNumber || '+91 00000 00000' %></td>
-                                        <td class="px-6 py-5 text-slate-500 text-[11px] font-medium">
-                                            <%= new Date(user.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %>
-                                        </td>
-                                        <td class="px-6 py-5 text-center">
-                                            <span class="inline-block px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter border <%= user.isBlocked ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-400/20' %>">
-                                                <%= user.isBlocked ? 'Blocked' : 'Active' %>
-                                            </span>
-                                        </td>
-                                        <td class="px-8 py-5 text-right">
-    <form action="/admin/customers/toggle/<%= user._id %>?_method=PATCH" method="POST">
-        <button type="submit" 
-            class="text-[9px] font-black uppercase tracking-widest border px-4 py-2 rounded-lg transition-all 
-            <%= user.isBlocked ? 'text-cyan-400 border-cyan-400/20 hover:bg-cyan-400 hover:text-black' : 'text-slate-500 border-slate-800 hover:text-red-500 hover:border-red-500/40' %>">
-            <%= user.isBlocked ? 'Unblock User' : 'Block User' %>
+           <div class="mt-auto pt-6 border-t border-slate-800">
+    <form action="/admin/logout" method="POST">
+        <button type="submit" class="w-full flex items-center space-x-3 text-slate-500 hover:text-red-400 transition p-3">
+            <i class="fas fa-sign-out-alt w-5"></i> 
+            <span class="text-sm font-medium">Logout</span>
         </button>
     </form>
-</td>
-                                    </tr>
-                                <% }) %>
-                            <% } else { %>
-                                <tr>
-                                    <td colspan="6" class="px-6 py-24 text-center text-slate-600 uppercase text-[10px] tracking-[0.3em] font-bold">No registered customers found</td>
-                                </tr>
-                            <% } %>
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div class="p-6 border-t border-slate-800/60 flex justify-between items-center bg-slate-900/5">
-                    <p class="text-slate-600 uppercase tracking-widest text-[9px] font-bold">Showing 1 to <%= customers.length %> entries</p>
-                    <div class="flex gap-2">
-                        <button class="w-8 h-8 rounded-lg border border-slate-800 flex items-center justify-center hover:bg-slate-800 transition text-slate-500"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>
-                        <button class="w-8 h-8 rounded-lg bg-cyan-400 text-black font-bold text-[10px]">1</button>
-                        <button class="w-8 h-8 rounded-lg border border-slate-800 text-slate-500 font-bold text-[10px] hover:bg-slate-800">2</button>
-                        <button class="w-8 h-8 rounded-lg border border-slate-800 text-slate-500 font-bold text-[10px] hover:bg-slate-800">3</button>
-                        <span class="text-slate-700 px-1 self-center">...</span>
-                        <button class="w-8 h-8 rounded-lg border border-slate-800 text-slate-500 font-bold text-[10px] hover:bg-slate-800">12</button>
-                        <button class="w-8 h-8 rounded-lg border border-slate-800 flex items-center justify-center hover:bg-slate-800 transition text-slate-500"><i class="fa-solid fa-chevron-right text-[10px]"></i></button>
-                    </div>
-                </div>
-            </section>
+</div>
+        </aside>
 
-            <footer class="mt-16 mb-8 text-center text-[9px] text-slate-700 uppercase tracking-[0.4em] font-medium">
-                © 2024 WATCH STORE ADMIN PANEL. ALL RIGHTS RESERVED.
-            </footer>
+        <main class="flex-1 overflow-y-auto p-4 md:p-8">
+            <div class="max-w-7xl mx-auto">
+                
+                <header class="flex items-center gap-4 mb-8">
+                    <button onclick="toggleSidebar()" class="lg:hidden bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-white">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-xl md:text-2xl font-bold text-white uppercase tracking-tight">Customer Management</h2>
+                    </div>
+                </header>
+
+                <form id="searchForm" action="/admin/customers" method="GET" class="card-bg p-4 md:p-6 rounded-2xl mb-8 shadow-xl">
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+                        <div class="lg:col-span-2">
+                            <label class="block text-[10px] uppercase font-bold text-slate-500 mb-3 tracking-widest">Search Customer</label>
+                            <div class="relative">
+                                <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 text-xs"></i>
+                                <input type="text" name="search" value="<%= search %>" placeholder="Name or email..." 
+                                       class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition-all">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] uppercase font-bold text-slate-500 mb-3 tracking-widest">Status</label>
+                            <select name="status" class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 appearance-none cursor-pointer">
+                                <option value="">All Status</option>
+                                <option value="active" <%= status === 'active' ? 'selected' : '' %>>Active</option>
+                                <option value="blocked" <%= status === 'blocked' ? 'selected' : '' %>>Blocked</option>
+                            </select>
+                        </div>
+                        
+                        <div class="flex gap-2">
+                            <button type="submit" class="flex-1 bg-cyan-400 hover:brightness-110 text-black py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition">
+                                Search
+                            </button>
+                            <% if(search || status) { %>
+                                <a href="/admin/customers" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition text-center">
+                                    Clear
+                                </a>
+                            <% } %>
+                        </div>
+                    </div>
+                </form>
+
+                <section class="card-bg rounded-2xl shadow-2xl overflow-hidden mb-6">
+                    <div class="overflow-x-auto scrollbar-hide">
+                        <table class="w-full text-left border-collapse min-w-[700px]">
+                            <thead class="bg-slate-900/40 text-[10px] uppercase tracking-[0.15em] text-slate-500 border-b border-slate-800/60">
+                                <tr>
+                                    <th class="px-6 md:px-8 py-5 font-bold">Customer Name</th>
+                                    <th class="px-6 py-5 font-bold">Email Address</th>
+                                    <th class="px-6 py-5 font-bold text-center">Status</th>
+                                    <th class="px-6 md:px-8 py-5 font-bold text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800/40">
+                                <% if (customers.length > 0) { %>
+                                    <% customers.forEach(user => { %>
+                                        <tr class="hover:bg-white/[0.02] transition-colors group">
+                                            <td class="px-6 md:px-8 py-5">
+                                                <div class="flex items-center gap-3">
+                                                    <div class="hidden sm:flex w-9 h-9 shrink-0 rounded-full bg-slate-800 items-center justify-center text-[10px] text-cyan-400 font-bold border border-slate-700">
+                                                        <%= user.name.split(' ').map(n => n[0]).join('').toUpperCase() %>
+                                                    </div>
+                                                    <span class="font-semibold text-white text-sm truncate max-w-[150px]"><%= user.name %></span>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-5 text-slate-400 text-xs font-light"><%= user.email %></td>
+                                            <td class="px-6 py-5 text-center">
+                                                <span class="inline-block px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter border <%= user.isBlocked ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-400/20' %>">
+                                                    <%= user.isBlocked ? 'Blocked' : 'Active' %>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 md:px-8 py-5 text-right">
+                                                <button onclick="confirmToggle('<%= user._id %>', '<%= user.isBlocked %>')" 
+                                                        class="text-[9px] font-black uppercase tracking-widest border border-slate-800 px-4 py-2 rounded-lg transition-all <%= user.isBlocked ? 'hover:text-green-500 hover:border-green-500/40' : 'hover:text-red-500 hover:border-red-500/40' %>">
+                                                    <%= user.isBlocked ? 'Unblock' : 'Block' %>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <% }) %>
+                                <% } else { %>
+                                    <tr>
+                                        <td colspan="4" class="px-8 py-16 text-center text-slate-500 text-sm italic font-light">No customers found matching your criteria.</td>
+                                    </tr>
+                                <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <% if (totalPages > 1) { %>
+                <div class="flex flex-wrap justify-center items-center gap-2 mb-8">
+                    <% for(let i = 1; i <= totalPages; i++) { %>
+                        <a href="/admin/customers?page=<%= i %>&search=<%= search %>&status=<%= status %>" 
+                           class="w-9 h-9 md:w-10 md:h-10 flex items-center justify-center rounded-lg border transition-all text-xs font-bold
+                           <%= currentPage === i ? 'bg-cyan-400 border-cyan-400 text-black' : 'border-slate-800 text-slate-400 hover:border-cyan-400/50' %>">
+                            <%= i %>
+                        </a>
+                    <% } %>
+                </div>
+                <% } %>
+
+                <footer class="text-center pb-8">
+                    <p class="text-[9px] text-slate-600 uppercase tracking-widest font-medium">© 2026 NEO-LUXE ADMIN. ALL RIGHTS RESERVED.</p>
+                </footer>
+            </div>
         </main>
     </div>
 
-    <style>
-        .custom-scroll::-webkit-scrollbar { width: 5px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #05070A; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 10px; }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #22D3EE; }
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+       function confirmToggle(userId, isBlocked) {
+    const action = isBlocked === 'true' ? 'Unblock' : 'Block';
+    Swal.fire({
+        title: 'Are you sure?',
+        text: `You are about to ${action.toLowerCase()} this user.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: isBlocked === 'true' ? '#10B981' : '#EF4444',
+        cancelButtonColor: '#1E293B',
+        confirmButtonText: `Yes, ${action}!`,
+        background: '#0B1120',
+        color: '#fff'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Use fetch instead of window.location.href
+            fetch(`/admin/customers/toggle/${userId}`, {
+                method: 'PATCH', // Matches your router.patch
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Refresh the page to see changes
+                    window.location.reload();
+                } else {
+                    Swal.fire('Error', 'Something went wrong', 'error');
+                }
+            })
+            .catch(err => console.error(err));
+        }
+    });
+}
+    </script>
 </body>
 </html>

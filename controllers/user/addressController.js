@@ -13,7 +13,7 @@ export const showAddressManagement = asyncHandler(async (req, res) => {
     const totalAddress = await Address.countDocuments({ userId });
     const totalPages = Math.ceil(totalAddress / limit);
 
-    res.render("user/address", { layout: "layouts/user", addresses, currentPage: page, totalPages });
+    res.render("user/address", { layout: "layouts/user", addresses, currentPage: page, totalPages,path: '/profile/address' });
 });
 
 // Add Address (AJAX Version)

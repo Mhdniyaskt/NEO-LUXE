@@ -83,182 +83,170 @@
     </main>
 
     <script>
-        const fields = document.querySelectorAll('.otp-field');
+    const fields = document.querySelectorAll('.otp-field');
 
-        fields.forEach((field, index) => {
-            // Handle typing the number
-            field.addEventListener('input', (e) => {
-                const val = e.target.value;
-                
-                // If the user entered a number, move to next field
-                if (val.length === 1 && index < fields.length - 1) {
-                    fields[index + 1].focus();
-                }
-            });
-
-            // Handle backspace and cursor movement
-            field.addEventListener('keydown', (e) => {
-                if (e.key === 'Backspace') {
-                    // If current field is empty, move focus to previous and clear it
-                    if (!field.value && index > 0) {
-                        fields[index - 1].focus();
-                    }
-                }
-            });
-
-            // Prevent letters/special characters
-            field.addEventListener('keypress', (e) => {
-                if (!/[0-9]/.test(e.key)) {
-                    e.preventDefault();
-                }
-            });
-        });
-
-        // AJAX SUBMISSION
-        document.getElementById('otp-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const submitBtn = document.getElementById('submit-btn');
-            const btnText = document.getElementById('btn-text');
-            const errorContainer = document.getElementById('error-container');
-
-            // Combine the 6 values
-            const otpValue = Array.from(fields).map(f => f.value).join('');
-
-            if (otpValue.length < 6) {
-                showError("Please enter all 6 digits");
-                return;
-            }
-
-            // UI Loading State
-            submitBtn.disabled = true;
-            btnText.innerText = "Verifying...";
-            errorContainer.classList.add('hidden');
-
-            try {
-                const response = await fetch('/verify-otp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ otp: otpValue })
-                });
-
-                const result = await response.json();
-
-              if (result.success) {
-    if (result.redirect) {
-        window.location.href = result.redirect;
-    } else {
-        window.location.href = "/";
-    }
-} else {
-    showError(result.message || "Invalid OTP");
-    resetBtn();
-}
-            } catch (err) {
-                showError("Server error. Try again.");
-                resetBtn();
+    fields.forEach((field, index) => {
+        field.addEventListener('input', (e) => {
+            const val = e.target.value;
+            if (val.length === 1 && index < fields.length - 1) {
+                fields[index + 1].focus();
             }
         });
 
-        function showError(msg) {
-            const container = document.getElementById('error-container');
-            document.getElementById('error-text').innerText = msg;
-            container.classList.remove('hidden');
-        }
+        field.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace') {
+                if (!field.value && index > 0) {
+                    fields[index - 1].focus();
+                }
+            }
+        });
 
-        function resetBtn() {
-            const submitBtn = document.getElementById('submit-btn');
-            const btnText = document.getElementById('btn-text');
-            submitBtn.disabled = false;
-            btnText.innerText = "Verify Account";
-        }
+        field.addEventListener('keypress', (e) => {
+            if (!/[0-9]/.test(e.key)) {
+                e.preventDefault();
+            }
+        });
+    });
 
-        /* ---------------- TIMER LOGIC ---------------- */
-let countdownInterval = null;
-const TIMER_DURATION = 30;
-const STORAGE_KEY = "otp_target_time";
-
-const resendBtn = document.getElementById("resendBtn");
-const timerEl = document.getElementById("timer");
-const timerWrapper = document.getElementById("timerWrapper");
-const resendMessage = document.getElementById("resendMessage");
-
-function startTimer(seconds, isNew = true) {
-    clearInterval(countdownInterval);
-    const now = Date.now();
-    let targetTime;
-
-    if (isNew) {
-        targetTime = now + (seconds * 1000);
-        localStorage.setItem(STORAGE_KEY, targetTime);
-    } else {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        targetTime = stored ? parseInt(stored, 10) : now + (seconds * 1000);
-    }
-
-    const tick = () => {
-        const currentTime = Date.now();
-        const secondsLeft = Math.ceil((targetTime - currentTime) / 1000);
-
-        if (secondsLeft <= 0) {
-            clearInterval(countdownInterval);
-            localStorage.removeItem(STORAGE_KEY);
-            timerWrapper.classList.add("hidden");
-            resendMessage.classList.remove("hidden");
-            resendBtn.disabled = false;
-            resendBtn.classList.remove("opacity-40", "cursor-not-allowed");
-            resendBtn.classList.add("hover:text-white");
-        } else {
-            timerWrapper.classList.remove("hidden");
-            resendMessage.classList.add("hidden");
-            resendBtn.disabled = true;
-            resendBtn.classList.add("opacity-40", "cursor-not-allowed");
-            resendBtn.classList.remove("hover:text-white");
-            timerEl.textContent = secondsLeft;
-        }
-    };
-
-    tick();
-    countdownInterval = setInterval(tick, 1000);
-}
-
-// Initializing the timer on page load
-const savedTime = localStorage.getItem(STORAGE_KEY);
-if (savedTime && parseInt(savedTime, 10) > Date.now()) {
-    startTimer(null, false);
-} else {
-    startTimer(TIMER_DURATION, true);
-}
-
-/* ---------------- RESEND OTP (AJAX) ---------------- */
-async function resendOTP() {
-    try {
-        // Clear UI errors
-        document.getElementById('error-container').classList.add('hidden');
+    // AJAX SUBMISSION
+    document.getElementById('otp-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        // Show loading state on resend button
-        resendBtn.innerText = "Sending...";
-        resendBtn.disabled = true;
+        const submitBtn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('btn-text');
+        const errorContainer = document.getElementById('error-container');
 
-        const response = await fetch('/resend-otp', { method: 'POST' });
-        const data = await response.json();
+        const otpValue = Array.from(fields).map(f => f.value).join('');
 
-        if (response.ok) {
-            // Restart timer and update UI
-            resendBtn.innerText = "Resend code";
-            startTimer(TIMER_DURATION, true);
-            // Optional: show a small success toast/message here
+        if (otpValue.length < 6) {
+            showError("Please enter all 6 digits");
+            return;
+        }
+
+        submitBtn.disabled = true;
+        btnText.innerText = "Verifying...";
+        errorContainer.classList.add('hidden');
+
+        try {
+            // CHANGE: Using dynamic actionUrl from EJS
+            const response = await fetch('<%= actionUrl %>', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ otp: otpValue })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                window.location.href = result.redirect || "/";
+            } else {
+                showError(result.message || "Invalid OTP");
+                resetBtn();
+                // If session expired, redirect user
+                if(result.redirect && !result.success) {
+                    setTimeout(() => window.location.href = result.redirect, 2000);
+                }
+            }
+        } catch (err) {
+            showError("Server error. Try again.");
+            resetBtn();
+        }
+    });
+
+    function showError(msg) {
+        const container = document.getElementById('error-container');
+        document.getElementById('error-text').innerText = msg;
+        container.classList.remove('hidden');
+    }
+
+    function resetBtn() {
+        const submitBtn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('btn-text');
+        submitBtn.disabled = false;
+        btnText.innerText = "Verify Account";
+    }
+
+    /* ---------------- TIMER LOGIC ---------------- */
+    let countdownInterval = null;
+    const TIMER_DURATION = 30;
+    const STORAGE_KEY = "otp_target_time";
+
+    const resendBtn = document.getElementById("resendBtn");
+    const timerEl = document.getElementById("timer");
+    const timerWrapper = document.getElementById("timerWrapper");
+    const resendMessage = document.getElementById("resendMessage");
+
+    function startTimer(seconds, isNew = true) {
+        clearInterval(countdownInterval);
+        const now = Date.now();
+        let targetTime;
+
+        if (isNew) {
+            targetTime = now + (seconds * 1000);
+            localStorage.setItem(STORAGE_KEY, targetTime);
         } else {
-            showError(data.message || "Failed to resend OTP");
+            const stored = localStorage.getItem(STORAGE_KEY);
+            targetTime = stored ? parseInt(stored, 10) : now + (seconds * 1000);
+        }
+
+        const tick = () => {
+            const currentTime = Date.now();
+            const secondsLeft = Math.ceil((targetTime - currentTime) / 1000);
+
+            if (secondsLeft <= 0) {
+                clearInterval(countdownInterval);
+                localStorage.removeItem(STORAGE_KEY);
+                timerWrapper.classList.add("hidden");
+                resendMessage.classList.remove("hidden");
+                resendBtn.disabled = false;
+                resendBtn.classList.remove("opacity-40", "cursor-not-allowed");
+                resendBtn.classList.add("hover:text-white");
+            } else {
+                timerWrapper.classList.remove("hidden");
+                resendMessage.classList.add("hidden");
+                resendBtn.disabled = true;
+                resendBtn.classList.add("opacity-40", "cursor-not-allowed");
+                resendBtn.classList.remove("hover:text-white");
+                timerEl.textContent = secondsLeft;
+            }
+        };
+
+        tick();
+        countdownInterval = setInterval(tick, 1000);
+    }
+
+    const savedTime = localStorage.getItem(STORAGE_KEY);
+    if (savedTime && parseInt(savedTime, 10) > Date.now()) {
+        startTimer(null, false);
+    } else {
+        startTimer(TIMER_DURATION, true);
+    }
+
+    /* ---------------- RESEND OTP (AJAX) ---------------- */
+    async function resendOTP() {
+        try {
+            document.getElementById('error-container').classList.add('hidden');
+            resendBtn.innerText = "Sending...";
+            resendBtn.disabled = true;
+
+            // CHANGE: Using dynamic resendUrl from EJS
+            const response = await fetch('<%= resendUrl %>', { method: 'POST' });
+            const data = await response.json();
+
+            if (response.ok || data.success) {
+                resendBtn.innerText = "Resend code";
+                startTimer(TIMER_DURATION, true);
+            } else {
+                showError(data.message || "Failed to resend OTP");
+                resendBtn.innerText = "Resend code";
+                resendBtn.disabled = false;
+            }
+        } catch (err) {
+            showError("Connection error. Try again.");
             resendBtn.innerText = "Resend code";
             resendBtn.disabled = false;
         }
-    } catch (err) {
-        showError("Connection error. Try again.");
-        resendBtn.innerText = "Resend code";
-        resendBtn.disabled = false;
     }
-}
-    </script>
+</script>
 </body>
 </html>

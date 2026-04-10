@@ -23,22 +23,22 @@
                             input: '#121216',
                             blue: '#00A3FF',
                             cyan: '#00E0FF',
-                            border: '#1F2026'
+                            border: '#2A2D35' // Made slightly brighter
                         }
                     },
                     boxShadow: {
-                        'glow-btn': '0 0 25px rgba(0, 224, 255, 0.4)',
-                        'glow-card': '0 0 60px rgba(0, 163, 255, 0.05)',
+                        'glow-btn': '0 0 25px rgba(0, 224, 255, 0.5)', // Increased intensity
+                        'glow-card': '0 0 60px rgba(0, 163, 255, 0.1)',
                     },
                     animation: {
                         'fade-in': 'fadeIn 0.8s ease-out forwards',
                         'slide-up': 'slideUp 0.8s ease-out forwards',
-                        'shake': 'shake 0.4s ease-in-out', // Added shake animation
+                        'shake': 'shake 0.4s ease-in-out',
                     },
                     keyframes: {
                         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
                         slideUp: { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-                        shake: { // Added shake keyframes
+                        shake: {
                             '0%, 100%': { transform: 'translateX(0)' },
                             '25%': { transform: 'translateX(-8px)' },
                             '75%': { transform: 'translateX(8px)' },
@@ -52,67 +52,75 @@
     <style>
         body {
             background-color: #020204;
-            background-image: radial-gradient(circle at center, #0a0f1d 0%, #020204 100%);
+            /* Brighter center for better contrast */
+            background-image: radial-gradient(circle at center, #0e1629 0%, #020204 100%);
+        }
+        /* Custom height for better vertical spacing on mobile */
+        .admin-container {
+            min-height: 100dvh;
         }
     </style>
 </head>
 
-<body class="text-white font-sans min-h-screen w-full flex items-center justify-center overflow-hidden">
+<body class="text-white font-sans admin-container w-full flex items-center justify-center p-4">
 
-    <main class="flex flex-col items-center justify-center w-full px-4">
-        <div class="text-[10px] uppercase tracking-[0.3em] text-brand-blue font-bold mb-6 animate-fade-in opacity-0" style="animation-delay: 0.1s;">
-            Admin Panel
+    <main class="flex flex-col items-center justify-center w-full max-w-md">
+        <div class="text-[11px] uppercase tracking-[0.4em] text-brand-cyan font-black mb-6 animate-fade-in opacity-0" style="animation-delay: 0.1s;">
+            Admin Portal
         </div>
 
-        <div class="w-full max-w-md bg-brand-card p-10 rounded-2xl border border-brand-border shadow-glow-card animate-slide-up opacity-0" style="animation-delay: 0.2s;">
+        <div class="w-full bg-brand-card p-8 md:p-12 rounded-2xl border border-brand-border shadow-glow-card animate-slide-up opacity-0 relative" style="animation-delay: 0.2s;">
             <div class="text-center mb-10">
-                <h1 class="text-3xl font-bold mb-2">Admin Sign In</h1>
-                <p class="text-gray-500 text-xs font-light">Access the administration dashboard</p>
+                <h1 class="text-3xl font-bold mb-2 tracking-tight">Admin Sign In</h1>
+                <p class="text-gray-400 text-xs font-light tracking-wide">Access the administration dashboard</p>
             </div>
 
-            <div id="error-box" class="hidden mb-6 p-3 bg-red-900/30 border border-red-500/50 rounded-lg flex items-center gap-3">
+            <div id="error-box" class="hidden mb-6 p-4 bg-red-950/40 border border-red-500/50 rounded-lg flex items-center gap-3 animate-fade-in">
                 <i class="fa-solid fa-circle-exclamation text-red-500"></i>
-                <span id="error-message" class="text-xs text-red-200"></span>
+                <span id="error-message" class="text-xs text-red-100 font-medium uppercase tracking-tighter"></span>
             </div>
 
-            <form id="loginForm" class="space-y-6">
+            <form id="loginForm" class="space-y-7">
                 <div class="group">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 group-focus-within:text-brand-blue transition-colors">
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-3 group-focus-within:text-brand-blue transition-colors">
                         Email Address
                     </label>
                     <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center">
-                            <i class="fa-regular fa-envelope text-gray-500 text-sm group-focus-within:text-brand-cyan"></i>
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fa-regular fa-envelope text-gray-500 text-sm group-focus-within:text-brand-cyan transition-colors"></i>
                         </div>
                         <input type="email" name="email" required
-                               class="w-full bg-brand-input border border-brand-border text-white text-sm rounded-lg pl-11 py-3 px-3.5 focus:outline-none focus:border-brand-blue transition-all"
-                               placeholder="admin@neoluxe.com">
+                               class="w-full bg-brand-input border border-brand-border text-white text-base rounded-lg pl-11 py-4 focus:outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/20 transition-all">
                     </div>
                 </div>
 
                 <div class="group">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 group-focus-within:text-brand-blue transition-colors">
+                    <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-3 group-focus-within:text-brand-blue transition-colors">
                         Password
                     </label>
                     <div class="relative">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center">
-                            <i class="fa-solid fa-lock text-gray-500 text-sm group-focus-within:text-brand-cyan"></i>
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                            <i class="fa-solid fa-lock text-gray-500 text-sm group-focus-within:text-brand-cyan transition-colors"></i>
                         </div>
                         <input type="password" name="password" id="passwordInput" required
-                               class="w-full bg-brand-input border border-brand-border text-white text-sm rounded-lg pl-11 py-3 px-3.5 focus:outline-none focus:border-brand-blue transition-all"
-                               placeholder="••••••••••••">
-                        <div id="togglePassword" class="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer text-gray-600 hover:text-white">
+                               class="w-full bg-brand-input border border-brand-border text-white text-base rounded-lg pl-11 py-4 focus:outline-none focus:border-brand-blue focus:ring-1 focus:ring-brand-blue/20 transition-all">
+                        
+                        <div id="togglePassword" class="absolute inset-y-0 right-0 pr-4 flex items-center cursor-pointer text-gray-500 hover:text-brand-cyan transition-colors">
                             <i class="fa-regular fa-eye"></i>
                         </div>
                     </div>
                 </div>
 
                 <button type="submit"
-                        class="w-full mt-8 bg-gradient-to-r from-brand-blue to-brand-cyan text-black font-bold text-sm py-3.5 rounded-lg shadow-glow-btn hover:opacity-90 hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2 leading-none">
-                    SIGN IN <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                        class="w-full mt-8 bg-gradient-to-r from-brand-blue to-brand-cyan text-black font-black text-xs py-4 rounded-lg shadow-glow-btn hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-3 uppercase tracking-[0.2em]">
+                    SIGN IN <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>
                 </button>
             </form>
         </div>
+        
+        <p class="mt-8 text-gray-600 text-[10px] uppercase tracking-[0.3em] font-medium">
+            &copy; 2026 NEO-LUXE Secure Access
+        </p>
     </main>
 
     <script>
@@ -138,7 +146,8 @@
                 // Reset UI
                 errorBox.classList.add('hidden');
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin mr-2"></i> VERIFYING...`;
+                const originalBtnContent = submitBtn.innerHTML;
+                submitBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin text-sm"></i> VERIFYING...`;
 
                 const email = loginForm.querySelector('input[name="email"]').value;
                 const password = loginForm.querySelector('input[name="password"]').value;
@@ -167,7 +176,7 @@
                     errorBox.classList.remove('hidden');
                 } finally {
                     submitBtn.disabled = false;
-                    submitBtn.innerHTML = `SIGN IN <i class="fa-solid fa-arrow-right-to-bracket"></i>`;
+                    submitBtn.innerHTML = originalBtnContent;
                 }
             });
         });

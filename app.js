@@ -6,11 +6,10 @@ import userRoutes from "./routes/userRoutes.js"
 import adminRoutes from "./routes/adminRoutes.js"
 import googleAuthRoutes from "./routes/googleAuthRoute.js"
 import session from "express-session";
- import passport from "./config/passport.js";
+import passport from "./config/passport.js";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import { checkUser} from "./middleware/auth.middleware.js";
-
 import methodOverride from 'method-override';
 
 // ... after other app.use calls

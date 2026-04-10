@@ -9,6 +9,7 @@ import {
   showForgotPassword,
   handleForgotPassword,
   showResetPassword,
+  handleResetPassword,
 } from "../controllers/user/authController.js";
 import {
   showVerifyOTP,
@@ -18,10 +19,13 @@ import {
 
 import {
   removeProfilePhoto,
+  showEditProfile,
   showProfile,
+  updateProfile,
   uploadProfilePhoto,
 } from "../controllers/user/profileController.js";
 import {
+  checkUser,
   redirectIfAuthenticated,
   requireAuth,
 } from "../middleware/auth.middleware.js";
@@ -31,6 +35,7 @@ import { noCache } from "../middleware/cache.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
 import {
   requestEmailChange,
+  resendEmailChangeOTP,
   showChangeEmail,
   showVerifyEmailChangeOTP,
   verifyEmailChangeOTP,
@@ -45,7 +50,7 @@ import { handleAuthForgotPassword, handleChangePassword, showChangePassword } fr
 
 const router = express.Router();
 
-router.get("/", noCache, loadHome);
+router.get("/", checkUser,noCache, loadHome);
 
 router
   .route("/signup")
@@ -62,35 +67,26 @@ router.post("/resend-otp", resendOTP);
 router.get("/login", noCache, redirectIfAuthenticated, loadLogin);
 router.post("/login", handleLogin);
 
-router.get("/logout", noCache, logout);
+router.post("/logout", logout);
 
 router.get("/forgot-password", noCache, showForgotPassword);
 router.post("/forgot-password", handleForgotPassword);
 
 router.get("/reset-password", noCache, showResetPassword);
-router.post("/reset-password", handleForgotPassword);
+router.post("/reset-password", handleResetPassword);
 
 router.get("/profile", noCache, requireAuth, showProfile);
+router.post("/profile/upload-photo", upload.single("profilePhoto"), uploadProfilePhoto);
 
-router.post(
-  "/profile/upload-photo",
-  requireAuth,
-  upload.single("profilePhoto"),
-  uploadProfilePhoto,
-);
-router.delete("/profile/remove-photo", requireAuth, removeProfilePhoto);
+// Remove Profile Photo
+router.delete("/profile/remove-photo",requireAuth, removeProfilePhoto);
 
-router.get("/profile/change-email", noCache, requireAuth, showChangeEmail);
+router.get("/profile/change-email", requireAuth, showChangeEmail);
 router.post("/profile/change-email", requireAuth, requestEmailChange);
 
-router.get(
-  "/profile/verify-email-change",
-  noCache,
-  requireAuth,
-  showVerifyEmailChangeOTP,
-);
+router.get("/profile/verify-email-change", requireAuth, showVerifyEmailChangeOTP);
 router.post("/profile/verify-email-change", requireAuth, verifyEmailChangeOTP);
-
+router.post("/profile/resend-email-change-otp", requireAuth, resendEmailChangeOTP);
 router.get(
   "/profile/change-password",
   noCache,
@@ -103,22 +99,21 @@ router.post(
   requireAuth,
   handleChangePassword,
 );
-router.get(
-  "/forgot-password/authenticated",
-  noCache,
-  requireAuth,
-  handleAuthForgotPassword,
-);
+// router.get(
+//   "/forgot-password/authenticated",
+//   noCache,
+//   requireAuth,
+//   handleAuthForgotPassword,
+// );
 
-/* Address Management */
-
+router.get("/editprofile",requireAuth,showEditProfile)
+router.post("/profile/update",requireAuth,updateProfile)
 router.get("/addresses", noCache, requireAuth, showAddressManagement);
 router.post("/addresses/add", requireAuth, addAddress);
 
-// Use POST for update to handle the form submission easily from EJS
+
 router.post("/addresses/edit/:addressId", requireAuth, updateAddress);
 
-// Changed to GET for the simple window.location.href delete logic
 router.get("/addresses/delete/:addressId", requireAuth, deleteAddress);
 
 export default router;

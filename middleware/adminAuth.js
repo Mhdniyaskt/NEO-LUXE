@@ -1,20 +1,19 @@
-export const authenticateAdmin = (req, res, next) => {
-  if (req.session?.admin) {
-    req.admin = req.session.admin;
-  }
-  next();
+export const isAdmin = (req, res, next) => {
+    if (req.session.admin) {
+       
+        next();
+    } else {
+        
+        res.redirect("/admin/login");
+    }
 };
 
-export const requireAdmin = (req, res, next) => {
-  if (!req.session?.admin) {
-    return res.redirect("/admin");
-  }
-  next();
-};
 
-export const redirectIfAdminAuthenticated = (req, res, next) => {
-  if (req.session?.admin) {
-    return res.redirect("/admin/dashboard");
-  }
-  next();
+
+export const isLogout = (req, res, next) => {
+    if (req.session.admin) {
+        res.redirect("/admin/dashboard"); // Admin is already logged in, skip the login page
+    } else {
+        next();
+    }
 };

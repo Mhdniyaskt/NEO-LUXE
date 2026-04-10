@@ -21,19 +21,18 @@ export const loadSignup = async (req, res) => {
 };
 
 export const handleSignup = asyncHandler(async (req, res) => {
-  let { name, email, phone, password } = req.body;
+  let { name, email, phoneNumber, password } = req.body;
 
 console.log(req.body)
   name = name?.trim();
   email = email?.trim().toLowerCase();
-  phone = phone?.trim();
+  phoneNumber = phoneNumber?.trim();
   password = password?.trim();
   
 
  
-  if (!name || !email || !phone || !password ) {
+  if (!name && !email && !phoneNumber && !password ) {
     return res.json({
-      success: false,
       message: "All fields are required",
     });
   }
@@ -64,7 +63,7 @@ console.log(req.body)
  
   const phoneRegex = /^[6-9]\d{9}$/;
 
-  if (!phoneRegex.test(phone)) {
+  if (!phoneRegex.test(phoneNumber)) {
     return res.json({
       success: false,
       message: "Please enter a valid phone number",
@@ -115,7 +114,7 @@ console.log(req.body)
     {
       name,
       email,
-      phone,
+      phone:phoneNumber,
       password: hashedPassword,
       isVerified: false,
     },
@@ -199,11 +198,15 @@ export const handleLogin = asyncHandler(async (req, res) => {
       message: "Incorrect Email or Password",
     });
   }
+// Example inside your Login/Auth controller
 
   req.session.user = {
     id: user._id,
+    name:user.name,
+    phone:user.phone,
     email: user.email,
     role: user.role,
+    profilePhoto: user.profilePhoto
   };
 
   return res.json({
@@ -220,153 +223,83 @@ export const logout = (req, res) => {
     }
 
     res.clearCookie("connect.sid"); 
-    return res.redirect("/");
+    return res.redirect("/login");
   });
 };
 
+
+// 1. Show Forgot Password Page (Login Side)
 export const showForgotPassword = (req, res) => {
- 
-  delete req.session.email;
-  delete req.session.otpPurpose;
-  delete req.session.allowPasswordReset;
-
-  res.render("user/forgotPass", { layout: "layouts/user" });
+    delete req.session.email;
+    delete req.session.otpPurpose;
+    delete req.session.allowPasswordReset;
+    res.render("user/forgotPass", { layout: "layouts/user" });
 };
 
+// 2. Handle Request (Works for both Login & Profile)
 export const handleForgotPassword = asyncHandler(async (req, res) => {
-  let { email } = req.body;
+    let { email } = req.body;
+    email = email?.trim().toLowerCase();
 
-  email = email?.trim().toLowerCase();
+    // If no email provided, check if user is logged in (Profile Side)
+    if (!email && req.session.user) {
+        email = req.session.user.email;
+    }
 
-  if (!email) {
-    return res.json({
-      success: false,
-      message: "Email address is required",
-    });
-  }
+    if (!email) return res.json({ success: false, message: "Email is required" });
 
- 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const user = await User.findOne({ email });
+    if (!user || !user.isEmailVerified || user.isBlocked) {
+        return res.json({ success: false, message: "Invalid email address" });
+    }
 
-  if (!emailRegex.test(email)) {
-    return res.json({
-      success: false,
-      message: "Enter a valid email address",
-    });
-  }
+    await sendOTP(email, "FORGOT_PASSWORD");
 
-  const user = await User.findOne({ email });
+    // Unified Session Keys
+    req.session.email = email; 
+    req.session.otpPurpose = "FORGOT_PASSWORD";
 
-
-  if (!user || !user.isEmailVerified || user.isBlocked) {
-    return res.json({
-      success: false,
-      message: "Invalid email address",
-    });
-  }
-
-  await sendOTP(email, "FORGOT_PASSWORD");
-
-    req.session.resetPassword = email
-   
-    req.session.purpose= "FORGOT_PASSWORD"
- 
-
-  return res.json({
-    success: true,
-    redirect: "/verify-otp",
-  });
+    return res.json({ success: true, redirect: "/verify-otp" });
 });
 
-
-
+// 3. Show Reset Password Page
 export const showResetPassword = (req, res) => {
-  if (!req.session.allowPasswordReset || !req.session.email) {
-    return res.redirect("/forgot-password");
-  }
-  res.render("user/resetPass", { layout: "layouts/user" });
+    if (!req.session.allowPasswordReset || !req.session.email) {
+        return res.redirect("/forgot-password");
+    }
+    res.render("user/resetPass", { layout: "layouts/user" });
 };
 
+// 4. Handle Final Password Update
 export const handleResetPassword = asyncHandler(async (req, res) => {
-  let { password, confirmPassword } = req.body;
+    let { password, confirmPassword } = req.body;
+    const email = req.session.email;
 
-  password = password?.trim();
-  confirmPassword = confirmPassword?.trim();
+    if (!req.session.allowPasswordReset || !email) {
+        return res.json({ success: false, redirect: "/forgot-password" });
+    }
 
- 
-  if (!req.session.allowPasswordReset || !req.session.email) {
+    // Validation (Length, Match, Regex)
+    if (password !== confirmPassword) return res.json({ success: false, message: "Passwords do not match" });
+    
+    const user = await User.findOne({ email });
+    const isSame = await bcrypt.compare(password, user.password);
+    if (isSame) return res.json({ success: false, message: "New password cannot be old password" });
+
+    user.password = await bcrypt.hash(password, 10);
+    await user.save();
+
+    // Determine redirect based on if user was already logged in
+    const isLoggedIn = !!req.session.user;
+
+    // Cleanup
+    delete req.session.allowPasswordReset;
+    delete req.session.email;
+    delete req.session.otpPurpose;
+
     return res.json({
-      success: false,
-      redirect: "/forgot-password",
+        success: true,
+        message: "Password updated!",
+        redirect: isLoggedIn ? "/profile" : "/login" 
     });
-  }
-
-  if (!password || !confirmPassword) {
-    return res.json({
-      success: false,
-      message: "Both password fields are required",
-    });
-  }
-
-  if (password.length < 8) {
-    return res.json({
-      success: false,
-      message: "Password must be at least 8 characters long",
-    });
-  }
-
-  const passwordRegex =
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-
-  if (!passwordRegex.test(password)) {
-    return res.json({
-      success: false,
-      message:
-        "Password must include uppercase, lowercase, number and special character",
-    });
-  }
-
-  if (password !== confirmPassword) {
-    return res.json({
-      success: false,
-      message: "Passwords do not match",
-    });
-  }
-
-  const user = await User.findOne({ email: req.session.email });
-
-  if (!user) {
-    return res.json({
-      success: false,
-      redirect: "/forgot-password",
-    });
-  }
-
- 
-  const isSamePassword = await bcrypt.compare(password, user.password);
-
-  if (isSamePassword) {
-    return res.json({
-      success: false,
-      message: "New password cannot be the same as old password",
-    });
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  user.password = hashedPassword;
-  user.passwordChangedAt = new Date();
-  await user.save();
-
- 
-  delete req.session.allowPasswordReset;
-  delete req.session.email;
-  delete req.session.otpPurpose;
-  delete req.session.userId;
-
-  return res.json({
-    success: true,
-    message: "Password reset successful",
-    redirect: "/login",
-  });
 });

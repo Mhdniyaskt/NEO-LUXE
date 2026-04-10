@@ -1,26 +1,25 @@
 import express from "express"
-import { getAdminLogin, handleAdminLogin } from "../controllers/admin/authController.js";
+import { getAdminLogin, handleAdminLogin, handleAdminLogout } from "../controllers/admin/authController.js";
 import { showAdminDashboard } from "../controllers/admin/dasboardController.js";
 import { showCustomers, toggleCustomerStatus } from "../controllers/admin/customersController.js";
+import { isAdmin, isLogout } from "../middleware/adminAuth.js";
 
 const router=express.Router()
 
 
- router.get("/login",getAdminLogin)
+ router.route("/login").get(isLogout,getAdminLogin)
+ .post(isLogout,handleAdminLogin)
 
- router.post("/login",handleAdminLogin)
 
+ router.get("/dashboard",isAdmin,showAdminDashboard)
 
- router.get("/dashboard",showAdminDashboard)
-
- router.get('/customers',showCustomers)
+ router.get('/customers',isAdmin,showCustomers)
 
  
 
-// This matches the form action: /admin/customers/toggle/:id
-// We use :id as a dynamic parameter
-router.patch('/customers/toggle/:id', toggleCustomerStatus);
-// router.get("/customers",customers)
+router.post("/logout",isAdmin, handleAdminLogout);
+
+router.patch('/customers/toggle/:id',isAdmin, toggleCustomerStatus);
 
 
 export default router;

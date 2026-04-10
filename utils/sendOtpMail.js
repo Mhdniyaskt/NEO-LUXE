@@ -4,7 +4,6 @@ import OTP from "../models/EmailOtp.js";
 import AppError from "./appError.js";
 import { HTTP_STATUS } from "../constants/httStatus.js";
 
-
 const emailTemplates = {
   SIGNUP: {
     subject: "Verify your email",

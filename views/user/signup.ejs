@@ -27,6 +27,10 @@
             }
         }
     </script>
+    <style>
+        /* Hide default browser eye icon in Edge/IE */
+        input::-ms-reveal, input::-ms-clear { display: none; }
+    </style>
 </head>
 <body class="bg-brand-dark text-white font-sans min-h-screen flex flex-col">
 
@@ -44,40 +48,57 @@
                     <span id="mainErrorText"></span>
                 </div>
 
-                <form id="signup-form" class="space-y-6" action="/signup" method="POST">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-2">
-                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Full Name</label>
+                <form id="signup-form" class="space-y-4" action="/signup" method="POST">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
+                        
+                        <div class="flex flex-col">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Full Name</label>
                             <input id="name" name="name" type="text" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
-                            <p id="nameError" class="text-brand-error text-[10px] hidden font-medium"></p>
+                            <div class="min-h-[20px] mt-1"><p id="nameError" class="text-brand-error text-[10px] hidden font-medium"></p></div>
                         </div>
-                        <div class="space-y-2">
-                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Email Address</label>
+
+                        <div class="flex flex-col">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Email Address</label>
                             <input id="email" name="email" type="email" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
-                            <p id="emailError" class="text-brand-error text-[10px] hidden font-medium"></p>
+                            <div class="min-h-[20px] mt-1"><p id="emailError" class="text-brand-error text-[10px] hidden font-medium"></p></div>
                         </div>
-                        <div class="space-y-2">
-                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Phone Number</label>
+
+                        <div class="flex flex-col">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Phone Number</label>
                             <input id="phone" name="phoneNumber" type="tel" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
-                            <p id="phoneError" class="text-brand-error text-[10px] hidden font-medium"></p>
+                            <div class="min-h-[20px] mt-1"><p id="phoneError" class="text-brand-error text-[10px] hidden font-medium"></p></div>
                         </div>
-                        <div class="space-y-2">
-                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Referral Code</label>
+
+                        <div class="flex flex-col">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Referral Code</label>
                             <input id="referral" name="referralCode" type="text" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition" placeholder="Optional">
+                            <div class="min-h-[20px] mt-1"></div>
                         </div>
-                        <div class="space-y-2">
-                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Password</label>
-                            <input id="password" name="password" type="password" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
-                            <p id="passwordError" class="text-brand-error text-[10px] hidden font-medium"></p>
+
+                        <div class="flex flex-col">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Password</label>
+                            <div class="relative">
+                                <input id="password" name="password" type="password" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 pr-12 text-sm focus:outline-none focus:border-brand-accent transition">
+                                <button type="button" onclick="togglePassword('password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-brand-accent transition">
+                                    <i class="fa-solid fa-eye-slash text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="min-h-[20px] mt-1"><p id="passwordError" class="text-brand-error text-[10px] hidden font-medium"></p></div>
                         </div>
-                        <div class="space-y-2">
-                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider">Confirm Password</label>
-                            <input id="confirm_password" name="confirmPassword" type="password" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
-                            <p id="confirmPasswordError" class="text-brand-error text-[10px] hidden font-medium"></p>
+
+                        <div class="flex flex-col">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Confirm Password</label>
+                            <div class="relative">
+                                <input id="confirm_password" name="confirmPassword" type="password" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 pr-12 text-sm focus:outline-none focus:border-brand-accent transition">
+                                <button type="button" onclick="togglePassword('confirm_password', this)" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-brand-accent transition">
+                                    <i class="fa-solid fa-eye-slash text-xs"></i>
+                                </button>
+                            </div>
+                            <div class="min-h-[20px] mt-1"><p id="confirmPasswordError" class="text-brand-error text-[10px] hidden font-medium"></p></div>
                         </div>
                     </div>
                       
-                    <button type="submit" id="submit-btn" class="w-full py-4 mt-4 rounded-xl bg-gradient-to-r from-brand-accent to-brand-cyan text-black font-bold text-xs uppercase tracking-[0.2em] shadow-[0_0_25px_rgba(0,163,255,0.3)] hover:scale-[1.01] transition flex items-center justify-center gap-2 active:scale-95">
+                    <button type="submit" id="submit-btn" class="w-full py-4 mt-2 rounded-xl bg-gradient-to-r from-brand-accent to-brand-cyan text-black font-bold text-xs uppercase tracking-[0.2em] shadow-[0_0_25px_rgba(0,163,255,0.3)] hover:scale-[1.01] transition flex items-center justify-center gap-2 active:scale-95">
                         <span id="btn-text">Create Account</span>
                         <i id="btn-icon" class="fa-solid fa-arrow-right text-[10px]"></i>
                     </button>
@@ -87,39 +108,13 @@
                     <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-800/50"></div></div>
                     <span class="relative bg-brand-card px-4 text-[9px] text-gray-600 uppercase font-bold tracking-[0.3em]">Or continue with</span>
                 </div>
-
-              
             </div>
         </div>
 
-        <div class="w-full max-w-xl order-1 lg:order-2">
+        <div class="w-full max-w-xl order-1 lg:order-2 hidden lg:block">
             <div class="relative group rounded-3xl bg-gradient-to-b from-brand-card to-black p-8 border border-white/5 mb-12 flex items-center justify-center overflow-hidden">
                 <div class="absolute inset-0 bg-brand-accent/5 blur-[120px] rounded-full scale-75"></div>
-                <img src="https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&q=80&w=600" 
-                     alt="Neo-Luxe Tactical" 
-                     class="relative z-10 w-full lg:w-4/5 drop-shadow-[0_35px_35px_rgba(0,0,0,0.6)] group-hover:scale-105 transition-transform duration-700">
-            </div>
-
-            <div class="space-y-6 px-4">
-                <h2 class="text-4xl lg:text-5xl font-bold leading-tight">Timeless Style <br> <span class="text-brand-cyan">Starts Here</span></h2>
-                <p class="text-gray-400 text-sm leading-relaxed font-light max-w-md">
-                    Join the inner circle of neo-luxury horology. Gain access to limited prototypes and private collection drops.
-                </p>
-
-                <div class="pt-8 grid grid-cols-3 gap-8 border-t border-gray-800/50">
-                    <div class="space-y-1">
-                        <p class="text-lg font-bold">12K+</p>
-                        <p class="text-[9px] text-gray-600 uppercase font-bold tracking-widest">Members</p>
-                    </div>
-                    <div class="space-y-1">
-                        <p class="text-lg font-bold">48</p>
-                        <p class="text-[9px] text-gray-600 uppercase font-bold tracking-widest">Exclusives</p>
-                    </div>
-                    <div class="space-y-1">
-                        <p class="text-lg font-bold">24/7</p>
-                        <p class="text-[9px] text-gray-600 uppercase font-bold tracking-widest">Concierge</p>
-                    </div>
-                </div>
+                <img src="https://images.unsplash.com/photo-1523170335258-f5ed11844a49?auto=format&fit=crop&q=80&w=600" alt="Watch" class="relative z-10 w-4/5 drop-shadow-[0_35px_35px_rgba(0,0,0,0.6)]">
             </div>
         </div>
     </main>
@@ -129,11 +124,31 @@
     const submitBtn = document.getElementById("submit-btn");
     const btnText = document.getElementById("btn-text");
 
+    // --- New Show/Hide Logic ---
+    function togglePassword(inputId, button) {
+        const input = document.getElementById(inputId);
+        const icon = button.querySelector('i');
+        
+        if (input.type === "password") {
+            input.type = "text";
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        } else {
+            input.type = "password";
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        }
+    }
+
+    // --- Error Handling Logic ---
     function showError(id, message) {
         const el = document.getElementById(id);
         if (el) {
             el.textContent = message;
             el.classList.remove("hidden");
+            const inputId = id.replace('Error', '');
+            const field = document.getElementById(inputId === 'confirmPassword' ? 'confirm_password' : inputId);
+            if(field) field.classList.add('border-brand-error');
         }
     }
 
@@ -142,92 +157,51 @@
             el.textContent = "";
             el.classList.add("hidden");
         });
+        document.querySelectorAll("input").forEach(input => input.classList.remove('border-brand-error'));
         document.getElementById("mainError").classList.add("hidden");
     }
-
-    // Add real-time clearing of errors
-    ["name", "email", "phone", "password", "confirm_password"].forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.addEventListener("input", () => {
-                const errorEl = document.getElementById(id + "Error");
-                if (errorEl) errorEl.classList.add("hidden");
-            });
-        }
-    });
 
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
         clearErrors();
 
-        const name = document.getElementById("name").value.trim();
-        const email = document.getElementById("email").value.trim();
-        const phone = document.getElementById("phone").value.trim();
-        const password = document.getElementById("password").value;
-        const confirmPassword = document.getElementById("confirm_password").value;
-
-        let isValid = true;
-
-        // Validation Logic
-        if (name.length < 3) {
-            showError("nameError", "Name must be at least 3 characters");
-            isValid = false;
-        }
-
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            showError("emailError", "Please enter a valid email");
-            isValid = false;
-        }
-
-        const phoneRegex = /^[6-9]\d{9}$/;
-        if (!phoneRegex.test(phone)) {
-            showError("phoneError", "Enter valid 10 digit phone");
-            isValid = false;
-        }
-
-        if (password.length <= 8) {
-            showError("passwordError", "Password must be at least 8 characters");
-            isValid = false;
-        }
-
-        if (password !== confirmPassword) {
-            showError("confirmPasswordError", "Passwords do not match");
-            isValid = false;
-        }
-
-        if (!isValid) return;
-
-        // UI Loading State
         submitBtn.disabled = true;
-        btnText.innerText = "Processing...";
+        btnText.innerText = "Verifying...";
+
+        const formData = new FormData(form);
+        const payload = Object.fromEntries(formData.entries());
 
         try {
             const response = await fetch(form.action, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, email, phone, password })
+                body: JSON.stringify(payload)
             });
 
             const data = await response.json();
 
-            if (data.success) {
+            if (response.ok && data.success) {
                 window.location.href = data.redirect;
             } else {
-                document.getElementById("mainErrorText").innerText = data.message || "Signup failed";
-                document.getElementById("mainError").classList.remove("hidden");
                 submitBtn.disabled = false;
                 btnText.innerText = "Create Account";
-            }
 
+                if (data.errors) {
+                    Object.keys(data.errors).forEach(key => {
+                        showError(`${key}Error`, data.errors[key]);
+                    });
+                } else {
+                    document.getElementById("mainErrorText").innerText = data.message || "Signup failed";
+                    document.getElementById("mainError").classList.remove("hidden");
+                }
+            }
         } catch (error) {
-            document.getElementById("mainErrorText").innerText = "Server error. Please try again later.";
-            document.getElementById("mainError").classList.remove("hidden");
             submitBtn.disabled = false;
             btnText.innerText = "Create Account";
+            document.getElementById("mainErrorText").innerText = "Connection error.";
+            document.getElementById("mainError").classList.remove("hidden");
         }
     });
 </script>
-    
 </body>
 </html>

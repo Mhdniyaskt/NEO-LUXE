@@ -4,7 +4,12 @@ import User from "../../models/userModel.js";
 // admin login
 
 export const getAdminLogin = (req, res) => {
-  res.render("admin/login", { layout: "layouts/admin" });
+    // Prevent browser from caching this page
+    res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+    res.header('Expires', '-1');
+    res.header('Pragma', 'no-cache');
+    
+    res.render("admin/login", { layout: "layouts/admin" });
 };
 
 
@@ -59,11 +64,19 @@ export const handleAdminLogin = async (req, res) => {
 };
 
 
-// // Logout
 
-// export const adminLogout = (req, res) => {
-//   res.clearCookie("adminAccessToken");
-//   res.clearCookie("adminRefreshToken");
+export const handleAdminLogout = (req, res) => {
+    // 1. Destroy the session in the database/memory
+    req.session.destroy((err) => {
+        if (err) {
+            console.error("Logout error:", err);
+            return res.status(500).send("Could not log out.");
+        }
 
-//   res.redirect("/admin");
-// };
+        // 2. Clear the session cookie (default name is 'connect.sid')
+        res.clearCookie("connect.sid");
+
+        // 3. Redirect to the login page
+        res.redirect("/admin/login");
+    });
+};
