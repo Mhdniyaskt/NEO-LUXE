@@ -1,9 +1,9 @@
-import OTP from "../../models/EmailOtp.js";
-import User from "../../models/userModel.js";
+import OTP from "../../models/otp.model.js";
+import User from "../../models/user.model.js";
 import crypto from "crypto";
-import { sendOTP } from "../../utils/sendOtpMail.js";
-import { HTTP_STATUS } from "../../constants/httStatus.js";
-import asyncHandler from "../../utils/asyncHandler.js";
+import { sendOTP } from "../../utils/sendOtp.util.js";
+import { HTTP_STATUS } from "../../constants/http-status.constant.js";
+import asyncHandler from "../../utils/asyncHandler.util.js";
 
 
 export const showVerifyOTP = (req,res)=>{

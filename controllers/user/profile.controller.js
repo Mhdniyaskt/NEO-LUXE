@@ -1,6 +1,6 @@
-import User from "../../models/userModel.js"
-import cloudinary from "../../config/cloudinary.js";
-import asyncHandler from "../../utils/asyncHandler.js";
+import User from "../../models/user.model.js"
+import cloudinary from "../../config/cloudinary.config.js";
+import asyncHandler from "../../utils/asyncHandler.util.js";
 
 export const showProfile = (req, res) => {
     const user = res.locals.user;

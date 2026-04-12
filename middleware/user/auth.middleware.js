@@ -1,3 +1,5 @@
+import userModel from "../../models/user.model.js";
+
 export const checkUser = (req, res, next) => {
     // 1. Check if the session exists and has a user
     if (req.session && req.session.user) {
@@ -42,39 +44,45 @@ export const requireAuth = (req,res,next)=>{
 }
 
 
-export const silentRefresh = async (req, res, next) => {
-  const accessToken = req.cookies?.accessToken;
-  const refreshToken = req.cookies?.refreshToken;
+export const checkUserStatus = async (req, res, next) => {
+  if (!req.session.user) return next();
 
-  // move to next if accessToken exist
-  if (accessToken) return next();
-  // move to next if no refreshToken
-  if (!refreshToken) return next();
+  // IMPORTANT: Skip this check if the logged-in person is an admin
+  // This prevents admins from accidentally blocking themselves out of the panel
+  if (req.session.user.role === 'admin') return next();
 
   try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
-
-    const user = await User.findById(decoded.userId);
+    const user = await userModel.findById(req.session.user.id);
 
     if (!user || user.isBlocked) {
-      res.clearCookie("accessToken");
-      res.clearCookie("refreshToken");
-      return next();
+      // 1. Specifically delete only the user object from the session
+      delete req.session.user;
+
+      // 2. Save the session to commit the deletion to your store (MongoDB/Memory)
+      return req.session.save((err) => {
+        if (err) console.error("Session Save Error:", err);
+
+        const isApiRequest = req.xhr || (req.headers.accept && req.headers.accept.includes('json'));
+
+        if (isApiRequest) {
+          return res.status(403).json({ 
+            success: false, 
+            message: "Account blocked." 
+          });
+        }
+
+        // Redirect to login now that req.session.user is gone
+              return res.redirect("/admin/customers?error=blocked");
+
+      });
     }
-
-    const newAccessToken = generateAccessToken(user);
-
-    res.cookie("accessToken", newAccessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 15 * 60 * 1000,
-    });
-
-    //Attach user immediately
-    req.user = { userId: user._id, role: user.role };
+     
+        
+     
+    
+    next();
   } catch (error) {
-    res.clearCookie("accessToken");
-    res.clearCookie("refreshToken");
+    console.error("Auth Middleware Error:", error);
+    next();
   }
-  next();
 };

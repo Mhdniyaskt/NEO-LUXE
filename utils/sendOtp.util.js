@@ -1,8 +1,8 @@
 import crypto from "crypto";
 import nodemailer from "nodemailer";
-import OTP from "../models/EmailOtp.js";
-import AppError from "./appError.js";
-import { HTTP_STATUS } from "../constants/httStatus.js";
+import OTP from "../models/otp.model.js";
+import AppError from "./appError.util.js";
+import { HTTP_STATUS } from "../constants/http-status.constant.js";
 
 const emailTemplates = {
   SIGNUP: {

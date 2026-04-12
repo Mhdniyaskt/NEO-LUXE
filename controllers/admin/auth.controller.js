@@ -1,10 +1,11 @@
 import bcrypt from "bcrypt";
-import User from "../../models/userModel.js";
+import User from "../../models/user.model.js";
 
-// admin login
+
+
 
 export const getAdminLogin = (req, res) => {
-    // Prevent browser from caching this page
+  
     res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
     res.header('Expires', '-1');
     res.header('Pragma', 'no-cache');
@@ -66,7 +67,7 @@ export const handleAdminLogin = async (req, res) => {
 
 
 export const handleAdminLogout = (req, res) => {
-    // 1. Destroy the session in the database/memory
+   
     req.session.destroy((err) => {
         if (err) {
             console.error("Logout error:", err);

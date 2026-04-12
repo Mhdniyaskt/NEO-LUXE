@@ -1,12 +1,13 @@
-import User from "../../models/userModel.js";
+import User from "../../models/user.model.js";
 import bcrypt from "bcrypt";
-import asyncHandler from "../../utils/asyncHandler.js";
-import { sendOTP } from "../../utils/sendOtpMail.js";
+import asyncHandler from "../../utils/asyncHandler.util.js";
+import { sendOTP } from "../../utils/sendOtp.util.js";
 
 
 export const loadHome = async (req, res) => {
   try {
-    res.render("user/home", { layout: "layouts/user" });
+    const user = res.locals.user;
+    res.render("user/home", { layout: "layouts/user",user:user });
   } catch (error) {
     res.status(500).send("Server Error");
   }
@@ -136,7 +137,12 @@ console.log(req.body)
 
 export const loadLogin = async (req, res) => {
   try {
-    res.render("user/login", { layout: "layouts/user" });
+    const { error } = req.query;
+  let message = null;
+
+  if (error === 'blocked') message = "Your account is blocked. Please contact support.";
+  if (error === 'admin_denied') message = "Admin accounts cannot login here.";
+    res.render("user/login", { layout: "layouts/user",message });
   } catch (error) {
     res.status(500).send("server Error");
   }

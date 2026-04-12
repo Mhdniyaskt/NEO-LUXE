@@ -1,5 +1,0 @@
-
--Profile page user details not fetching properly
--Edit email, change password in profile
--User blocking not proper for google account logins
--Session should be handled prorperly, in user side going back to otp page after sign up

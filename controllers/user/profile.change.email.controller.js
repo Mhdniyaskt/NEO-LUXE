@@ -1,8 +1,8 @@
-import User from "../../models/userModel.js";
+import User from "../../models/user.model.js";
 import crypto from "crypto";
-import OTP from "../../models/EmailOtp.js";
-import asyncHandler from "../../utils/asyncHandler.js";
-import { sendOTP } from "../../utils/sendOtpMail.js";
+import OTP from "../../models/otp.model.js";
+import asyncHandler from "../../utils/asyncHandler.util.js";
+import { sendOTP } from "../../utils/sendOtp.util.js";
 
 // 1. Show Change Email Page
 export const showChangeEmail = asyncHandler(async (req, res) => {

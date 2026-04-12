@@ -1,6 +1,6 @@
-import User from "../../models/userModel.js";
-import asyncHandler from "../../utils/asyncHandler.js";
-import { sendOTP } from "../../utils/sendOtpMail.js";
+import User from "../../models/user.model.js";
+import asyncHandler from "../../utils/asyncHandler.util.js";
+import { sendOTP } from "../../utils/sendOtp.util.js";
 import bcrypt from 'bcrypt';
 
 

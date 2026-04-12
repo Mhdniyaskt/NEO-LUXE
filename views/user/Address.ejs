@@ -163,7 +163,9 @@
             }
         }
 
-        function editAddress(addr) {
+        function editAddress(Addr) {
+            const addr =JSON.parse(decodeURIComponent(Addr)) 
+            
             const form = document.getElementById('addressForm');
             form.querySelector('[name="fullName"]').value = addr.fullName;
             form.querySelector('[name="phone"]').value = addr.phone;

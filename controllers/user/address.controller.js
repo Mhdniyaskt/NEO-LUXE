@@ -1,6 +1,6 @@
 import Address from "../../models/address.model.js";
-import User from "../../models/userModel.js";
-import asyncHandler from "../../utils/asyncHandler.js";
+import User from "../../models/user.model.js";
+import asyncHandler from "../../utils/asyncHandler.util.js";
 
 // Show address Page (Stays the same for initial load)
 export const showAddressManagement = asyncHandler(async (req, res) => {

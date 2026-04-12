@@ -49,7 +49,7 @@
                 <form id="login-form" class="space-y-5">
                     <div>
                         <label class="block text-[10px] uppercase font-bold text-gray-500 mb-2">Email Address</label>
-                        <input name="email" type="email"  class="w-full bg-brand-input border border-gray-800 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                        <input name="email" type="email" required class="w-full bg-brand-input border border-gray-800 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
                     </div>
                     <div>
                         <div class="flex justify-between mb-2">
@@ -57,7 +57,7 @@
                             <a href="/forgot-password" class="text-[10px] text-brand-accent font-bold hover:text-brand-cyan transition">Forgot?</a>
                         </div>
                         <div class="relative">
-                            <input id="password-field" name="password" type="password" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
+                            <input id="password-field" name="password" type="password" required class="w-full bg-brand-input border border-gray-800 rounded-xl py-3 px-4 text-sm focus:outline-none focus:border-brand-accent transition">
                             <i id="toggle-password" class="fa-regular fa-eye absolute right-4 top-3.5 text-gray-600 cursor-pointer hover:text-white transition"></i>
                         </div>
                     </div>
@@ -74,14 +74,9 @@
                 </div>
 
                 <div class="mt-6 grid grid-cols-1 gap-4">
-                     <button class="flex items-center justify-center gap-2 py-3 rounded-full border border-gray-800 bg-brand-input text-[10px] font-bold hover:bg-white/5 transition">
-                         <a href="/auth/google">
-                       <i class="fa-brands fa-google"></i> Google
+                     <a href="/auth/google" class="flex items-center justify-center gap-2 py-3 rounded-full border border-gray-800 bg-brand-input text-[10px] font-bold hover:bg-white/5 transition">
+                        <i class="fa-brands fa-google"></i> Google
                     </a>
-                    </button>
-                   
-                    
-                   
                 </div>
 
                 <p class="mt-8 text-center text-xs text-gray-500">
@@ -119,7 +114,15 @@
     </main>
 
     <script>
-        // Password Visibility Toggle
+        // 1. HANDLE SERVER-SIDE REDIRECT ERRORS (e.g., Blocked User)
+        // Using EJS syntax to check if 'message' was passed from the controller
+        const serverMessage = "<%= typeof message !== 'undefined' ? message : '' %>";
+        
+        if (serverMessage && serverMessage !== "null" && serverMessage !== "") {
+            showError(serverMessage);
+        }
+
+        // 2. PASSWORD VISIBILITY TOGGLE
         const togglePassword = document.getElementById('toggle-password');
         const passwordField = document.getElementById('password-field');
 
@@ -130,19 +133,17 @@
             this.classList.toggle('fa-eye-slash');
         });
 
-        // Form Submission Logic
+        // 3. AJAX FORM SUBMISSION
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const form = e.target;
-            const errorContainer = document.getElementById('error-container');
-            const errorText = document.getElementById('error-text');
             const submitBtn = document.getElementById('submit-btn');
             const btnText = document.getElementById('btn-text');
             const btnIcon = document.getElementById('btn-icon');
 
             // Reset UI
-            errorContainer.classList.add('hidden');
+            hideError();
             submitBtn.disabled = true;
             btnText.innerText = 'Authenticating...';
             btnIcon.className = 'fa-solid fa-spinner fa-spin text-[10px]';
@@ -159,27 +160,29 @@
 
                 const result = await response.json();
 
-               if (result.success) {
-    if (result.redirect) {
-        window.location.href = result.redirect;
-    } else {
-        window.location.href = "/";
-    }
-} else {
-    showError(result.message || "Invalid credentials. Please try again.");
-    resetBtn();
-}
+                if (result.success) {
+                    window.location.href = result.redirect || "/";
+                } else {
+                    showError(result.message || "Invalid credentials. Please try again.");
+                    resetBtn();
+                }
             } catch (error) {
                 showError("Connection lost. Please check your network.");
                 resetBtn();
             }
         });
 
+        // HELPER FUNCTIONS
         function showError(msg) {
             const errorContainer = document.getElementById('error-container');
             const errorText = document.getElementById('error-text');
             errorText.innerText = msg;
             errorContainer.classList.remove('hidden');
+        }
+
+        function hideError() {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.classList.add('hidden');
         }
 
         function resetBtn() {
