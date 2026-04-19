@@ -9,7 +9,7 @@ export const showProfile = (req, res) => {
         return res.redirect("/login");
     }
     
-    return res.render("user/myProfile", { 
+    return res.render("user/profile-page", { 
         layout: "layouts/user",
         user: user,
         path: '/profile' // <--- Add this line!

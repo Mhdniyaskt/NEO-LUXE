@@ -11,7 +11,7 @@ export const showChangePassword = asyncHandler(async (req, res) => {
        
         return res.redirect("/profile");
     }
-    return res.render("user/changePass",{ layout: "layouts/user" });
+    return res.render("user/change-Password",{ layout: "layouts/user" });
 });
 
 
@@ -67,16 +67,34 @@ export const handleChangePassword = asyncHandler(async (req, res) => {
 });
 // Authenticated Forgot Password (AJAX)
 export const handleAuthForgotPassword = asyncHandler(async (req, res) => {
-    const user = await User.findById(req.user.userId);
-
-    if (!user || !user.isVerified || user.isBlocked || !user.password) {
-        return res.status(403).json({ success: false, message: "Unable to process password reset" });
+    // Use the ID from the session where you stored it during login
+    const userId = req.session?.user?.id;
+  
+    if (!userId) {
+        return res.status(401).json({ success: false, message: "Session expired" });
     }
 
+    const user = await User.findById(userId);
+
+    // Check against your ACTUAL model fields (isEmailVerified vs isVerified)
+    if (!user || user.isBlocked || !user.password) {
+        return res.status(403).json({ 
+            success: false, 
+            message: "This account cannot reset password via OTP." 
+        });
+    }
+
+    // Send the OTP
     await sendOTP(user.email, "FORGOT_PASSWORD");
 
+    // Important: Set these session variables so the verify-otp page works
     req.session.email = user.email;
     req.session.otpPurpose = "FORGOT_PASSWORD";
 
-    return res.status(200).json({ success: true, message: "An OTP has been sent to your registered email" });
+    // Return success AND the redirect path for the frontend
+    return res.status(200).json({ 
+        success: true, 
+        message: "An OTP has been sent to your registered email",
+        redirect: "/verify-otp" // The frontend needs this!
+    });
 });

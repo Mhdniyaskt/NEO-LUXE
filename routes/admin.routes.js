@@ -1,6 +1,6 @@
 import express from "express";
 
-
+import { noCache } from "../middleware/user/nocache.middleware.js";
 import * as adminAuthController from "../controllers/admin/auth.controller.js";
 import * as dashboardController from "../controllers/admin/dasboard.controller.js";
 import * as customersController from "../controllers/admin/customers.controller.js";
@@ -13,7 +13,7 @@ const router = express.Router();
 
 router
   .route("/login")
-  .get(isLogout, adminAuthController.getAdminLogin)
+  .get(noCache,isLogout, adminAuthController.getAdminLogin)
   .post(isLogout, adminAuthController.handleAdminLogin);
 
 router.post(
@@ -25,7 +25,7 @@ router.post(
 
 router.get(
   "/dashboard",
-  isAdmin,
+  noCache,isAdmin,
   dashboardController.showAdminDashboard
 );
 
@@ -33,7 +33,7 @@ router.get(
 
 router
   .route("/customers")
-  .get(isAdmin, customersController.showCustomers);
+  .get(noCache,isAdmin, customersController.showCustomers);
 
 router
   .route("/customers/:id/status")

@@ -1,69 +1,73 @@
-import Address from "../../models/address.model.js";
-import User from "../../models/user.model.js";
 import asyncHandler from "../../utils/asyncHandler.util.js";
+import {
+  getUserAddressesService,
+  addAddressService,
+  updateAddressService,
+  deleteAddressService
+} from "../../services/address.service.js";
 
-// Show address Page (Stays the same for initial load)
+
+
 export const showAddressManagement = asyncHandler(async (req, res) => {
-    const userId = req.session.user.id;
-    const page = parseInt(req.query.page) || 1;
-    const limit = 4;
-    const skip = (page - 1) * limit;
+  const userId = req.session.user.id;
+  const page = parseInt(req.query.page) || 1;
+  const limit = 4;
 
-    const addresses = await Address.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit);
-    const totalAddress = await Address.countDocuments({ userId });
-    const totalPages = Math.ceil(totalAddress / limit);
+  const result = await getUserAddressesService(userId, page, limit);
 
-    res.render("user/address", { layout: "layouts/user", addresses, currentPage: page, totalPages,path: '/profile/address' });
+  if (!result.success) {
+    return res.status(500).send(result.message);
+  }
+
+  res.render("user/address", {
+    layout: "layouts/user",
+    addresses: result.addresses,
+    currentPage: page,
+    totalPages: result.totalPages,
+    path: "/profile/address"
+  });
 });
 
-// Add Address (AJAX Version)
+
+
 export const addAddress = asyncHandler(async (req, res) => {
-    const { fullName, phone, pincode, streetAddress, city, state, addressType } = req.body;
-    const userId = req.session.user.id;
+  const userId = req.session.user.id;
 
-    if (!fullName || !phone || !streetAddress || !city || !state || !pincode) {
-        return res.status(400).json({ success: false, message: "All required fields must be filled" });
-    }
+  const result = await addAddressService(userId, req.body);
 
-    const hasAddress = await Address.exists({ userId });
-    const address = await Address.create({
-        userId, fullName, phone, streetAddress, city, state, pincode,
-        addressType: addressType || "Home",
-        isDefault: !hasAddress
-    });
+  if (!result.success) {
+    return res.status(400).json(result);
+  }
 
-    await User.findByIdAndUpdate(userId, { $push: { addresses: address._id } });
-    res.status(200).json({ success: true, message: "Address added successfully" });
+  res.status(200).json(result);
 });
 
-// Update Address (AJAX Version)
+
+
 export const updateAddress = asyncHandler(async (req, res) => {
-    const userId = req.session.user.id;
-    const { addressId } = req.params;
-    const { fullName, phone, pincode, streetAddress, city, state, addressType } = req.body;
+  const userId = req.session.user.id;
+  const { addressId } = req.params;
 
-    const updated = await Address.findOneAndUpdate(
-        { _id: addressId, userId: userId },
-        { fullName, phone, pincode, streetAddress, city, state, addressType },
-        { new: true }
-    );
+  const result = await updateAddressService(userId, addressId, req.body);
 
-    if (!updated) {
-        return res.status(404).json({ success: false, message: "Address update failed" });
-    }
-    res.status(200).json({ success: true, message: "Address updated successfully" });
+  if (!result.success) {
+    return res.status(404).json(result);
+  }
+
+  res.status(200).json(result);
 });
+
+
 
 export const deleteAddress = asyncHandler(async (req, res) => {
-    const { addressId } = req.params;
-    const userId = req.session.user.id;
+  const userId = req.session.user.id;
+  const { addressId } = req.params;
 
-    const deletedAddress = await Address.findOneAndDelete({ _id: addressId, userId });
+  const result = await deleteAddressService(userId, addressId);
 
-    if (!deletedAddress) {
-        return res.status(404).json({ success: false, message: "Could not delete address" });
-    }
+  if (!result.success) {
+    return res.status(404).json(result);
+  }
 
-    await User.findByIdAndUpdate(userId, { $pull: { addresses: addressId } });
-    res.status(200).json({ success: true, message: "Address deleted successfully" });
+  res.status(200).json(result);
 });

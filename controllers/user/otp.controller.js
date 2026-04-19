@@ -8,7 +8,7 @@ import asyncHandler from "../../utils/asyncHandler.util.js";
 
 export const showVerifyOTP = (req,res)=>{
 
-     return res.render("user/verifyEmail",{layout: "layouts/user",
+     return res.render("user/otp-verify-page",{layout: "layouts/user",
         actionUrl: "/verify-otp",
         resendUrl: "/resend-otp",
     });
@@ -86,37 +86,41 @@ export const verifyOTP = asyncHandler(async (req, res) => {
     }
 });
 
-export const resendOTP = async (req,res)=>{
-    try{
+export const resendOTP = async (req, res) => {
+    try {
+        const email = req.session?.email;
+        const purpose = req.session?.otpPurpose;
 
-        const email = req.session?req.session.email:null;
-        const purpose = req.session.otpPurpose;
-
-        console.log(email,purpose);
-        
-
-        if(!email || !purpose){
-            return res.status(400).json({message:"Session expired.Please signup again."});
+        // 1. Validation
+        if (!email || !purpose) {
+            return res.status(400).json({
+                success: false, 
+                message: "Session expired. Please restart the process." 
+            });
         }
 
-        await sendOTP(email,purpose);
+        // 2. Execute Send
+        await sendOTP(email, purpose);
 
-        let message;
-       
-        if(purpose === "SIGNUP"){
-            message = "New OTP Sent to your email. Verify to Continue.";
-        }else if(purpose === "FORGOT_PASSWORD"){
-            message = "If an account exists with this email,You will receive an OTP shortly";
-        }else{
-            message = "If an account exists with this email,You will receive an OTP shortly";
+        // 3. Dynamic Success Messages
+        let displayMessage = "New OTP Sent to your email.";
+        if (purpose === "FORGOT_PASSWORD") {
+            displayMessage = "If an account exists, a new OTP has been sent.";
         }
 
+        return res.status(200).json({
+            success: true,
+            message: displayMessage
+        });
 
-        return res.status(200).json({message});
+    } catch (error) {
+        console.error("Resend OTP Error:", error);
 
-    }catch(error){
-
-        return res.status(500).json({message:"Failed to resend OTP"});
-
+        // 4. Return the ACTUAL error message (e.g., "Please wait before requesting another OTP")
+        // instead of a generic "Failed to resend"
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || "Failed to resend OTP. Please try again."
+        });
     }
 };

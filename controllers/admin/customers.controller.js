@@ -71,4 +71,4 @@ export const toggleCustomerStatus = async (req, res) => {
     console.error("Toggle status error:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
-};
+};   

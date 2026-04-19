@@ -27,7 +27,7 @@
   <body class="bg-[#05080d] text-white min-h-screen flex flex-col">
     <main class="max-w-7xl mx-auto w-full px-6 py-8 flex-grow">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <%- include('../partials/profileSidebar') %>
+        <%- include('../partials/profile-sidebar') %>
 
         <div class="lg:col-span-9 space-y-8">
           <div
@@ -229,7 +229,7 @@
         setLoading(true);
 
         try {
-            const response = await fetch("/profile/upload-photo", { 
+            const response = await fetch("/profile/photo", { 
                 method: "POST", 
                 body: formData 
             });
@@ -261,7 +261,7 @@
         setLoading(true);
 
         try {
-            const response = await fetch("/profile/remove-photo", { method: "DELETE" });
+            const response = await fetch("/profile/photo", { method: "DELETE" });
             const result = await response.json();
 
             if (result.success) {

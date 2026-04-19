@@ -1,311 +1,116 @@
-import User from "../../models/user.model.js";
-import bcrypt from "bcrypt";
 import asyncHandler from "../../utils/asyncHandler.util.js";
-import { sendOTP } from "../../utils/sendOtp.util.js";
+import {
+  homeService,
+  signupService,
+  loginService,
+  forgotPasswordService,
+  resetPasswordService
+} from "../../services/auth.service.js";
 
-
+// HOME
 export const loadHome = async (req, res) => {
-  try {
-    const user = res.locals.user;
-    res.render("user/home", { layout: "layouts/user",user:user });
-  } catch (error) {
-    res.status(500).send("Server Error");
-  }
+  const result = await homeService(res.locals.user);
+  res.render("user/home-page", { layout: "layouts/user", user: result.user });
 };
 
-export const loadSignup = async (req, res) => {
-  try {
-    res.render("user/signup", { layout: "layouts/user" });
-  } catch (error) {
-    res.status(500).send("server Error");
-  }
+// SIGNUP PAGE
+export const loadSignup = (req, res) => {
+  res.render("user/signup-page", { layout: "layouts/user" });
 };
 
+// SIGNUP
 export const handleSignup = asyncHandler(async (req, res) => {
-  let { name, email, phoneNumber, password } = req.body;
+  const result = await signupService(req.body);
 
-console.log(req.body)
-  name = name?.trim();
-  email = email?.trim().toLowerCase();
-  phoneNumber = phoneNumber?.trim();
-  password = password?.trim();
-  
+  if (!result.success) return res.json(result);
 
- 
-  if (!name && !email && !phoneNumber && !password ) {
-    return res.json({
-      message: "All fields are required",
-    });
-  }
+  req.session.email = result.email;
+  req.session.otpPurpose = result.otpPurpose;
 
-  if (!/^[A-Za-z ]+$/.test(name)) {
-    return res.json({
-      success: false,
-      message: "Name can only contain letters",
-    });
-  }
-
-  if (name.length < 3 || name.length > 30) {
-    return res.json({
-      success: false,
-      message: "Name must be between 3 and 30 characters",
-    });
-  }
-
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-  if (!emailRegex.test(email)) {
-    return res.json({
-      success: false,
-      message: "Please enter a valid email address",
-    });
-  }
-
- 
-  const phoneRegex = /^[6-9]\d{9}$/;
-
-  if (!phoneRegex.test(phoneNumber)) {
-    return res.json({
-      success: false,
-      message: "Please enter a valid phone number",
-    });
-  }
-
-  if (password.length < 8) {
-    return res.json({
-      success: false,
-      message: "Password must be at least 8 characters long",
-    });
-  }
-
- 
-  const passwordRegex =
-    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
-
-  if (!passwordRegex.test(password)) {
-    return res.json({
-      success: false,
-      message:
-        "Password must include uppercase, lowercase, number and special character",
-    });
-  }
-
-
-  const existingUser = await User.findOne({ email });
-
-  if (existingUser?.googleId && !existingUser.password) {
-    return res.json({
-      success: false,
-      message: "Email already registered with Google login",
-    });
-  }
-
-  if (existingUser?.isVerified) {
-    return res.json({
-      success: false,
-      message: "Email already registered",
-    });
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-
-  await User.findOneAndUpdate(
-    { email },
-    {
-      name,
-      email,
-      phone:phoneNumber,
-      password: hashedPassword,
-      isVerified: false,
-    },
-    { upsert: true, new: true }
-  );
-
-  req.session.email=email
-  await sendOTP(email, "SIGNUP");
-
-  
-   req.session.otpPurpose = "SIGNUP";
- 
-
-  return res.json({
-    success: true,
-    redirect: "/verify-otp",
-  });
+  return res.json({ success: true, redirect: "/verify-otp" });
 });
 
-export const loadLogin = async (req, res) => {
-  try {
-    const { error } = req.query;
+// LOGIN PAGE
+export const loadLogin = (req, res) => {
+  const { error } = req.query;
   let message = null;
 
-  if (error === 'blocked') message = "Your account is blocked. Please contact support.";
-  if (error === 'admin_denied') message = "Admin accounts cannot login here.";
-    res.render("user/login", { layout: "layouts/user",message });
-  } catch (error) {
-    res.status(500).send("server Error");
-  }
+  if (error === "blocked") message = "Your account is blocked.";
+  if (error === "admin_denied") message = "Admin cannot login here.";
+
+  res.render("user/login-page", { layout: "layouts/user", message });
 };
 
+// LOGIN
 export const handleLogin = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
+  const result = await loginService(req.body.email, req.body.password);
 
- 
-  if (!email || !password) {
-    return res.json({
-      success: false,
-      message: "Email and Password are required",
-    });
+  if (!result.success) return res.json(result);
+
+  req.session.user = result.user;
+
+  return res.json({ success: true, redirect: "/" });
+});
+
+// LOGOUT
+export const logout = (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie("connect.sid");
+    res.redirect("/login");
+  });
+};
+
+// FORGOT PAGE
+export const showForgotPassword = (req, res) => {
+  delete req.session.email;
+  delete req.session.otpPurpose;
+  delete req.session.allowPasswordReset;
+
+  res.render("user/forgot-password", { layout: "layouts/user" });
+};
+
+// FORGOT HANDLE
+export const handleForgotPassword = asyncHandler(async (req, res) => {
+  const email = req.body.email || req.session.user?.email;
+
+  const result = await forgotPasswordService(email);
+
+  if (!result.success) return res.json(result);
+
+  req.session.email = result.email;
+  req.session.otpPurpose = result.otpPurpose;
+
+  return res.json({ success: true, redirect: "/verify-otp" });
+});
+
+// RESET PAGE
+export const showResetPassword = (req, res) => {
+  if (!req.session.allowPasswordReset || !req.session.email) {
+    return res.redirect("/forgot-password");
   }
+  res.render("user/reset-password", { layout: "layouts/user" });
+};
 
-  const normalizedEmail = email.trim().toLowerCase();
+// RESET HANDLE
+export const handleResetPassword = asyncHandler(async (req, res) => {
+  const email = req.session.email;
 
-  
-  const user = await User.findOne({ email: normalizedEmail });
+  const result = await resetPasswordService(
+    email,
+    req.body.password,
+    req.body.confirmPassword
+  );
 
-  if (!user) {
-    return res.json({
-      success: false,
-      message: "Incorrect Email or Password",
-    });
-  }
+  if (!result.success) return res.json(result);
 
- 
-  if (!user.isEmailVerified) {
-    return res.json({
-      success: false,
-      message: "Please verify your email first",
-    });
-  }
+  const isLoggedIn = !!req.session.user;
 
-  
-  if (user.isBlocked) {
-    return res.json({
-      success: false,
-      message: "Your account is blocked",
-    });
-  }
-
-
-  if (user.role === "admin") {
-    return res.json({
-      success: false,
-      message: "Admins cannot login from user login",
-    });
-  }
-
- 
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-
-  if (!isPasswordValid) {
-    return res.json({
-      success: false,
-      message: "Incorrect Email or Password",
-    });
-  }
-// Example inside your Login/Auth controller
-
-  req.session.user = {
-    id: user._id,
-    name:user.name,
-    phone:user.phone,
-    email: user.email,
-    role: user.role,
-    profilePhoto: user.profilePhoto
-  };
+  delete req.session.allowPasswordReset;
+  delete req.session.email;
+  delete req.session.otpPurpose;
 
   return res.json({
     success: true,
-    redirect: "/",
+    redirect: isLoggedIn ? "/profile" : "/login"
   });
-});
-
-export const logout = (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error("Logout Error:", err);
-      return res.redirect("/");
-    }
-
-    res.clearCookie("connect.sid"); 
-    return res.redirect("/login");
-  });
-};
-
-
-// 1. Show Forgot Password Page (Login Side)
-export const showForgotPassword = (req, res) => {
-    delete req.session.email;
-    delete req.session.otpPurpose;
-    delete req.session.allowPasswordReset;
-    res.render("user/forgotPass", { layout: "layouts/user" });
-};
-
-// 2. Handle Request (Works for both Login & Profile)
-export const handleForgotPassword = asyncHandler(async (req, res) => {
-    let { email } = req.body;
-    email = email?.trim().toLowerCase();
-
-    // If no email provided, check if user is logged in (Profile Side)
-    if (!email && req.session.user) {
-        email = req.session.user.email;
-    }
-
-    if (!email) return res.json({ success: false, message: "Email is required" });
-
-    const user = await User.findOne({ email });
-    if (!user || !user.isEmailVerified || user.isBlocked) {
-        return res.json({ success: false, message: "Invalid email address" });
-    }
-
-    await sendOTP(email, "FORGOT_PASSWORD");
-
-    // Unified Session Keys
-    req.session.email = email; 
-    req.session.otpPurpose = "FORGOT_PASSWORD";
-
-    return res.json({ success: true, redirect: "/verify-otp" });
-});
-
-// 3. Show Reset Password Page
-export const showResetPassword = (req, res) => {
-    if (!req.session.allowPasswordReset || !req.session.email) {
-        return res.redirect("/forgot-password");
-    }
-    res.render("user/resetPass", { layout: "layouts/user" });
-};
-
-// 4. Handle Final Password Update
-export const handleResetPassword = asyncHandler(async (req, res) => {
-    let { password, confirmPassword } = req.body;
-    const email = req.session.email;
-
-    if (!req.session.allowPasswordReset || !email) {
-        return res.json({ success: false, redirect: "/forgot-password" });
-    }
-
-    // Validation (Length, Match, Regex)
-    if (password !== confirmPassword) return res.json({ success: false, message: "Passwords do not match" });
-    
-    const user = await User.findOne({ email });
-    const isSame = await bcrypt.compare(password, user.password);
-    if (isSame) return res.json({ success: false, message: "New password cannot be old password" });
-
-    user.password = await bcrypt.hash(password, 10);
-    await user.save();
-
-    // Determine redirect based on if user was already logged in
-    const isLoggedIn = !!req.session.user;
-
-    // Cleanup
-    delete req.session.allowPasswordReset;
-    delete req.session.email;
-    delete req.session.otpPurpose;
-
-    return res.json({
-        success: true,
-        message: "Password updated!",
-        redirect: isLoggedIn ? "/profile" : "/login" 
-    });
 });

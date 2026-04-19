@@ -25,7 +25,7 @@
     <main class="max-w-7xl mx-auto w-full px-6 py-8 flex-grow">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
-                    <%- include('../partials/profileSidebar') %>
+                    <%- include('../partials/profile-sidebar') %>
 
 
             <div class="lg:col-span-9 space-y-8">
@@ -141,84 +141,105 @@
     </div>
 
     <script>
-        // Modal and AJAX logic remains identical to your working version
-        function toggleModal(mode) {
-            const modal = document.getElementById('addressModal');
-            const title = document.getElementById('modalTitle');
-            const saveBtn = document.getElementById('saveBtn');
-            const form = document.getElementById('addressForm');
+    // --- 1. MODAL TOGGLE LOGIC ---
+    function toggleModal(mode) {
+        const modal = document.getElementById('addressModal');
+        const title = document.getElementById('modalTitle');
+        const saveBtn = document.getElementById('saveBtn');
+        const form = document.getElementById('addressForm');
 
-            if (mode === 'add') {
-                title.innerText = "Add New Address";
-                saveBtn.innerText = "Save Address";
-                form.reset();
-                form.action = "/addresses/add";
-                modal.classList.add('modal-active');
-            } else if (mode === 'edit') {
-                title.innerText = "Edit Address";
-                saveBtn.innerText = "Save Changes";
-                modal.classList.add('modal-active');
-            } else {
-                modal.classList.remove('modal-active');
-            }
+        if (mode === 'add') {
+            title.innerText = "Add New Address";
+            saveBtn.innerText = "Save Address";
+            form.reset();
+            form.action = "/addresses"; // Correct Add Route
+            modal.classList.add('modal-active');
+        } else if (mode === 'edit') {
+            title.innerText = "Edit Address";
+            saveBtn.innerText = "Save Changes";
+            modal.classList.add('modal-active');
+        } else {
+            modal.classList.remove('modal-active');
         }
+    }
 
-        function editAddress(Addr) {
-            const addr =JSON.parse(decodeURIComponent(Addr)) 
-            
-            const form = document.getElementById('addressForm');
-            form.querySelector('[name="fullName"]').value = addr.fullName;
-            form.querySelector('[name="phone"]').value = addr.phone;
-            form.querySelector('[name="streetAddress"]').value = addr.streetAddress;
-            form.querySelector('[name="city"]').value = addr.city;
-            form.querySelector('[name="state"]').value = addr.state;
-            form.querySelector('[name="pincode"]').value = addr.pincode;
+    // --- 2. POPULATE EDIT MODAL ---
+    function editAddress(Addr) {
+        const addr = JSON.parse(decodeURIComponent(Addr));
+        const form = document.getElementById('addressForm');
 
-            const radios = form.querySelectorAll('[name="addressType"]');
-            radios.forEach(r => { if(r.value === addr.addressType) r.checked = true; });
+        form.querySelector('[name="fullName"]').value = addr.fullName;
+        form.querySelector('[name="phone"]').value = addr.phone;
+        form.querySelector('[name="streetAddress"]').value = addr.streetAddress;
+        form.querySelector('[name="city"]').value = addr.city;
+        form.querySelector('[name="state"]').value = addr.state;
+        form.querySelector('[name="pincode"]').value = addr.pincode;
 
-            form.action = `/addresses/edit/${addr._id}`;
-            toggleModal('edit');
-        }
+        const radios = form.querySelectorAll('[name="addressType"]');
+        radios.forEach(r => { if (r.value === addr.addressType) r.checked = true; });
 
-        document.getElementById('addressForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-            const data = Object.fromEntries(formData.entries());
+        form.action = `/addresses/${addr._id}`; // Correct Update Route
+        toggleModal('edit');
+    }
 
-            try {
-                const response = await fetch(this.action, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
+    // --- 3. FORM SUBMIT LOGIC (CRITICAL: WAS MISSING) ---
+    document.getElementById('addressForm').addEventListener('submit', async function(e) {
+        e.preventDefault(); // Stop page reload
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+            const response = await fetch(this.action, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.success) {
+                await Swal.fire({ 
+                    icon: 'success', 
+                    title: 'Success!', 
+                    text: result.message, 
+                    background: '#0a0f18', 
+                    color: '#fff', 
+                    confirmButtonColor: '#00a3ff' 
                 });
-                const result = await response.json();
-                if (result.success) {
-                    await Swal.fire({ icon: 'success', title: 'Success!', text: result.message, background: '#0a0f18', color: '#fff', confirmButtonColor: '#00a3ff' });
-                    window.location.reload();
-                }
-            } catch (err) {
-                console.error(err);
+                window.location.reload();
+            } else {
+                Swal.fire({ icon: 'error', title: 'Oops...', text: result.message });
             }
+        } catch (err) {
+            console.error("Submit Error:", err);
+        }
+    });
+
+    // --- 4. DELETE LOGIC ---
+    async function deleteAddress(id) {
+        const result = await Swal.fire({
+            title: 'Are you sure?',
+            text: "This address will be removed!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#3085d6',
+            background: '#0a0f18',
+            color: '#fff'
         });
 
-        async function deleteAddress(id) {
-            const result = await Swal.fire({
-                title: 'Are you sure?',
-                text: "This address will be removed!",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                background: '#0a0f18',
-                color: '#fff'
-            });
-
-            if (result.isConfirmed) {
-                const response = await fetch(`/addresses/delete/${id}`, { method: 'DELETE' });
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch(`/addresses/${id}`, { method: 'DELETE' });
                 const data = await response.json();
-                if (data.success) window.location.reload();
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            } catch (err) {
+                console.error("Delete Error:", err);
             }
         }
-    </script>
+    }
+</script>
 </body>
 </html>

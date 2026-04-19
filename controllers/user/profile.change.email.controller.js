@@ -8,7 +8,7 @@ import { sendOTP } from "../../utils/sendOtp.util.js";
 export const showChangeEmail = asyncHandler(async (req, res) => {
     const user = await User.findById(req.session.user.id);
     if (!user || user.googleId) return res.redirect("/profile");
-    res.render("user/changeEmail", { layout: "layouts/user", user, path: '/profile' });
+    res.render("user/change-email", { layout: "layouts/user", user, path: '/profile' });
 });
 
 // 2. Request Change & Send OTP

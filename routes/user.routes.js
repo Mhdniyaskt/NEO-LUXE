@@ -16,7 +16,7 @@ import {
   requireAuth,
 } from "../middleware/user/auth.middleware.js";
 import { requireOtpSession } from "../middleware/user/otp.middleware.js";
-import { noCache } from "../middleware/user/cache.middleware.js";
+import { noCache } from "../middleware/user/nocache.middleware.js";
 import { upload } from "../middleware/user/upload.middleware.js";
 
 const router = express.Router();
@@ -67,7 +67,7 @@ router
 router.get("/profile", noCache, requireAuth, profileController.showProfile);
 
 router
-  .route("/profile/update")
+  .route("/editprofile")
   .get(requireAuth, profileController.showEditProfile)
   .post(requireAuth, profileController.updateProfile);
 

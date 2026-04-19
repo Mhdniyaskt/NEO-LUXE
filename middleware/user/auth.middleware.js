@@ -25,12 +25,15 @@ export const checkUser = (req, res, next) => {
 
 export const redirectIfAuthenticated = (req, res, next) => {
     if (req.session && req.session.user) {
-        // Logged in users cannot see Login/Signup/Verify-OTP
+        // Only redirect if they are NOT already at home
+        // This prevents infinite loops
+        if (req.path === '/') {
+            return next();
+        }
         return res.redirect("/");
     }
     next();
 };
-
 
 
 

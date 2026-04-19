@@ -195,5 +195,22 @@
             </div>
         </div>
     </section>
+<script>
+    (function() {
+        // 1. Detect if this is a 'Back' or 'Forward' navigation
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+                // If they are logged in (we can check a cookie or just reload)
+                // Reloading will trigger the server-side 'redirectIfAuthenticated'
+                window.location.reload();
+            }
+        });
 
+        // 2. Extra Insurance: If the URL contains Google stuff and we are on Home, 
+        // clean it up immediately.
+        if (window.location.hash === '#_=_' || window.location.search.includes('code=')) {
+            window.history.replaceState(null, null, window.location.pathname);
+        }
+    })();
+</script>
 </body>
