@@ -35,6 +35,7 @@ export const showCustomers = async (req, res) => {
       layout: "layouts/admin",
       path: '/admin/customers',
       customers,
+    
       currentPage: page,
       totalPages,
       search,

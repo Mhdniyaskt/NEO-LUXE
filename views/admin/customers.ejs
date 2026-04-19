@@ -47,37 +47,7 @@
 
     <div class="flex h-screen w-full relative">
         
-        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 sidebar-bg flex flex-col p-6 transform -translate-x-full transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 shrink-0">
-            <div class="flex justify-between items-center mb-10">
-                <div>
-                    <h1 class="text-xl font-bold tracking-widest text-white uppercase">Neo-Luxe</h1>
-                    <p class="text-[10px] text-slate-500 uppercase tracking-tighter">Premium Watch Admin</p>
-                </div>
-                <button onclick="toggleSidebar()" class="lg:hidden text-slate-400">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-
-            <nav class="flex-1 space-y-1 overflow-y-auto">
-                <a href="/admin/dashboard" class="flex items-center space-x-3 p-3 rounded-lg transition text-slate-400 hover:bg-slate-800/50 hover:text-white">
-                    <i class="fas fa-th-large w-5"></i> 
-                    <span class="text-sm font-medium">Dashboard</span>
-                </a>
-                <a href="/admin/customers" class="flex items-center space-x-3 p-3 rounded-lg transition bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500">
-                    <i class="fas fa-users w-5"></i> 
-                    <span class="text-sm font-medium">Customers</span>
-                </a>
-            </nav>
-
-           <div class="mt-auto pt-6 border-t border-slate-800">
-    <form action="/admin/logout" method="POST">
-        <button type="submit" class="w-full flex items-center space-x-3 text-slate-500 hover:text-red-400 transition p-3">
-            <i class="fas fa-sign-out-alt w-5"></i> 
-            <span class="text-sm font-medium">Logout</span>
-        </button>
-    </form>
-</div>
-        </aside>
+       <%- include('../partials/admin-sidebar', { path: 'customers' }) %>
 
         <main class="flex-1 overflow-y-auto p-4 md:p-8">
             <div class="max-w-7xl mx-auto">
@@ -213,24 +183,30 @@
         color: '#fff'
     }).then((result) => {
         if (result.isConfirmed) {
-            // Use fetch instead of window.location.href
-            fetch(`/admin/customers/toggle/${userId}`, {
-                method: 'PATCH', // Matches your router.patch
+            // FIXED: Path changed from /toggle/ to /status/ to match your routes
+            fetch(`/admin/customers/${userId}/status`, {
+                method: 'PATCH', 
                 headers: {
                     'Content-Type': 'application/json'
                 }
             })
             .then(response => {
                 if (response.ok) {
-                    // Refresh the page to see changes
                     window.location.reload();
                 } else {
-                    Swal.fire('Error', 'Something went wrong', 'error');
+                    Swal.fire({
+                        title: 'Error',
+                        text: 'Failed to update status',
+                        icon: 'error',
+                        background: '#0B1120',
+                        color: '#fff'
+                    });
                 }
             })
             .catch(err => console.error(err));
         }
     });
+
 }
     </script>
 </body>

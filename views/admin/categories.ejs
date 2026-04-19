@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo-Luxe | Watch Categories</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #020617; }
+        .sidebar-bg { background-color: #020617; border-right: 1px solid #1e293b; }
+        .card-bg { background-color: #0b1120; border: 1px solid #1e293b; }
+        .custom-glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.3); }
+        
+        #categoryModalOverlay {
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+        }
+
+        textarea#categoryDescription {
+            resize: none;
+            min-height: 120px;
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #020617; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
+    </style>
+</head>
+<body class="text-slate-300 font-sans antialiased overflow-hidden">
+
+<div class="flex h-screen w-full">
+    
+    <%- include('../partials/admin-sidebar', { path: 'categories' }) %>
+
+    <main class="flex-1 flex flex-col min-w-0 bg-[#020617]">
+        
+        <header class="p-8 pb-4 flex-shrink-0">
+            <nav class="flex items-center space-x-2 text-xs text-slate-500 mb-2">
+                <i class="fas fa-home"></i>
+                <span>/</span>
+                <span>Categories</span>
+            </nav>
+            <div class="flex justify-between items-end">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-tight">Watch Categories</h2>
+                    <p class="text-sm text-slate-400">Manage categories by gender and collections.</p>
+                </div>
+            </div>
+        </header>
+
+        <section class="px-8 mb-6 flex-shrink-0">
+            <div class="card-bg p-4 rounded-xl flex flex-wrap items-center justify-between gap-4">
+                <div class="relative w-full md:w-72">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                    <input type="text" id="categorySearchInput" value="<%= typeof search !== 'undefined' ? search : '' %>" placeholder="Search categories..." class="w-full bg-[#1e293b]/40 border border-slate-700 rounded-lg py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-cyan-500/50 transition">
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button id="searchBtn" class="bg-cyan-500 text-slate-900 px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider hover:bg-cyan-400 transition text-nowrap">Search</button>
+                    <button id="clearSearchBtn" class="bg-transparent border border-slate-700 px-5 py-2 rounded-lg text-xs font-semibold hover:bg-slate-800 transition text-nowrap">Clear</button>
+                    <button id="addCategoryBtn" class="bg-cyan-500 text-slate-900 px-5 py-2 rounded-lg font-bold text-xs uppercase tracking-wider flex items-center custom-glow hover:bg-cyan-400 transition text-nowrap">
+                        <i class="fas fa-plus mr-2"></i> Add Category
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="px-8 flex-1 overflow-hidden flex flex-col pb-4">
+            <div class="card-bg rounded-xl flex-1 overflow-hidden flex flex-col">
+                <div class="overflow-x-auto overflow-y-auto custom-scroll flex-1">
+                    <table class="w-full text-left text-sm min-w-[900px]">
+                        <thead class="bg-slate-800/30 border-b border-slate-800 text-[10px] uppercase tracking-[0.15em] text-slate-500 font-bold sticky top-0 z-10 backdrop-blur-md">
+                            <tr>
+                                <th class="px-6 py-4">Category Name</th>
+                                <th class="px-6 py-4">Description</th>
+                                <th class="px-6 py-4 text-center">Offer</th>
+                                <th class="px-6 py-4 text-center">Status</th>
+                                <th class="px-6 py-4 text-center">Visibility</th>
+                                <th class="px-6 py-4 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/50">
+                            <% if (typeof categories !== 'undefined' && categories.length > 0) { %>
+                                <% categories.forEach(category => { %>
+                                <tr class="hover:bg-slate-800/20 transition-colors">
+                                    <td class="px-6 py-5 font-bold text-white"><%= category.name %></td>
+                                    <td class="px-6 py-5 text-slate-400 text-xs max-w-xs truncate"><%= category.description %></td>
+                                    <td class="px-6 py-5 text-center">
+                                        <% if(category.offerValue > 0) { %>
+                                            <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-1 rounded text-[10px] font-bold">
+                                                <%= category.offerValue %><%= category.offerType === 'percentage' ? '%' : ' FLAT' %> OFF
+                                            </span>
+                                        <% } else { %>
+                                            <i class="fas fa-times-circle text-slate-600 text-base"></i>
+                                        <% } %>
+                                    </td>
+                                    <td class="px-6 py-5 text-center">
+                                        <span id="status-badge-<%= category._id %>" class="text-[9px] font-black border border-cyan-500/30 px-2 py-0.5 rounded text-cyan-400 bg-cyan-500/5">
+                                            <%= category.isListed ? 'LISTED' : 'UNLISTED' %>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-5 text-center">
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" <%= category.isListed ? 'checked' : '' %> 
+                                                   onchange="toggleCategoryStatus('<%= category._id %>')" 
+                                                   class="sr-only peer">
+                                            <div class="w-9 h-5 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+                                        </label>
+                                    </td>
+                                    <td class="px-6 py-5">
+                                        <div class="flex justify-center space-x-4 text-slate-500">
+                                            <button class="editBtn hover:text-cyan-400 transition" 
+                                                    data-id="<%= category._id %>"
+                                                    data-name="<%= category.name %>"
+                                                    data-desc="<%= category.description %>"
+                                                    data-offertype="<%= category.offerType %>"
+                                                    data-offer="<%= category.offerValue %>">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="deleteCategory('<%= category._id %>')" class="hover:text-red-400 transition">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <% }) %>
+                            <% } else { %>
+                                <tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">No categories found.</td></tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <footer class="mt-4 text-center text-[10px] text-slate-600 tracking-widest uppercase flex-shrink-0">
+                © 2026 NEO-LUXE Admin Portal.
+            </footer>
+        </section>
+    </main>
+</div>
+
+<div id="categoryModalOverlay" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden opacity-0 transition-opacity duration-300">
+    <div class="card-bg w-full max-w-2xl rounded-2xl shadow-2xl relative border border-slate-800">
+        <div class="p-6 border-b border-slate-800">
+            <h3 id="modalTitle" class="text-xl font-bold text-white tracking-tight">Add Watch Category</h3>
+            <button id="closeModalX" class="absolute top-5 right-5 text-slate-500 hover:text-white transition">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <form id="categoryForm" class="p-8 space-y-6">
+            <input type="hidden" id="categoryId" name="id">
+            
+            <div class="space-y-1.5">
+                <label class="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Category Name *</label>
+                <input type="text" id="categoryName" name="name" required class="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg py-2.5 px-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition">
+            </div>
+
+            <div class="space-y-1.5">
+                <label class="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Category Description</label>
+                <textarea id="categoryDescription" name="description" class="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg py-2.5 px-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition"></textarea>
+            </div>
+
+            <div class="border-t border-slate-800/50 pt-6">
+                <h4 class="text-base font-semibold text-white tracking-tight mb-4">Category Offer</h4>
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="space-y-1.5 relative">
+                        <label class="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Offer Type</label>
+                        <select id="offerType" name="offerType" class="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg py-2.5 px-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition appearance-none">
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="flat">Flat Amount</option>
+                        </select>
+                        <i class="fas fa-chevron-down absolute right-4 top-[38px] text-slate-600 text-xs pointer-events-none"></i>
+                    </div>
+                    <div class="space-y-1.5">
+                        <label class="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Offer Value</label>
+                        <input type="number" id="offerValue" name="offerValue" placeholder="0" class="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg py-2.5 px-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end items-center space-x-4 pt-6 border-t border-slate-800">
+                <button type="button" id="closeModalBtn" class="bg-transparent px-6 py-2.5 rounded-lg text-slate-400 hover:text-white transition text-sm font-semibold">Cancel</button>
+                <button type="submit" id="submitBtn" class="bg-cyan-500 text-slate-900 px-8 py-2.5 rounded-lg font-bold text-sm uppercase tracking-wider custom-glow hover:bg-cyan-400 transition">
+                    Save Category
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Search logic remains same
+        const searchInput = document.getElementById('categorySearchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+        const performSearch = () => {
+            const query = searchInput.value.trim();
+            window.location.href = `/admin/categories?search=${encodeURIComponent(query)}&page=1`;
+        };
+
+        searchBtn.addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
+        clearSearchBtn.addEventListener('click', () => { window.location.href = '/admin/categories'; });
+
+        // Modal elements
+        const modal = document.getElementById('categoryModalOverlay');
+        const form = document.getElementById('categoryForm');
+        const modalTitle = document.getElementById('modalTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        
+        const categoryIdInput = document.getElementById('categoryId');
+        const nameInput = document.getElementById('categoryName');
+        const descInput = document.getElementById('categoryDescription');
+        const offerTypeInput = document.getElementById('offerType');
+        const offerValInput = document.getElementById('offerValue');
+
+        const openModal = () => {
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('opacity-100'), 10);
+        };
+
+        const closeModal = () => {
+            modal.classList.remove('opacity-100');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        };
+
+        document.getElementById('addCategoryBtn').addEventListener('click', () => {
+            form.reset();
+            categoryIdInput.value = "";
+            modalTitle.innerText = "Add Watch Category";
+            submitBtn.innerText = "Add Category";
+            openModal();
+        });
+
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.editBtn');
+            if (btn) {
+                modalTitle.innerText = "Edit Watch Category";
+                submitBtn.innerText = "Update Category";
+                categoryIdInput.value = btn.dataset.id;
+                nameInput.value = btn.dataset.name;
+                descInput.value = btn.dataset.desc;
+                offerTypeInput.value = btn.dataset.offertype || 'percentage';
+                offerValInput.value = btn.dataset.offer;
+                openModal();
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = categoryIdInput.value;
+            const formData = {
+                id,
+                name: nameInput.value,
+                description: descInput.value,
+                offerType: offerTypeInput.value, // Added offerType to submission
+                offerValue: offerValInput.value
+            };
+
+            const url = id ? '/admin/edit-category' : '/admin/add-category';
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                const result = await response.json();
+                if (result.success) location.reload();
+                else alert(result.message || "Something went wrong");
+            } catch (error) { alert("Failed to save category."); }
+        });
+
+        document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+        document.getElementById('closeModalX').addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    });
+
+    async function toggleCategoryStatus(id) {
+        try {
+            const response = await fetch(`/admin/toggle-category/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const result = await response.json();
+            if (result.success) {
+                const badge = document.getElementById(`status-badge-${id}`);
+                badge.innerText = badge.innerText.trim() === 'LISTED' ? 'UNLISTED' : 'LISTED';
+            } else { alert(result.message); location.reload(); }
+        } catch (error) { console.error('Error:', error); }
+    }
+
+    async function deleteCategory(id) {
+        if (confirm('Are you sure you want to move this category to trash?')) {
+            try {
+                const response = await fetch(`/admin/delete-category/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) location.reload();
+                else alert(result.message);
+            } catch (error) { alert("Failed to delete."); }
+        }
+    }
+</script>
+</body>
+</html>

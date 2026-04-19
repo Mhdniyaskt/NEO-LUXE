@@ -1,32 +1,47 @@
-<aside class="w-64 sidebar-bg flex flex-col p-6 hidden lg:flex shrink-0">
-    <div class="mb-10">
-        <h1 class="text-xl font-bold tracking-widest text-white uppercase">Neo-Luxe</h1>
-        <p class="text-[10px] text-slate-500 uppercase tracking-tighter">Premium Watch Admin</p>
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-[#05070A] border-r border-slate-800 flex flex-col p-6 transform -translate-x-full transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0 shrink-0">
+    
+    <div class="flex justify-between items-center mb-10">
+        <div>
+            <h1 class="text-xl font-bold tracking-widest text-white uppercase">Neo-Luxe</h1>
+            <p class="text-[10px] text-slate-500 uppercase tracking-tighter">Premium Watch Admin</p>
+        </div>
+        <button onclick="toggleSidebar()" class="lg:hidden text-slate-400 hover:text-white">
+            <i class="fas fa-times text-xl"></i>
+        </button>
     </div>
 
-    <nav class="flex-1 space-y-1 overflow-y-auto">
+    <nav class="flex-1 space-y-2 overflow-y-auto">
         <a href="/admin/dashboard" 
-           class="flex items-center space-x-3 p-3 rounded-lg transition <%= path === '/admin/dashboard' ? 'bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white' %>">
-            <i class="fas fa-th-large w-5"></i> 
+           class="flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 group <%= path === 'dashboard' ? 'bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white' %>">
+            <i class="fas fa-th-large w-5 text-center"></i> 
             <span class="text-sm font-medium">Dashboard</span>
         </a>
 
         <a href="/admin/customers" 
-           class="flex items-center space-x-3 p-3 rounded-lg transition <%= path === '/admin/customers' ? 'bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white' %>">
-            <i class="fas fa-users w-5"></i> 
+           class="flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 group <%= path === 'customers' ? 'bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white' %>">
+            <i class="fas fa-users w-5 text-center"></i> 
             <span class="text-sm font-medium">Customers</span>
         </a>
 
-        <!-- <a href="/admin/watches" 
-           class="flex items-center space-x-3 p-3 rounded-lg transition <%= path === '/admin/watches' ? 'bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white' %>">
-            <i class="fas fa-clock w-5"></i> 
+        <a href="/admin/categories" 
+           class="flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 group <%= path === 'categories' ? 'bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white' %>">
+            <i class="fas fa-layer-group w-5 text-center"></i> 
+            <span class="text-sm font-medium">Categories</span>
+        </a>
+
+        <a href="/admin/products" 
+           class="flex items-center space-x-3 p-3 rounded-xl transition-all duration-200 group <%= path === 'products' ? 'bg-cyan-500/10 text-cyan-400 border-r-2 border-cyan-500' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white' %>">
+            <i class="fas fa-clock w-5 text-center"></i> 
             <span class="text-sm font-medium">Watches</span>
         </a>
-    </nav> -->
+    </nav>
 
     <div class="mt-auto pt-6 border-t border-slate-800">
-        <a href="/logout" class="flex items-center space-x-3 text-slate-500 hover:text-red-400 transition p-3">
-            <i class="fas fa-sign-out-alt w-5"></i> <span class="text-sm">Logout</span>
-        </a>
+        <form action="/admin/logout" method="POST">
+            <button type="submit" class="w-full flex items-center space-x-3 text-slate-500 hover:text-red-400 transition-colors p-3 group">
+                <i class="fas fa-sign-out-alt w-5 group-hover:translate-x-1 transition-transform"></i> 
+                <span class="text-sm font-medium">Logout</span>
+            </button>
+        </form>
     </div>
 </aside>
