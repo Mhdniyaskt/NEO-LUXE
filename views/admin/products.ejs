@@ -79,23 +79,23 @@
                                 <% products.forEach(product => { %>
                                 <tr class="hover:bg-slate-800/20 transition-colors group">
                                     <td class="px-6 py-4">
-                                        <div class="flex items-center space-x-4">
-                                           <div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
-    <% if (product.variants && product.variants.length > 0 && product.variants[0].images && product.variants[0].images.length > 0) { %>
-        <img src="/uploads/<%= product.variants[0].images[0] %>" 
-             alt="Watch" 
-             class="w-full h-full object-cover"
-             onerror="this.onerror=null; this.src='https://via.placeholder.com/48?text=No+Img';">
-    <% } else { %>
-        <i class="fas fa-image text-slate-600"></i>
-    <% } %>
-</div>
-                                            <div>
-                                                <div class="text-sm font-bold text-white"><%= product.name %></div>
-                                                <div class="text-[10px] text-slate-500 uppercase tracking-tight">ID: <%= product._id.toString().slice(-6).toUpperCase() %></div>
-                                            </div>
-                                        </div>
-                                    </td>
+    <div class="flex items-center space-x-4">
+        <div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
+            <% if (product.variants && product.variants.length > 0 && product.variants[0].images && product.variants[0].images.length > 0) { %>
+                <img src="<%= product.variants[0].images[0].url %>" 
+                     alt="Watch" 
+                     class="w-full h-full object-cover"
+                     onerror="this.onerror=null; this.src='https://via.placeholder.com/48?text=No+Img';">
+            <% } else { %>
+                <i class="fas fa-image text-slate-600"></i>
+            <% } %>
+        </div>
+        <div>
+            <div class="text-sm font-bold text-white"><%= product.name %></div>
+            <div class="text-[10px] text-slate-500 uppercase tracking-tight">ID: <%= product._id.toString().slice(-6).toUpperCase() %></div>
+        </div>
+    </div>
+</td>
                                     <td class="px-6 py-4 text-slate-400 text-xs"><%= product.brand %></td>
                                     <td class="px-6 py-4 text-slate-400 text-xs"><%= product.category ? product.category.name : 'N/A' %></td>
                                     <td class="px-6 py-4">

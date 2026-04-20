@@ -63,6 +63,9 @@ export const getaddProducts = asyncHandler(async (req, res) => {
 });
 
 // @desc    Create Product & Variants
+// ... (imports remain the same)
+
+// @desc    Create Product & Variants
 export const postAddProducts = asyncHandler(async (req, res) => {
     const {
         name, brand, category, description,
@@ -71,36 +74,15 @@ export const postAddProducts = asyncHandler(async (req, res) => {
         isListed, variants,
     } = req.body;
 
-    if (!variants) {
-        return res.status(400).json({ success: false, message: 'Variant data is missing' });
-    }
+    if (!variants) return res.status(400).json({ success: false, message: 'Variant data missing' });
 
-    // Convert object to array if needed
     const variantArray = Array.isArray(variants) ? variants : Object.values(variants);
 
     // --- 1. VALIDATIONS ---
-    if (!name || !name.trim()) return res.status(400).json({ success: false, message: 'Product name is required' });
-    
     const existing = await Product.findOne({ name: name.trim(), isDeleted: false });
     if (existing) return res.status(400).json({ success: false, message: 'Product already exists' });
 
-    const colorSet = new Set();
-    for (let i = 0; i < variantArray.length; i++) {
-        const v = variantArray[i];
-        const color = v?.color?.trim().toLowerCase();
-        
-        if (!color) return res.status(400).json({ success: false, message: `Color is required for variant ${i + 1}` });
-        if (colorSet.has(color)) return res.status(400).json({ success: false, message: `Duplicate color: ${v.color}` });
-        colorSet.add(color);
-
-        // Renamed to checkFiles to avoid duplicate declaration error
-        const checkFiles = req.files ? req.files.filter((file) => file.fieldname === `variantImages_${i}`) : [];
-        if (checkFiles.length < 1) {
-            return res.status(400).json({ success: false, message: `Variant ${i + 1} needs at least 1 image` });
-        }
-    }
-
-    // --- 2. CREATE PARENT PRODUCT ---
+    // --- 2. CREATE PRODUCT ---
     const product = await Product.create({
         name: name.trim(),
         brand: brand.trim(),
@@ -112,44 +94,74 @@ export const postAddProducts = asyncHandler(async (req, res) => {
         isActive: isListed === 'on' || isListed === true,
     });
 
-    // --- 3. CREATE VARIANTS ---
-   // --- 3. CREATE VARIANTS ---
-for (let i = 0; i < variantArray.length; i++) {
-    const v = variantArray[i];
-    
-    const variantFiles = req.files.filter((file) => file.fieldname === `variantImages_${i}`);
-    
-    // DEBUG: If you still get errors, check your terminal for this log
-    console.log(`Variant ${i} Files Found:`, variantFiles.map(f => ({ name: f.originalname, field: f.fieldname, diskName: f.filename })));
+    // --- 3. CREATE VARIANTS & MAP IMAGES ---
+    for (let i = 0; i < variantArray.length; i++) {
+        const v = variantArray[i];
+        // Filter files for this specific variant
+        const variantFiles = req.files.filter((file) => file.fieldname === `variantImages_${i}`);
+        
+        const basePrice = Number(v.basePrice);
+        const finalPrice = Math.round(basePrice - (basePrice * Number(offerPercentage || 0)) / 100);
 
-    const basePrice = Number(v.basePrice);
-    const offerVal = Number(offerPercentage || 0);
-    const finalPrice = Math.round(basePrice - (basePrice * offerVal) / 100);
-
-    await Variant.create({
-        product: product._id,
-        color: v.color,
-        stock: Number(v.stock || 0),
-        basePrice,
-        finalPrice,
-        images: variantFiles.map((file, idx) => {
-            // Fallback chain: Check filename (disk), then path (cloud), then originalname
-            const imagePath = file.filename || file.path || file.originalname; 
-            
-            if (!imagePath) {
-                console.error("CRITICAL: Multer file is missing all path identifiers", file);
-            }
-
-            return {
-                url: imagePath, 
+        await Variant.create({
+            product: product._id,
+            color: v.color,
+            stock: Number(v.stock || 0),
+            basePrice,
+            finalPrice,
+            images: variantFiles.map((file, idx) => ({
+                // file.path contains the full Cloudinary URL
+                url: file.path || file.filename, 
                 isPrimary: idx === 0,
-            };
-        }),
-    });
-}
-    return res.status(201).json({ success: true, message: 'Product and variants added successfully' });
+            })),
+        });
+    }
+
+    return res.status(201).json({ success: true, message: 'Product added successfully' });
 });
-// @desc    Render Edit Product Page
+
+// @desc    Update Product & Variants
+export const postEditProduct = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { name, category, brand, description, offerPercentage, offerExpiry, caseSize, strapType, movementType, isListed, variants } = req.body;
+
+    const variantArray = Array.isArray(variants) ? variants : Object.values(variants);
+    const offer = Number(offerPercentage || 0);
+
+    await Product.findByIdAndUpdate(id, {
+        name, category, brand, description,
+        offerPercentage: offer,
+        offerExpiry: offer > 0 ? offerExpiry : null,
+        specifications: { caseSize, strapType, movementType },
+        isActive: isListed === 'on',
+    });
+
+    for (let i = 0; i < variantArray.length; i++) {
+        const v = variantArray[i];
+        const newFiles = req.files.filter((f) => f.fieldname === `variantImages_${i}`);
+        let keptImages = req.body[`existingImages_${i}`] || [];
+        if (!Array.isArray(keptImages)) keptImages = [keptImages];
+
+        const basePrice = Number(v.basePrice);
+        const finalPrice = Math.round(basePrice - (basePrice * offer) / 100);
+
+        // Combine existing URLs with new Cloudinary paths
+        const finalImages = [
+            ...keptImages.map(url => ({ url, isPrimary: false })),
+            ...newFiles.map(f => ({ url: f.path || f.filename, isPrimary: false }))
+        ];
+        if (finalImages.length > 0) finalImages[0].isPrimary = true;
+
+        if (v._id) {
+            await Variant.findByIdAndUpdate(v._id, {
+                color: v.color, stock: Number(v.stock), basePrice, finalPrice, images: finalImages, isDeleted: false, isActive: true
+            });
+        } else {
+            await Variant.create({ product: id, color: v.color, stock: Number(v.stock), basePrice, finalPrice, images: finalImages });
+        }
+    }
+    res.json({ success: true, message: 'Product updated successfully' });
+});
 export const geteditProduct = asyncHandler(async (req, res) => {
     const product = await Product.findById(req.params.id);
     if (!product) return res.redirect('/admin/products');
@@ -160,7 +172,6 @@ export const geteditProduct = asyncHandler(async (req, res) => {
     // Attach variants to the product object before rendering
     const productData = product.toObject();
     productData.variants = variants;
-
     res.render('admin/edit-product', {
         product: productData, // Now product.variants will exist
         categories,
@@ -169,111 +180,7 @@ export const geteditProduct = asyncHandler(async (req, res) => {
 });
 
 // @desc    Update Product & Variants
-export const postEditProduct = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-    const {
-        name, category, brand, description,
-        offerPercentage, offerExpiry,
-        caseSize, strapType, movementType,
-        isListed, variants,
-    } = req.body;
 
-    if (!variants) return res.status(400).json({ success: false, message: 'Variants are required' });
-
-    // Ensure it's an array
-    const variantArray = Array.isArray(variants) ? variants : Object.values(variants);
-
-    const offer = Number(offerPercentage || 0);
-    const colorSet = new Set();
-
-    for (let i = 0; i < variantArray.length; i++) {
-        const v = variantArray[i];
-        const color = v?.color?.trim().toLowerCase();
-        
-        if (!color) return res.status(400).json({ success: false, message: `Color missing for variant ${i+1}`});
-        if (colorSet.has(color)) return res.status(400).json({ success: false, message: `Duplicate color: ${v.color}` });
-        colorSet.add(color);
-
-        // Logic for images (Existing + New)
-        let keptImages = req.body[`existingImages_${i}`] || [];
-        if (!Array.isArray(keptImages)) keptImages = [keptImages];
-        const newFiles = req.files.filter((f) => f.fieldname === `variantImages_${i}`);
-        
-        if (keptImages.length + newFiles.length < 3) {
-            return res.status(400).json({ success: false, message: `Variant ${i + 1} needs at least 3 images total` });
-        }
-    }
-    // --- UPDATE PRODUCT ---
-    await Product.findByIdAndUpdate(id, {
-        name, category, brand, description,
-        offerPercentage: offer,
-        offerExpiry: offer > 0 ? offerExpiry : null,
-        specifications: { caseSize, strapType, movementType },
-        isActive: isListed === 'on',
-    });
-
-    // --- MANAGE VARIANTS ---
-    const submittedIds = variants.map(v => v._id).filter(Boolean);
-    
-    // 1. Soft delete variants not in the form
-    await Variant.updateMany(
-        { product: id, _id: { $nin: submittedIds } },
-        { isActive: false, isDeleted: true }
-    );
-
-    for (let i = 0; i < variants.length; i++) {
-        const v = variants[i];
-        const newFiles = req.files.filter((f) => f.fieldname === `variantImages_${i}`);
-        let keptImages = req.body[`existingImages_${i}`] || [];
-        if (!Array.isArray(keptImages)) keptImages = [keptImages];
-
-        const basePrice = Number(v.basePrice);
-        const finalPrice = Math.round(basePrice - (basePrice * offer) / 100);
-
-        const finalImages = [
-            ...keptImages.map(url => ({ url, isPrimary: false })),
-            ...newFiles.map(f => ({ url: f.filename, isPrimary: false }))
-        ];
-        if (finalImages.length > 0) finalImages[0].isPrimary = true;
-
-        if (v._id) {
-            // Update Existing
-            await Variant.findByIdAndUpdate(v._id, {
-                color: v.color,
-                stock: Number(v.stock),
-                basePrice,
-                finalPrice,
-                images: finalImages,
-                isDeleted: false,
-                isActive: true
-            });
-        } else {
-            // Check for a previously deleted variant with same color to restore, or create new
-            const deletedV = await Variant.findOne({ product: id, color: new RegExp(`^${v.color}$`, 'i'), isDeleted: true });
-            if (deletedV) {
-                await Variant.findByIdAndUpdate(deletedV._id, {
-                    stock: Number(v.stock),
-                    basePrice,
-                    finalPrice,
-                    images: finalImages,
-                    isDeleted: false,
-                    isActive: true
-                });
-            } else {
-                await Variant.create({
-                    product: id,
-                    color: v.color,
-                    stock: Number(v.stock),
-                    basePrice,
-                    finalPrice,
-                    images: finalImages
-                });
-            }
-        }
-    }
-
-    res.json({ success: true, message: 'Product updated successfully' });
-});
 
 // @desc    Soft Delete Product
 export const softDeleteProduct = asyncHandler(async (req, res) => {

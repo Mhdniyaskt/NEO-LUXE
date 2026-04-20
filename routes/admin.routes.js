@@ -6,7 +6,7 @@ import * as customersController from "../controllers/admin/customers.controller.
 import * as categoryCtrl from "../controllers/admin/category.controller.js";
 import { isAdmin, isLogout } from "../middleware/admin/auth.middleware.js";
 
-import { upload } from '../middleware/admin/uplaod.middleware.js';
+import { upload } from '../middleware/admin/upload.middleware.js';
 import * as productController from '../controllers/admin/product.controller.js';
 
 const router = express.Router();

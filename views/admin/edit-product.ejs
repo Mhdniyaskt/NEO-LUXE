@@ -108,7 +108,7 @@
                                     <div class="flex flex-wrap gap-3 mb-4">
                                         <% variant.images.forEach((img) => { %>
                                             <div class="relative group">
-                                                <img src="/uploads/<%= img %>" class="w-20 h-20 rounded-xl object-cover border border-slate-700">
+                                                <img src="<%= img.url %>" class="w-20 h-20 rounded-xl object-cover border border-slate-700">
                                                 <button type="button" 
                                                     onclick="deleteImage('<%= product._id %>', '<%= variant._id %>', '<%= img %>')" 
                                                     class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg">
