@@ -38,11 +38,7 @@
     <main class="flex-1 flex flex-col min-w-0 bg-[#020617]">
         
         <header class="p-8 pb-4 flex-shrink-0">
-            <nav class="flex items-center space-x-2 text-xs text-slate-500 mb-2">
-                <i class="fas fa-home"></i>
-                <span>/</span>
-                <span>Categories</span>
-            </nav>
+            
             <div class="flex justify-between items-end">
                 <div>
                     <h2 class="text-2xl font-bold text-white tracking-tight">Watch Categories</h2>
@@ -88,14 +84,14 @@
                                     <td class="px-6 py-5 font-bold text-white"><%= category.name %></td>
                                     <td class="px-6 py-5 text-slate-400 text-xs max-w-xs truncate"><%= category.description %></td>
                                     <td class="px-6 py-5 text-center">
-                                        <% if(category.offerValue > 0) { %>
-                                            <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-1 rounded text-[10px] font-bold">
-                                                <%= category.offerValue %><%= category.offerType === 'percentage' ? '%' : ' FLAT' %> OFF
-                                            </span>
-                                        <% } else { %>
-                                            <i class="fas fa-times-circle text-slate-600 text-base"></i>
-                                        <% } %>
-                                    </td>
+    <% if (category.offerPercent > 0) { %>
+        <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-1 rounded text-[10px] font-bold">
+            <%= category.offerPercent %>% OFF
+        </span>
+    <% } else { %>
+        <i class="fas fa-times-circle text-slate-600 text-base"></i>
+    <% } %>
+</td>
                                     <td class="px-6 py-5 text-center">
                                         <span id="status-badge-<%= category._id %>" class="text-[9px] font-black border border-cyan-500/30 px-2 py-0.5 rounded text-cyan-400 bg-cyan-500/5">
                                             <%= category.isListed ? 'LISTED' : 'UNLISTED' %>
@@ -111,14 +107,12 @@
                                     </td>
                                     <td class="px-6 py-5">
                                         <div class="flex justify-center space-x-4 text-slate-500">
-                                            <button class="editBtn hover:text-cyan-400 transition" 
-                                                    data-id="<%= category._id %>"
-                                                    data-name="<%= category.name %>"
-                                                    data-desc="<%= category.description %>"
-                                                    data-offertype="<%= category.offerType %>"
-                                                    data-offer="<%= category.offerValue %>">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
+                                           <button class="editBtn hover:text-cyan-400 transition" 
+        data-id="<%= category._id %>"
+        data-name="<%= category.name %>"
+        data-desc="<%= category.description %>"
+        data-offer="<%= category.offerPercent %>"> <i class="fas fa-edit"></i>
+</button>
                                             <button onclick="deleteCategory('<%= category._id %>')" class="hover:text-red-400 transition">
                                                 <i class="fas fa-trash"></i>
                                             </button>
@@ -192,7 +186,7 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // Search logic remains same
+        // --- Search Logic ---
         const searchInput = document.getElementById('categorySearchInput');
         const searchBtn = document.getElementById('searchBtn');
         const clearSearchBtn = document.getElementById('clearSearchBtn');
@@ -206,7 +200,7 @@
         searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
         clearSearchBtn.addEventListener('click', () => { window.location.href = '/admin/categories'; });
 
-        // Modal elements
+        // --- Modal Elements ---
         const modal = document.getElementById('categoryModalOverlay');
         const form = document.getElementById('categoryForm');
         const modalTitle = document.getElementById('modalTitle');
@@ -215,7 +209,6 @@
         const categoryIdInput = document.getElementById('categoryId');
         const nameInput = document.getElementById('categoryName');
         const descInput = document.getElementById('categoryDescription');
-        const offerTypeInput = document.getElementById('offerType');
         const offerValInput = document.getElementById('offerValue');
 
         const openModal = () => {
@@ -228,6 +221,7 @@
             setTimeout(() => modal.classList.add('hidden'), 300);
         };
 
+        // --- Add Button Handler ---
         document.getElementById('addCategoryBtn').addEventListener('click', () => {
             form.reset();
             categoryIdInput.value = "";
@@ -236,49 +230,66 @@
             openModal();
         });
 
+        // --- Edit Button Handler (Delegated) ---
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('.editBtn');
             if (btn) {
                 modalTitle.innerText = "Edit Watch Category";
                 submitBtn.innerText = "Update Category";
+                
+                // Fill inputs from data attributes
                 categoryIdInput.value = btn.dataset.id;
                 nameInput.value = btn.dataset.name;
                 descInput.value = btn.dataset.desc;
-                offerTypeInput.value = btn.dataset.offertype || 'percentage';
-                offerValInput.value = btn.dataset.offer;
+                // Use data-offer which we mapped to offerPercent in EJS
+                offerValInput.value = btn.dataset.offer || 0; 
+                
                 openModal();
             }
         });
 
+        // --- Form Submission ---
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = categoryIdInput.value;
+            
             const formData = {
                 id,
-                name: nameInput.value,
-                description: descInput.value,
-                offerType: offerTypeInput.value, // Added offerType to submission
-                offerValue: offerValInput.value
+                name: nameInput.value.trim(),
+                description: descInput.value.trim(),
+                // Matches the variable name in your controller's req.body
+                offerValue: Number(offerValInput.value) || 0 
             };
 
             const url = id ? '/admin/edit-category' : '/admin/add-category';
+            
             try {
                 const response = await fetch(url, {
-                    method: 'POST',
+                    method: 'POST', // Both your routes are POST in controller
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
+                
                 const result = await response.json();
-                if (result.success) location.reload();
-                else alert(result.message || "Something went wrong");
-            } catch (error) { alert("Failed to save category."); }
+                
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(result.message || "Something went wrong");
+                }
+            } catch (error) { 
+                console.error('Error saving category:', error);
+                alert("Failed to save category."); 
+            }
         });
 
+        // --- Modal Close Handlers ---
         document.getElementById('closeModalBtn').addEventListener('click', closeModal);
         document.getElementById('closeModalX').addEventListener('click', closeModal);
         modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
     });
 
+    // --- Toggle Status (List/Unlist) ---
     async function toggleCategoryStatus(id) {
         try {
             const response = await fetch(`/admin/toggle-category/${id}`, {
@@ -288,19 +299,31 @@
             const result = await response.json();
             if (result.success) {
                 const badge = document.getElementById(`status-badge-${id}`);
-                badge.innerText = badge.innerText.trim() === 'LISTED' ? 'UNLISTED' : 'LISTED';
-            } else { alert(result.message); location.reload(); }
-        } catch (error) { console.error('Error:', error); }
+                const isNowListed = badge.innerText.trim() === 'UNLISTED';
+                badge.innerText = isNowListed ? 'LISTED' : 'UNLISTED';
+            } else { 
+                alert(result.message); 
+                location.reload(); 
+            }
+        } catch (error) { 
+            console.error('Error toggling status:', error); 
+        }
     }
 
+    // --- Delete (Soft Delete) ---
     async function deleteCategory(id) {
         if (confirm('Are you sure you want to move this category to trash?')) {
             try {
                 const response = await fetch(`/admin/delete-category/${id}`, { method: 'DELETE' });
                 const result = await response.json();
-                if (result.success) location.reload();
-                else alert(result.message);
-            } catch (error) { alert("Failed to delete."); }
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(result.message);
+                }
+            } catch (error) { 
+                alert("Failed to delete."); 
+            }
         }
     }
 </script>

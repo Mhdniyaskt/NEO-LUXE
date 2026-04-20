@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo-Luxe | Watch Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #020617; }
+        .sidebar-bg { background-color: #020617; border-right: 1px solid #1e293b; }
+        .card-bg { background-color: #0b1120; border: 1px solid #1e293b; }
+        .custom-glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.3); }
+        .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scroll::-webkit-scrollbar-track { background: #020617; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
+    </style>
+</head>
+<body class="text-slate-300 font-sans antialiased overflow-hidden">
+
+<div class="flex h-screen w-full">
+    
+    <%- include('../partials/admin-sidebar', { path: 'watches' }) %>
+
+    <main class="flex-1 flex flex-col min-w-0 bg-[#020617]">
+        
+        <header class="p-8 flex-shrink-0 flex justify-between items-start">
+            <div>
+                <h2 class="text-3xl font-bold text-white tracking-tight">Watches</h2>
+                <p class="text-sm text-slate-400 mt-1">Manage all luxury watch products from one place.</p>
+            </div>
+            <a href="/admin/products/add" class="bg-cyan-500 text-slate-900 px-6 py-2.5 rounded-lg font-bold text-sm flex items-center custom-glow hover:bg-cyan-400 transition">
+                <i class="fas fa-plus mr-2"></i> Add Watch
+            </a>
+        </header>
+
+        <section class="px-8 mb-6 flex-shrink-0">
+            <form action="/admin/products" method="GET" class="flex flex-wrap items-center gap-4">
+                <div class="relative flex-1 min-w-[300px]">
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm"></i>
+                    <input type="text" name="search" value="<%= search %>" placeholder="Search by watch name..." class="w-full bg-[#0b1120] border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition">
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <select name="brand" class="bg-[#0b1120] border border-slate-800 rounded-xl py-3 px-4 text-xs text-slate-400 focus:outline-none appearance-none min-w-[120px]">
+                        <option value="">All Brands</option>
+                        <% brands.forEach(brandName => { %>
+                            <option value="<%= brandName %>" <%= selectedBrand === brandName ? 'selected' : '' %>><%= brandName %></option>
+                        <% }) %>
+                    </select>
+                    
+                    <button type="submit" class="bg-slate-800 text-white px-4 py-3 rounded-xl hover:bg-slate-700 transition">
+                        <i class="fas fa-filter"></i>
+                    </button>
+                    <a href="/admin/products" class="text-slate-500 text-xs hover:text-white underline">Clear</a>
+                </div>
+            </form>
+        </section>
+
+        <section class="px-8 flex-1 overflow-hidden flex flex-col pb-4">
+            <div class="card-bg rounded-2xl flex-1 overflow-hidden flex flex-col">
+                <div class="overflow-x-auto custom-scroll flex-1">
+                    <table class="w-full text-left text-sm min-w-[1000px]">
+                        <thead class="sticky-header border-b border-slate-800 text-[10px] uppercase tracking-[0.15em] text-slate-500 font-bold">
+                            <tr>
+                                <th class="px-6 py-5">Watch Details</th>
+                                <th class="px-6 py-5">Brand</th>
+                                <th class="px-6 py-5">Category</th>
+                                <th class="px-6 py-5">Starting Price</th>
+                                <th class="px-6 py-5 text-center">Max Offer</th>
+                                <th class="px-6 py-5">Total Stock</th>
+                                <th class="px-6 py-5">Status</th>
+                                <th class="px-6 py-5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/50">
+                            <% if (products && products.length > 0) { %>
+                                <% products.forEach(product => { %>
+                                <tr class="hover:bg-slate-800/20 transition-colors group">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center space-x-4">
+                                           <div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-700">
+    <% if (product.variants && product.variants.length > 0 && product.variants[0].images && product.variants[0].images.length > 0) { %>
+        <img src="/uploads/<%= product.variants[0].images[0] %>" 
+             alt="Watch" 
+             class="w-full h-full object-cover"
+             onerror="this.onerror=null; this.src='https://via.placeholder.com/48?text=No+Img';">
+    <% } else { %>
+        <i class="fas fa-image text-slate-600"></i>
+    <% } %>
+</div>
+                                            <div>
+                                                <div class="text-sm font-bold text-white"><%= product.name %></div>
+                                                <div class="text-[10px] text-slate-500 uppercase tracking-tight">ID: <%= product._id.toString().slice(-6).toUpperCase() %></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-slate-400 text-xs"><%= product.brand %></td>
+                                    <td class="px-6 py-4 text-slate-400 text-xs"><%= product.category ? product.category.name : 'N/A' %></td>
+                                    <td class="px-6 py-4">
+                                        <div class="font-bold text-cyan-400">₹<%= product.minPrice ? product.minPrice.toLocaleString() : 'N/A' %></div>
+                                    </td>
+                                    <td class="px-6 py-4 text-center">
+                                        <% if(product.offerPercentage > 0) { %>
+                                            <span class="text-rose-500 font-bold text-xs"><%= product.offerPercentage %>%</span>
+                                        <% } else { %>
+                                            <span class="text-slate-700">None</span>
+                                        <% } %>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-white font-medium"><%= product.totalStock %></span>
+                                            <% if(product.totalStock <= 5 && product.totalStock > 0) { %>
+                                                <span class="text-[8px] font-black text-amber-500 border border-amber-500/20 px-1 rounded">LOW</span>
+                                            <% } else if(product.totalStock === 0) { %>
+                                                <span class="text-[8px] font-black text-rose-500 border border-rose-500/20 px-1 rounded">OUT</span>
+                                            <% } %>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-3 py-1 rounded-full text-[10px] font-bold <%= product.isActive ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-slate-800 text-slate-500 border border-slate-700' %>">
+                                            <%= product.isActive ? 'Active' : 'Inactive' %>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex justify-end space-x-3 text-slate-500">
+                                            <a href="/admin/products/edit/<%= product._id %>" class="hover:text-white transition"><i class="fas fa-edit"></i></a>
+                                            <button onclick="confirmDelete('<%= product._id %>')" class="hover:text-red-500 transition"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <% }) %>
+                            <% } else { %>
+                                <tr>
+                                    <td colspan="8" class="px-6 py-20 text-center">
+                                        <i class="fas fa-box-open text-4xl text-slate-800 mb-4 block"></i>
+                                        <p class="text-slate-500">No watches found in inventory.</p>
+                                    </td>
+                                </tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-5 border-t border-slate-800 flex justify-between items-center bg-[#0b1120]">
+                    <div class="text-[11px] text-slate-500 uppercase tracking-widest font-medium">
+                        Page <span class="text-white"><%= currentPage %></span> of <span class="text-white"><%= totalPages %></span>
+                    </div>
+                   <div class="flex items-center space-x-1">
+    <% if(currentPage > 1) { %>
+        <a href="?page=<%= currentPage - 1 %>&search=<%= encodeURIComponent(search) %>&brand=<%= encodeURIComponent(selectedBrand) %>" 
+           class="p-2 text-slate-400 hover:text-white transition">
+            <i class="fas fa-chevron-left text-xs"></i>
+        </a>
+    <% } %>
+    
+    <button class="w-8 h-8 rounded-lg bg-cyan-500 text-slate-900 font-bold text-xs"><%= currentPage %></button>
+    
+    <% if(currentPage < totalPages) { %>
+        <a href="?page=<%= currentPage + 1 %>&search=<%= encodeURIComponent(search) %>&brand=<%= encodeURIComponent(selectedBrand) %>" 
+           class="p-2 text-slate-400 hover:text-white transition">
+            <i class="fas fa-chevron-right text-xs"></i>
+        </a>
+    <% } %>
+</div>
+                </div>
+            </div>
+        </section>
+    </main>
+</div>
+
+<script>
+    async function confirmDelete(id) {
+        if(confirm('Are you sure you want to move this watch to trash?')) {
+            try {
+                const response = await fetch(`/admin/products/delete/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if(result.success) {
+                    location.reload();
+                } else {
+                    alert(result.message || 'Error deleting product');
+                }
+            } catch (error) {
+                console.error('Delete error:', error);
+                alert('An error occurred while deleting.');
+            }
+        }
+    }
+</script>
+
+</body>
+</html>

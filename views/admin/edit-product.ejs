@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo-Luxe | Edit Product</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { background-color: #020617; color: #94a3b8; }
+        .card-bg { background-color: #0b1120; border: 1px solid #1e293b; }
+        .input-field { background-color: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; padding: 0.75rem 1rem; color: white; font-size: 0.875rem; width: 100%; }
+        .input-field:focus { outline: none; border-color: #06b6d4; box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.1); }
+        .label-style { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: #64748b; margin-bottom: 0.5rem; display: block; }
+        .custom-glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
+        .custom-scroll::-webkit-scrollbar { width: 5px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    </style>
+</head>
+<body class="font-sans antialiased overflow-hidden">
+
+<div class="flex h-screen w-full">
+    <%- include('../partials/admin-sidebar', { path: 'watches' }) %>
+
+    <main class="flex-1 flex flex-col min-w-0 bg-[#020617]">
+        <header class="p-8 pb-4 flex justify-between items-center">
+            <div>
+                <a href="/admin/products" class="text-[10px] uppercase tracking-widest text-slate-500 hover:text-cyan-400 flex items-center mb-2 transition">
+                    <i class="fas fa-arrow-left mr-2"></i> Back to Inventory
+                </a>
+                <h2 class="text-3xl font-bold text-white tracking-tight">Edit Product</h2>
+                <p class="text-sm text-slate-500 mt-1">Refining <span class="text-cyan-400 font-medium"><%= product.name %></span></p>
+            </div>
+        </header>
+
+        <section class="flex-1 overflow-y-auto custom-scroll px-8 pb-10">
+            <form id="editProductForm" onsubmit="handleEditSubmit(event, '<%= product._id %>')">
+                <div class="grid grid-cols-12 gap-8">
+                    
+                    <div class="col-span-12 lg:col-span-8 space-y-8">
+                        
+                        <div class="card-bg rounded-2xl p-8">
+                            <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Basic Information</h3>
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="label-style">Product Name *</label>
+                                    <input type="text" name="name" value="<%= product.name %>" required class="input-field">
+                                </div>
+                                <div class="grid grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="label-style">Brand *</label>
+                                        <input type="text" name="brand" value="<%= product.brand %>" required class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="label-style">Category *</label>
+                                        <select name="category" required class="input-field">
+                                            <% categories.forEach(cat => { %>
+                                                <option value="<%= cat._id %>" <%= product.category._id.toString() === cat._id.toString() ? 'selected' : '' %>><%= cat.name %></option>
+                                            <% }) %>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="label-style">Description *</label>
+                                    <textarea name="description" rows="4" required class="input-field"><%= product.description %></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-bg rounded-2xl p-8">
+                            <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Offer Settings</h3>
+                            <div class="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label class="label-style">Offer Percentage (%)</label>
+                                    <input type="number" name="offerPercentage" value="<%= product.offerPercentage || 0 %>" class="input-field" min="0" max="90">
+                                </div>
+                                <div>
+                                    <label class="label-style">Offer Expiry Date</label>
+                                    <input type="date" name="offerExpiry" value="<%= product.offerExpiry ? product.offerExpiry.toISOString().split('T')[0] : '' %>" class="input-field">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-6">
+                            <% product.variants.forEach((variant, index) => { %>
+                            <div class="card-bg rounded-2xl p-8 relative" id="variant_row_<%= variant._id %>">
+                                <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest mb-6">Variant #<%= index + 1 %></h4>
+                                <input type="hidden" name="variants[<%=index%>][_id]" value="<%= variant._id %>">
+                                
+                                <div class="grid grid-cols-3 gap-4 mb-6">
+                                    <div>
+                                        <label class="label-style">Color</label>
+                                        <input type="text" name="variants[<%=index%>][color]" value="<%= variant.color %>" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="label-style">Base Price (₹)</label>
+                                        <input type="number" name="variants[<%=index%>][basePrice]" value="<%= variant.basePrice %>" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="label-style">Stock</label>
+                                        <input type="number" name="variants[<%=index%>][stock]" value="<%= variant.stock %>" class="input-field">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="label-style text-cyan-500">Gallery Management</label>
+                                    <div class="flex flex-wrap gap-3 mb-4">
+                                        <% variant.images.forEach((img) => { %>
+                                            <div class="relative group">
+                                                <img src="/uploads/<%= img %>" class="w-20 h-20 rounded-xl object-cover border border-slate-700">
+                                                <button type="button" 
+                                                    onclick="deleteImage('<%= product._id %>', '<%= variant._id %>', '<%= img %>')" 
+                                                    class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        <% }) %>
+                                    </div>
+                                    <label class="label-style">Add More Images</label>
+                                    <input type="file" name="variantImages_<%=index%>" multiple accept="image/*" class="input-field text-xs" onchange="handleImagePreview(this, 'preview_<%=index%>')">
+                                    <div id="preview_<%=index%>" class="flex gap-2 flex-wrap mt-2"></div>
+                                </div>
+                            </div>
+                            <% }) %>
+                        </div>
+                    </div>
+
+                    <div class="col-span-12 lg:col-span-4 space-y-8">
+                        <div class="card-bg rounded-2xl p-8 sticky top-4">
+                            <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Specifications</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="label-style">Case Size</label>
+                                    <input type="text" name="caseSize" value="<%= product.caseSize %>" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="label-style">Strap Type</label>
+                                    <input type="text" name="strapType" value="<%= product.strapType %>" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="label-style">Movement</label>
+                                    <input type="text" name="movementType" value="<%= product.movementType %>" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="label-style">Listing Status</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="checkbox" name="isListed" <%= product.isListed ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
+                                        <span class="text-sm">Product is active</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="w-full mt-8 bg-cyan-500 text-slate-900 py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] custom-glow hover:bg-cyan-400 transition-all active:scale-95">
+                                Update Product
+                            </button>
+                            <a href="/admin/products" class="block text-center mt-4 text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-widest transition">
+                                Discard Changes
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+            </form>
+        </section>
+    </main>
+</div>
+
+<script>
+    function handleImagePreview(input, previewId) {
+        const previewContainer = document.getElementById(previewId);
+        previewContainer.innerHTML = ''; 
+        if (input.files) {
+            Array.from(input.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const wrap = document.createElement('div');
+                    wrap.innerHTML = `<img src="${e.target.result}" class="w-12 h-12 rounded-lg object-cover border border-cyan-500">`;
+                    previewContainer.appendChild(wrap);
+                }
+                reader.readAsDataURL(file);
+            });
+        }
+    }
+
+    async function deleteImage(productId, variantId, imageName) {
+        const result = await Swal.fire({
+            title: 'Remove Image?',
+            text: "This image will be permanently deleted.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#06b6d4',
+            cancelButtonColor: '#f43f5e',
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch(`/admin/products/${productId}/variants/${variantId}/images/${imageName}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+                if (data.success) {
+                    Swal.fire('Deleted!', 'Image removed.', 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('Error', data.message, 'error');
+                }
+            } catch (err) {
+                Swal.fire('Error', 'Server communication failed.', 'error');
+            }
+        }
+    }
+
+    async function handleEditSubmit(e, productId) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+
+        // Logic for handling the checkbox (FormData usually omits unchecked boxes)
+        if (!formData.has('isListed')) {
+            formData.append('isListed', 'false');
+        }
+
+        try {
+            const response = await fetch(`/admin/products/edit/${productId}`, {
+                method: 'PUT',
+                body: formData
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                Swal.fire('Updated!', result.message, 'success')
+                    .then(() => window.location.href = '/admin/products');
+            } else {
+                Swal.fire('Update Failed', result.message, 'error');
+            }
+        } catch (err) {
+            Swal.fire('Error', 'An unexpected error occurred.', 'error');
+        }
+    }
+
+    // Date restriction
+    document.addEventListener('DOMContentLoaded', function() {
+        const dateInput = document.querySelector('input[name="offerExpiry"]');
+        if (dateInput) {
+            const today = new Date();
+            today.setDate(today.getDate() + 1);
+            dateInput.setAttribute('min', today.toISOString().split('T')[0]);
+        }
+    });
+</script>
+</body>
+</html>

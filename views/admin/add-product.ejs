@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neo-Luxe | Add New Product</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    <style>
+        body { background-color: #020617; color: #94a3b8; }
+        .card-bg { background-color: #0b1120; border: 1px solid #1e293b; }
+        .input-field { background-color: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; padding: 0.75rem 1rem; color: white; font-size: 0.875rem; width: 100%; }
+        .input-field:focus { outline: none; border-color: #06b6d4; box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.1); }
+        .label-style { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: #64748b; margin-bottom: 0.5rem; display: block; }
+        .custom-glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
+        .custom-scroll::-webkit-scrollbar { width: 5px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+    </style>
+</head>
+<body class="font-sans antialiased overflow-hidden">
+
+<div class="flex h-screen w-full">
+    <%- include('../partials/admin-sidebar', { path: 'watches' }) %>
+
+    <main class="flex-1 flex flex-col min-w-0 bg-[#020617]">
+        <header class="p-8 pb-4 flex justify-between items-center">
+            <div>
+                <a href="/admin/products" class="text-[10px] uppercase tracking-widest text-slate-500 hover:text-cyan-400 flex items-center mb-2 transition">
+                    <i class="fas fa-arrow-left mr-2"></i> Back to Inventory
+                </a>
+                <h2 class="text-3xl font-bold text-white tracking-tight">Add New Product</h2>
+            </div>
+        </header>
+
+        <section class="flex-1 overflow-y-auto custom-scroll px-8 pb-10">
+            <form id="addProductForm" onsubmit="handleFormSubmit(event)">
+                <div class="grid grid-cols-12 gap-8">
+                    
+                    <div class="col-span-12 lg:col-span-8 space-y-8">
+                        
+                        <div class="card-bg rounded-2xl p-8">
+                            <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Basic Information</h3>
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="label-style">Product Name *</label>
+                                    <input type="text" name="name" required class="input-field" placeholder="e.g. Submariner Date">
+                                </div>
+                                <div class="grid grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="label-style">Brand *</label>
+                                        <input type="text" name="brand" required class="input-field" placeholder="Rolex">
+                                    </div>
+                                    <div>
+                                        <label class="label-style">Category *</label>
+                                        <select name="category" required class="input-field">
+                                            <% categories.forEach(cat => { %>
+                                                <option value="<%= cat._id %>"><%= cat.name %></option>
+                                            <% }) %>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="label-style">Description *</label>
+                                    <textarea name="description" rows="4" required class="input-field" placeholder="Detailed product description..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card-bg rounded-2xl p-8">
+                            <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Offer & Pricing Strategy</h3>
+                            <div class="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label class="label-style">Offer Percentage (%)</label>
+                                    <input type="number" name="offerPercentage" value="0" min="0" max="90" class="input-field">
+                                </div>
+                                <div>
+                                    <label class="label-style">Offer Expiry Date</label>
+                                    <input type="date" name="offerExpiry" class="input-field">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="variantsContainer" class="space-y-6">
+                            </div>
+
+                        <button type="button" onclick="addVariant()" class="w-full py-4 border-2 border-dashed border-slate-800 rounded-2xl hover:border-cyan-500/50 hover:bg-cyan-500/5 transition text-xs font-bold uppercase tracking-widest">
+                            <i class="fas fa-plus-circle mr-2"></i> Add Color Variant
+                        </button>
+                    </div>
+
+                    <div class="col-span-12 lg:col-span-4 space-y-8">
+                        <div class="card-bg rounded-2xl p-8 sticky top-4">
+                            <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Technical Specs</h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="label-style">Case Size</label>
+                                    <input type="text" name="caseSize" class="input-field" placeholder="e.g. 40mm">
+                                </div>
+                                <div>
+                                    <label class="label-style">Strap Type</label>
+                                    <input type="text" name="strapType" class="input-field" placeholder="e.g. Oyster Steel">
+                                </div>
+                                <div>
+                                    <label class="label-style">Movement Type</label>
+                                    <input type="text" name="movementType" class="input-field" placeholder="e.g. Automatic">
+                                </div>
+                                <div class="pt-4 border-t border-slate-800">
+                                    <label class="label-style">Visibility</label>
+                                    <div class="flex items-center gap-3">
+                                        <input type="checkbox" name="isListed" id="isListed" checked class="w-5 h-5 accent-cyan-500">
+                                        <label for="isListed" class="text-sm text-slate-300">List on Storefront</label>
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="w-full mt-6 bg-cyan-500 text-slate-900 py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] custom-glow hover:bg-cyan-400 transition-all">
+                                    Publish Product
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </form>
+        </section>
+    </main>
+</div>
+
+<div id="cropperModal" class="hidden fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4">
+    <div class="max-w-2xl w-full bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-2xl">
+        <h3 class="text-white font-bold mb-4">Crop Product Image</h3>
+        <div class="h-[400px] bg-black rounded-lg overflow-hidden">
+            <img id="cropperImage" src="" class="max-w-full">
+        </div>
+        <div class="flex justify-end gap-4 mt-6">
+            <button type="button" onclick="closeCropper()" class="px-6 py-2 text-slate-400 hover:text-white transition">Cancel</button>
+            <button type="button" onclick="saveCrop()" class="px-8 py-2 bg-cyan-500 text-slate-900 font-bold rounded-lg hover:bg-cyan-400">Apply Crop</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let variantCounter = 0;
+const variantImagesData = {}; // Internal store for files/blobs
+
+function addVariant() {
+    const id = variantCounter++;
+    variantImagesData[id] = [];
+    
+    const container = document.getElementById('variantsContainer');
+    const variantHtml = `
+        <div class="card-bg rounded-2xl p-8 variant-card relative" id="variant_container_${id}">
+            <button type="button" onclick="removeVariant(${id})" class="absolute top-6 right-6 text-slate-500 hover:text-rose-500 transition">
+                <i class="fas fa-trash"></i>
+            </button>
+            <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest mb-6">Variant Configuration</h4>
+            
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div>
+                    <label class="label-style">Color Name</label>
+                    <input type="text" name="variants[${id}][color]" required class="input-field" placeholder="e.g. Silver">
+                </div>
+                <div>
+                    <label class="label-style">Base Price</label>
+                    <input type="number" name="variants[${id}][basePrice]" required class="input-field" placeholder="0">
+                </div>
+                <div>
+                    <label class="label-style">Stock Quantity</label>
+                    <input type="number" name="variants[${id}][stock]" required class="input-field" placeholder="0">
+                </div>
+            </div>
+
+            <div>
+                <label class="label-style text-cyan-400">Gallery (Minimum 3 images)</label>
+                <input type="file" accept="image/*" multiple onchange="handleImageSelection(this, ${id})" class="input-field text-xs">
+                
+                <div id="preview_grid_${id}" class="grid grid-cols-4 gap-4 mt-6">
+                    </div>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', variantHtml);
+}
+
+function handleImageSelection(input, vId) {
+    const files = Array.from(input.files);
+    files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageId = Date.now() + Math.random();
+            variantImagesData[vId].push({ id: imageId, blob: file, name: file.name });
+            updatePreviewUI(vId, imageId, e.target.result);
+        };
+        reader.readAsDataURL(file);
+    });
+    input.value = ""; // Clear file input
+}
+
+function updatePreviewUI(vId, imgId, src) {
+    const grid = document.getElementById(`preview_grid_${vId}`);
+    const item = document.createElement('div');
+    item.id = `preview_item_${imgId}`;
+    item.className = "relative group aspect-square rounded-xl overflow-hidden border border-slate-800 bg-slate-900";
+    item.innerHTML = `
+        <img src="${src}" id="display_img_${imgId}" class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-3 transition-all">
+            <button type="button" onclick="initCrop('${src}', ${vId}, ${imgId})" class="w-8 h-8 bg-cyan-500 text-white rounded-full flex items-center justify-center text-xs"><i class="fas fa-crop"></i></button>
+            <button type="button" onclick="deleteImg(${vId}, ${imgId})" class="w-8 h-8 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs"><i class="fas fa-trash-alt"></i></button>
+        </div>
+    `;
+    grid.appendChild(item);
+}
+
+// CROPPER FUNCTIONS
+let cropperInstance;
+let cropMeta = {};
+
+function initCrop(src, vId, imgId) {
+    cropMeta = { vId, imgId };
+    const modal = document.getElementById('cropperModal');
+    const targetImg = document.getElementById('cropperImage');
+    targetImg.src = src;
+    modal.classList.remove('hidden');
+
+    if (cropperInstance) cropperInstance.destroy();
+    cropperInstance = new Cropper(targetImg, {
+        aspectRatio: 1,
+        viewMode: 1,
+        background: false
+    });
+}
+
+function closeCropper() {
+    document.getElementById('cropperModal').classList.add('hidden');
+}
+
+function saveCrop() {
+    const canvas = cropperInstance.getCroppedCanvas({ width: 1000, height: 1000 });
+    canvas.toBlob((blob) => {
+        const { vId, imgId } = cropMeta;
+        
+        // Find and update image in internal storage
+        const entry = variantImagesData[vId].find(x => x.id === imgId);
+        if (entry) entry.blob = blob;
+
+        // Update UI View
+        document.getElementById(`display_img_${imgId}`).src = canvas.toDataURL('image/jpeg');
+        closeCropper();
+    }, 'image/jpeg');
+}
+
+function deleteImg(vId, imgId) {
+    variantImagesData[vId] = variantImagesData[vId].filter(x => x.id !== imgId);
+    document.getElementById(`preview_item_${imgId}`).remove();
+}
+
+function removeVariant(vId) {
+    const cards = document.querySelectorAll('.variant-card');
+    if (cards.length <= 1) return Swal.fire('Error', 'Keep at least one variant.', 'warning');
+    document.getElementById(`variant_container_${vId}`).remove();
+    delete variantImagesData[vId];
+}
+
+async function handleFormSubmit(e) {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+
+    const variantIds = Object.keys(variantImagesData);
+    
+    // Check minimum 3 images per variant
+    for (let vId of variantIds) {
+        if (variantImagesData[vId].length < 3) {
+            return Swal.fire('Images Required', `Variant #${parseInt(vId) + 1} needs at least 3 images.`, 'warning');
+        }
+
+        // Map the blobs into the FormData correctly using the loop index
+        // This matches req.files.filter((file) => file.fieldname === `variantImages_${i}`)
+        variantImagesData[vId].forEach((imgObj, index) => {
+            formData.append(`variantImages_${vId}`, imgObj.blob, `v_${vId}_img_${index}.jpg`);
+        });
+    }
+
+    try {
+        const response = await fetch('/admin/products/add', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            Swal.fire('Success!', data.message, 'success').then(() => {
+                window.location.href = '/admin/products';
+            });
+        } else {
+            Swal.fire('Error', data.message, 'error');
+        }
+    } catch (err) {
+        Swal.fire('System Error', 'Failed to connect to server', 'error');
+    }
+}
+
+// Start with 1 variant by default
+addVariant();
+</script>
+</body>
+</html>
