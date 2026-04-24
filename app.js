@@ -9,7 +9,7 @@ import session from "express-session";
 import passport from "./config/passport.config.js";
 import morgan from "morgan";
 import dotenv from "dotenv";
-import { checkUser } from "./middleware/user/auth.middleware.js";
+import { checkUser } from "./middleware/auth.middleware.js";
 import methodOverride from "method-override";
 
 
@@ -32,7 +32,6 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      // FIX: If you're on localhost, 'secure' must be false even if NODE_ENV is production
       secure: false,
       sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000,
@@ -49,8 +48,9 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(expressLayouts);
 
-app.use("/", userRoutes);
+
 app.use("/admin", adminRoutes);
 app.use("/auth", googleAuthRoutes);
+app.use("/", userRoutes);
 
 export default app;

@@ -7,7 +7,7 @@ export const getCategory = asyncHandler(async (req, res) => {
     const limit = 5;
     const skip = (page - 1) * limit;
 
-    // Build the filter
+   
     const filter = { isDeleted: false };
     if (search.trim()) {
         filter.name = { $regex: search.trim(), $options: 'i' }; // Case-insensitive search
@@ -29,44 +29,93 @@ export const getCategory = asyncHandler(async (req, res) => {
     });
 });
 
-// Add Category
+
 export const addCategory = asyncHandler(async (req, res) => {
-    const { name, description, offerValue, offerExpiry } = req.body;
+    const { name, description } = req.body;
+    const trimmedName = name.trim();
+     
 
-    const exists = await Category.findOne({ 
-        name: { $regex: `^${name.trim()}$`, $options: 'i' }, 
-        isDeleted: false 
+    if (!name || name.trim().length < 3) {
+        return res.status(400).json({ success: false, message: 'Category name must be at least 3 characters' });
+    }
+
+    // NEW: Description Validation
+    if (!description || description.trim().length < 10) {
+        return res.status(400).json({ success: false, message: 'Please provide a description (min 10 chars)' });
+    }
+    // 1. Check for ANY document with this name (deleted or not)
+    const existingCategory = await Category.findOne({ 
+        name: { $regex: `^${trimmedName}$`, $options: 'i' } 
     });
-    
-    if (exists) return res.status(409).json({ success: false, message: 'Category already exists' });
 
+    if (existingCategory) {
+        // If it exists and isn't deleted, throw the 409
+        if (!existingCategory.isDeleted) {
+            return res.status(409).json({ success: false, message: 'Category already exists' });
+        }
+
+        // If it exists but IS deleted, "restore" it with new data
+        existingCategory.isDeleted = false;
+        existingCategory.description = description?.trim();
+        
+        
+        await existingCategory.save();
+        return res.status(200).json({ success: true, message: 'Category restored successfully' });
+    }
+
+    // 2. If it doesn't exist at all, create it
     await Category.create({
-        name: name.trim(),
+        name: trimmedName,
         description: description?.trim(),
-        offerPercent: Number(offerValue) || 0,
-        offerExpiry: offerValue > 0 ? offerExpiry : null,
+    
     });
 
     res.status(201).json({ success: true, message: 'Category added successfully' });
 });
 
-// Edit Category
 export const editCategory = asyncHandler(async (req, res) => {
-    const { id, name, description, offerValue, offerExpiry } = req.body;
+    const { id, name, description } = req.body;
 
+    // --- 1. Basic Validation ---
+    if (!name || name.trim().length < 3) {
+        return res.status(400).json({ success: false, message: 'Category name must be at least 3 characters' });
+    }
+
+    if (!description || description.trim().length < 10) {
+        return res.status(400).json({ success: false, message: 'Description must be at least 10 characters' });
+    }
+
+    const trimmedName = name.trim();
+    const trimmedDesc = description.trim();
+    
+
+   
+
+    // --- 2. Duplicate Check (Excluding Current Category) ---
     const exists = await Category.findOne({ 
         _id: { $ne: id }, 
-        name: { $regex: `^${name.trim()}$`, $options: 'i' } 
+        name: { $regex: `^${trimmedName}$`, $options: 'i' },
+        isDeleted: false // Only conflict with active categories
     });
     
-    if (exists) return res.status(409).json({ success: false, message: 'Category name already exists' });
+    if (exists) {
+        return res.status(409).json({ success: false, message: 'Another category with this name already exists' });
+    }
 
-    await Category.findByIdAndUpdate(id, {
-        name: name.trim(),
-        description: description?.trim(),
-        offerPercent: Number(offerValue) || 0,
-        offerExpiry: offerValue > 0 ? offerExpiry : null,
-    });
+    // --- 3. Update Database ---
+    const updatedCategory = await Category.findByIdAndUpdate(
+        id, 
+        {
+            name: trimmedName,
+            description: trimmedDesc,
+          
+        },
+        { new: true } // Returns the modified document
+    );
+
+    if (!updatedCategory) {
+        return res.status(404).json({ success: false, message: 'Category not found' });
+    }
 
     res.status(200).json({ success: true, message: 'Category updated successfully' });
 });

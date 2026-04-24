@@ -1,18 +1,18 @@
-<aside class="lg:col-span-3 bg-[#0a0f18] rounded-3xl border border-gray-800 overflow-hidden py-8 shadow-2xl">
+<aside class="lg:col-span-3 bg-[#0a0f18] rounded-3xl border border-gray-800 overflow-hidden py-8 shadow-2xl self-start">
     <div class="px-6 mb-10 flex items-center gap-4">
-        <div class="w-14 h-14 rounded-full border-2 border-[#00a3ff]/30 p-0.5 shadow-[0_0_15px_rgba(0,163,255,0.1)]">
-          <div class="w-full h-full rounded-full border border-gray-700 bg-gray-800 flex items-center justify-center overflow-hidden">
-    <% if (user.profilePhoto && user.profilePhoto.url) { %>
-        <img src="<%= user.profilePhoto.url %>" alt="Profile" class="w-full h-full object-cover">
-    <% } else { %>
-        <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-width="2"></path>
-        </svg>
-    <% } %>
-</div>
+        <div class="w-14 h-14 rounded-full border-2 border-[#00a3ff]/30 p-0.5 shadow-[0_0_15px_rgba(0,163,255,0.1)] flex-shrink-0">
+            <div class="w-full h-full rounded-full border border-gray-700 bg-gray-800 flex items-center justify-center overflow-hidden">
+                <% if (user.profilePhoto && user.profilePhoto.url) { %>
+                    <img src="<%= user.profilePhoto.url %>" alt="Profile" class="w-full h-full object-cover">
+                <% } else { %>
+                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-width="2"></path>
+                    </svg>
+                <% } %>
+            </div>
         </div>
-        <div>
-            <h3 class="text-sm font-bold text-white tracking-tight"><%= user.name %></h3>
+        <div class="overflow-hidden">
+            <h3 class="text-sm font-bold text-white tracking-tight truncate"><%= user.name %></h3>
             <p class="text-[9px] text-[#00a3ff] font-bold uppercase tracking-[0.2em] mt-0.5">
                 <%= user.membershipStatus || 'Premium Member' %>
             </p>
@@ -20,23 +20,23 @@
     </div>
 
     <nav class="flex flex-col">
-        <a href="/profile" class="group px-6 py-4 flex items-center gap-4 text-sm transition-all duration-300 <%= (locals.path && path === '/profile') ? 'active-nav-item' : 'text-gray-400 hover:text-white hover:bg-white/5' %>">
+        <a href="/profile" class="group px-6 py-4 flex items-center gap-4 text-sm transition-all duration-300 <%= (locals.path === '/profile') ? 'active-nav-item' : 'text-gray-400 hover:text-white hover:bg-white/5' %>">
             <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-width="2"></path>
             </svg>
             <span class="font-medium">Profile Details</span>
-            <% if (locals.path && path === '/profile') { %>
+            <% if (locals.path === '/profile') { %>
                 <div class="ml-auto w-1.5 h-1.5 rounded-full bg-[#00a3ff] shadow-[0_0_8px_#00a3ff]"></div>
             <% } %>
         </a>
 
-        <a href="/addresses" class="group px-6 py-4 flex items-center gap-4 text-sm transition-all duration-300 <%= (locals.path && path === '/addresses') ? 'active-nav-item' : 'text-gray-400 hover:text-white hover:bg-white/5' %>">
+        <a href="/addresses" class="group px-6 py-4 flex items-center gap-4 text-sm transition-all duration-300 <%= (locals.path === '/addresses') ? 'active-nav-item' : 'text-gray-400 hover:text-white hover:bg-white/5' %>">
             <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-width="2"></path>
                 <path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" stroke-width="2"></path>
             </svg>
             <span class="font-medium">My Addresses</span>
-            <% if (locals.path && path === '/addresses') { %>
+            <% if (locals.path === '/addresses') { %>
                 <div class="ml-auto w-1.5 h-1.5 rounded-full bg-[#00a3ff] shadow-[0_0_8px_#00a3ff]"></div>
             <% } %>
         </a>

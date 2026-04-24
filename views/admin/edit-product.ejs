@@ -6,6 +6,8 @@
     <title>Neo-Luxe | Edit Product</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #020617; color: #94a3b8; }
@@ -16,9 +18,60 @@
         .custom-glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
         .custom-scroll::-webkit-scrollbar { width: 5px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        /* Cropper Modal Styles *//* Ensure the modal covers the full screen and centers content */
+/* Fix for Cropper.js overflow */
+.cropper-container {
+    max-height: 90vh; 
+    display: flex;
+    flex-direction: column;
+}
+
+#cropperImage {
+    display: block;
+    max-width: 100%;
+    /* Changed to min-height for better responsiveness */
+    min-height: 300px; 
+    max-height: 60vh; 
+    object-fit: contain;
+}
+
+#cropperModal {
+    display: none;
+    position: fixed;
+    z-index: 10000; 
+    inset: 0;
+    background: rgba(2, 6, 23, 0.95); /* Matches your slate-950 theme */
+    backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
     </style>
 </head>
 <body class="font-sans antialiased overflow-hidden">
+
+<div id="cropperModal">
+    <div class="cropper-container">
+        <div class="p-4 border-b border-slate-800">
+            <h3 class="text-white font-bold">Crop Your Image</h3>
+        </div>
+
+        <div class="p-4 bg-black flex-grow flex items-center justify-center overflow-hidden">
+            <img id="cropperImage" src="" alt="To crop" style="max-width: 100%; display: block;">
+        </div>
+
+        <div class="p-4 border-t border-slate-800 flex justify-end gap-3 bg-[#0b1120] rounded-b-xl">
+            <button type="button" onclick="closeCropper()" 
+                class="px-5 py-2 text-sm font-semibold text-slate-400 hover:text-white transition">
+                Cancel
+            </button>
+            <button type="button" id="cropButton" 
+                class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 px-6 py-2 rounded-lg font-bold text-sm transition shadow-lg">
+                Crop & Save
+            </button>
+        </div>
+    </div>
+</div>
 
 <div class="flex h-screen w-full">
     <%- include('../partials/admin-sidebar', { path: 'watches' }) %>
@@ -37,9 +90,7 @@
         <section class="flex-1 overflow-y-auto custom-scroll px-8 pb-10">
             <form id="editProductForm" onsubmit="handleEditSubmit(event, '<%= product._id %>')">
                 <div class="grid grid-cols-12 gap-8">
-                    
                     <div class="col-span-12 lg:col-span-8 space-y-8">
-                        
                         <div class="card-bg rounded-2xl p-8">
                             <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Basic Information</h3>
                             <div class="space-y-6">
@@ -68,33 +119,23 @@
                             </div>
                         </div>
 
-                        <div class="card-bg rounded-2xl p-8">
-                            <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Offer Settings</h3>
-                            <div class="grid grid-cols-2 gap-6">
-                                <div>
-                                    <label class="label-style">Offer Percentage (%)</label>
-                                    <input type="number" name="offerPercentage" value="<%= product.offerPercentage || 0 %>" class="input-field" min="0" max="90">
-                                </div>
-                                <div>
-                                    <label class="label-style">Offer Expiry Date</label>
-                                    <input type="date" name="offerExpiry" value="<%= product.offerExpiry ? product.offerExpiry.toISOString().split('T')[0] : '' %>" class="input-field">
-                                </div>
-                            </div>
-                        </div>
-
                         <div class="space-y-6">
                             <% product.variants.forEach((variant, index) => { %>
-                            <div class="card-bg rounded-2xl p-8 relative" id="variant_row_<%= variant._id %>">
+                            <div class="card-bg rounded-2xl p-8 relative">
                                 <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest mb-6">Variant #<%= index + 1 %></h4>
                                 <input type="hidden" name="variants[<%=index%>][_id]" value="<%= variant._id %>">
                                 
-                                <div class="grid grid-cols-3 gap-4 mb-6">
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                                     <div>
                                         <label class="label-style">Color</label>
                                         <input type="text" name="variants[<%=index%>][color]" value="<%= variant.color %>" class="input-field">
                                     </div>
+                                   <div>
+    <label class="label-style">Regular Price (MRP)</label>
+    <input type="number" name="variants[<%=index%>][regularPrice]" value="<%= variant.regularPrice %>" class="input-field" required>
+</div>
                                     <div>
-                                        <label class="label-style">Base Price (₹)</label>
+                                        <label class="label-style">Sale Price</label>
                                         <input type="number" name="variants[<%=index%>][basePrice]" value="<%= variant.basePrice %>" class="input-field">
                                     </div>
                                     <div>
@@ -105,24 +146,38 @@
 
                                 <div>
                                     <label class="label-style text-cyan-500">Gallery Management</label>
-                                    <div class="flex flex-wrap gap-3 mb-4">
+                                    <div class="flex flex-wrap gap-3 mb-4" id="existing_container_<%=index%>">
                                         <% variant.images.forEach((img) => { %>
                                             <div class="relative group">
+                                                <input type="hidden" name="existingImages_<%=index%>" value="<%= img.url %>">
                                                 <img src="<%= img.url %>" class="w-20 h-20 rounded-xl object-cover border border-slate-700">
-                                                <button type="button" 
-                                                    onclick="deleteImage('<%= product._id %>', '<%= variant._id %>', '<%= img %>')" 
+                                                <button type="button" onclick="deleteExistingImage(this, '<%= product._id %>', '<%= variant._id %>', '<%= img.url %>')" 
                                                     class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg">
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             </div>
                                         <% }) %>
                                     </div>
-                                    <label class="label-style">Add More Images</label>
-                                    <input type="file" name="variantImages_<%=index%>" multiple accept="image/*" class="input-field text-xs" onchange="handleImagePreview(this, 'preview_<%=index%>')">
-                                    <div id="preview_<%=index%>" class="flex gap-2 flex-wrap mt-2"></div>
+                                    
+                                    <label class="label-style">Add New Images (Click to Crop)</label>
+                                    <input type="file" multiple accept="image/*" class="input-field text-xs mb-2" onchange="initCropProcess(this, '<%=index%>')">
+                                    
+                                    <div id="new_preview_<%=index%>" class="flex gap-2 flex-wrap mt-2"></div>
                                 </div>
                             </div>
                             <% }) %>
+                            <div id="variantsContainer" class="space-y-6">
+    <% product.variants.forEach((variant, index) => { %>
+        <% }) %>
+</div>
+
+<div class="mt-6">
+    <button type="button" onclick="addNewVariant()" 
+        class="w-full py-4 border-2 border-dashed border-slate-700 rounded-2xl text-slate-500 hover:text-cyan-400 hover:border-cyan-400/50 transition flex items-center justify-center gap-2 group">
+        <i class="fas fa-plus-circle group-hover:scale-110 transition"></i>
+        <span class="font-bold text-xs uppercase tracking-widest">Add Another Variant</span>
+    </button>
+</div>
                         </div>
                     </div>
 
@@ -132,34 +187,26 @@
                             <div class="space-y-4">
                                 <div>
                                     <label class="label-style">Case Size</label>
-                                    <input type="text" name="caseSize" value="<%= product.caseSize %>" class="input-field">
+                                    <input type="text" name="caseSize" value="<%= product.specifications.caseSize %>" class="input-field">
                                 </div>
                                 <div>
                                     <label class="label-style">Strap Type</label>
-                                    <input type="text" name="strapType" value="<%= product.strapType %>" class="input-field">
+                                    <input type="text" name="strapType" value="<%= product.specifications.strapType %>" class="input-field">
                                 </div>
                                 <div>
                                     <label class="label-style">Movement</label>
-                                    <input type="text" name="movementType" value="<%= product.movementType %>" class="input-field">
+                                    <input type="text" name="movementType" value="<%= product.specifications.movementType %>" class="input-field">
                                 </div>
-                                <div>
-                                    <label class="label-style">Listing Status</label>
-                                    <div class="flex items-center gap-2">
-                                        <input type="checkbox" name="isListed" <%= product.isListed ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
-                                        <span class="text-sm">Product is active</span>
-                                    </div>
-                                </div>
+                              <div class="flex items-center gap-2">
+    <input type="checkbox" name="isListed" id="isListed" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
+    <label for="isListed" class="text-sm">Active / Listed in Store</label>
+</div>
                             </div>
-
-                            <button type="submit" class="w-full mt-8 bg-cyan-500 text-slate-900 py-4 rounded-xl font-black text-xs uppercase tracking-[0.2em] custom-glow hover:bg-cyan-400 transition-all active:scale-95">
+                            <button type="submit" class="w-full mt-8 bg-cyan-500 text-slate-900 py-4 rounded-xl font-black text-xs uppercase tracking-widest custom-glow hover:bg-cyan-400">
                                 Update Product
                             </button>
-                            <a href="/admin/products" class="block text-center mt-4 text-[10px] font-bold text-slate-500 hover:text-white uppercase tracking-widest transition">
-                                Discard Changes
-                            </a>
                         </div>
                     </div>
-
                 </div>
             </form>
         </section>
@@ -167,58 +214,162 @@
 </div>
 
 <script>
-    function handleImagePreview(input, previewId) {
-        const previewContainer = document.getElementById(previewId);
-        previewContainer.innerHTML = ''; 
-        if (input.files) {
-            Array.from(input.files).forEach(file => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const wrap = document.createElement('div');
-                    wrap.innerHTML = `<img src="${e.target.result}" class="w-12 h-12 rounded-lg object-cover border border-cyan-500">`;
-                    previewContainer.appendChild(wrap);
-                }
-                reader.readAsDataURL(file);
-            });
-        }
+    // 1. Core State
+    let variantCount = parseInt("<%= product.variants.length %>") || 0;
+    let cropper;
+    const variantImagesData = {}; // Stores cropped blobs keyed by variant index/ID
+
+    // 2. Add New Variant Function
+    function addNewVariant() {
+        const container = document.getElementById('variantsContainer');
+        // Use a timestamp for the index to ensure it's always unique, even if others are removed
+        const index = Date.now(); 
+
+        const variantHtml = `
+            <div class="card-bg rounded-2xl p-8 relative border-t-2 border-cyan-500 animate-fade-in mt-6" id="variant_card_${index}">
+                <div class="flex justify-between items-center mb-6">
+                    <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest">New Variant</h4>
+                    <button type="button" onclick="document.getElementById('variant_card_${index}').remove()" class="text-rose-500 hover:text-rose-400 text-xs font-bold uppercase tracking-tighter">
+                        <i class="fas fa-trash mr-1"></i> Remove Variant
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div>
+                        <label class="label-style">Color</label>
+                        <input type="text" name="newVariants[${index}][color]" placeholder="e.g. Midnight Blue" class="input-field" required>
+                    </div>
+                    <div>
+                        <label class="label-style">Regular Price</label>
+                        <input type="number" name="newVariants[${index}][regularPrice]" class="input-field" required>
+                    </div>
+                    <div>
+                        <label class="label-style">Sale Price</label>
+                        <input type="number" name="newVariants[${index}][basePrice]" class="input-field" required>
+                    </div>
+                    <div>
+                        <label class="label-style">Stock</label>
+                        <input type="number" name="newVariants[${index}][stock]" value="0" class="input-field" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="label-style text-cyan-500">Gallery Management</label>
+                    <label class="label-style">Add Images (Required for new variant)</label>
+                    <input type="file" multiple accept="image/*" class="input-field text-xs mb-2" 
+                        onchange="initCropProcess(this, '${index}')">
+                    
+                    <div id="new_preview_${index}" class="flex gap-2 flex-wrap mt-2"></div>
+                </div>
+            </div>
+        `;
+
+        container.insertAdjacentHTML('beforeend', variantHtml);
     }
 
-    async function deleteImage(productId, variantId, imageName) {
-        const result = await Swal.fire({
-            title: 'Remove Image?',
-            text: "This image will be permanently deleted.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#06b6d4',
-            cancelButtonColor: '#f43f5e',
-            confirmButtonText: 'Yes, delete it!'
-        });
+    // 3. Image Selection & Cropping Logic
+    function initCropProcess(input, variantIndex) {
+        if (!input.files || input.files.length === 0) return;
+        
+        if (!variantImagesData[variantIndex]) variantImagesData[variantIndex] = [];
+        
+        const files = Array.from(input.files);
+        let fileIdx = 0;
 
-        if (result.isConfirmed) {
-            try {
-                const response = await fetch(`/admin/products/${productId}/variants/${variantId}/images/${imageName}`, {
-                    method: 'DELETE'
-                });
-                const data = await response.json();
-                if (data.success) {
-                    Swal.fire('Deleted!', 'Image removed.', 'success').then(() => location.reload());
-                } else {
-                    Swal.fire('Error', data.message, 'error');
-                }
-            } catch (err) {
-                Swal.fire('Error', 'Server communication failed.', 'error');
+        const processNext = () => {
+            if (fileIdx >= files.length) {
+                input.value = ""; 
+                return;
             }
-        }
+            openCropper(files[fileIdx], variantIndex, () => {
+                fileIdx++;
+                processNext();
+            });
+        };
+        processNext();
     }
 
+    function openCropper(file, variantIndex, callback) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const modal = document.getElementById('cropperModal');
+            const image = document.getElementById('cropperImage');
+            
+            image.src = e.target.result;
+            
+            // SHOW MODAL FIRST
+            modal.style.display = 'flex';
+
+            if (cropper) cropper.destroy();
+
+            // Initialize Cropper AFTER modal is visible
+            cropper = new Cropper(image, {
+                aspectRatio: 1,
+                viewMode: 1,
+                guides: true,
+                background: false,
+                autoCropArea: 1,
+                responsive: true
+            });
+
+            document.getElementById('cropButton').onclick = () => {
+                const canvas = cropper.getCroppedCanvas({ width: 800, height: 800 });
+                canvas.toBlob((blob) => {
+                    const imgId = Date.now(); 
+                    variantImagesData[variantIndex].push({ id: imgId, blob: blob });
+                    
+                    renderPreview(variantIndex, imgId, canvas.toDataURL('image/jpeg'));
+                    closeCropper();
+                    callback();
+                }, 'image/jpeg', 0.9);
+            };
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function closeCropper() {
+        if (cropper) {
+            cropper.destroy();
+            cropper = null;
+        }
+        document.getElementById('cropperModal').style.display = 'none';
+    }
+
+    function renderPreview(variantIndex, imgId, dataUrl) {
+        const container = document.getElementById(`new_preview_${variantIndex}`);
+        const div = document.createElement('div');
+        div.className = "relative group animate-fade-in";
+        div.id = `img_container_${imgId}`;
+        div.innerHTML = `
+            <img src="${dataUrl}" class="w-16 h-16 rounded-lg object-cover border border-cyan-500 shadow-lg">
+            <button type="button" onclick="removeNewImage('${variantIndex}', ${imgId})" 
+                class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[8px] hover:bg-rose-600 transition">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        container.appendChild(div);
+    }
+
+    function removeNewImage(variantIndex, imgId) {
+        variantImagesData[variantIndex] = variantImagesData[variantIndex].filter(img => img.id !== imgId);
+        const el = document.getElementById(`img_container_${imgId}`);
+        if (el) el.remove();
+    }
+
+    // 4. Submission Logic
     async function handleEditSubmit(e, productId) {
         e.preventDefault();
         const formData = new FormData(e.target);
 
-        // Logic for handling the checkbox (FormData usually omits unchecked boxes)
-        if (!formData.has('isListed')) {
-            formData.append('isListed', 'false');
-        }
+        // Append the Blobs from variantImagesData to FormData
+        Object.keys(variantImagesData).forEach(variantIdx => {
+            variantImagesData[variantIdx].forEach((imgObj, i) => {
+                // Key name format: variantImages_INDEX
+                formData.append(`variantImages_${variantIdx}`, imgObj.blob, `variant_${variantIdx}_${i}.jpg`);
+            });
+        });
+
+        if (!formData.has('isListed')) formData.append('isListed', 'false');
 
         try {
             const response = await fetch(`/admin/products/edit/${productId}`, {
@@ -228,25 +379,21 @@
 
             const result = await response.json();
             if (result.success) {
-                Swal.fire('Updated!', result.message, 'success')
-                    .then(() => window.location.href = '/admin/products');
+                Swal.fire({
+                    title: 'Updated!',
+                    text: 'Inventory refined successfully',
+                    icon: 'success',
+                    background: '#0b1120',
+                    color: '#fff',
+                    confirmButtonColor: '#06b6d4'
+                }).then(() => window.location.href = '/admin/products');
             } else {
-                Swal.fire('Update Failed', result.message, 'error');
+                Swal.fire('Error', result.message, 'error');
             }
         } catch (err) {
-            Swal.fire('Error', 'An unexpected error occurred.', 'error');
+            Swal.fire('Error', 'Submission failed', 'error');
         }
     }
-
-    // Date restriction
-    document.addEventListener('DOMContentLoaded', function() {
-        const dateInput = document.querySelector('input[name="offerExpiry"]');
-        if (dateInput) {
-            const today = new Date();
-            today.setDate(today.getDate() + 1);
-            dateInput.setAttribute('min', today.toISOString().split('T')[0]);
-        }
-    });
 </script>
 </body>
 </html>

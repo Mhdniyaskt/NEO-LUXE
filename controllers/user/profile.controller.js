@@ -8,11 +8,11 @@ export const showProfile = (req, res) => {
     if (!user) {
         return res.redirect("/login");
     }
-    
+    console.log(user);
     return res.render("user/profile-page", { 
         layout: "layouts/user",
         user: user,
-        path: '/profile' // <--- Add this line!
+        path: '/profile'
     });
 };
 
@@ -32,7 +32,6 @@ export const showEditProfile = (req, res) => {
     });
 };
 export const updateProfile = asyncHandler(async (req, res) => {
-    // AJAX sends data in req.body
     const userId = req.session?.user?.id || res.locals.user?.id;
 
     if (!userId) {
@@ -40,7 +39,6 @@ export const updateProfile = asyncHandler(async (req, res) => {
     }
 
     const { name, phone } = req.body;
-    console.log("Received Data:", req.body);
 
     // 1. Validation: Name
     if (!name || !/^[A-Za-z\s]+$/.test(name)) {
@@ -59,36 +57,46 @@ export const updateProfile = asyncHandler(async (req, res) => {
     }
 
     // 3. Update Database
+    // We use findByIdAndUpdate which works for both normal and Google users
     const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
-            name: trimmedName,
-            phone: phone ? phone.trim() : ""
+            $set: {
+                name: trimmedName,
+                phone: phone ? phone.trim() : ""
+            }
         },
-        { new: true }
+        { new: true, runValidators: true }
     );
 
     if (!updatedUser) {
         return res.status(404).json({ error: "User not found" });
     }
 
-    // 4. CRITICAL: Update the Session data
-    // This ensures res.locals.user (used in sidebars) gets the fresh data
+    // 4. Update the Session data
+    // We spread the existing session user and overwrite only name and phone
+    // This preserves googleId if it exists
     if (req.session.user) {
-        req.session.user.name = updatedUser.name;
-        req.session.user.phone = updatedUser.phone;
+        req.session.user = {
+            ...req.session.user,
+            name: updatedUser.name,
+            phone: updatedUser.phone
+        };
     }
 
-    // 5. Save session to store and then send response
+    // 5. Explicitly save session
     req.session.save((err) => {
         if (err) {
-            console.error("Session Save Error:", err);
             return res.status(500).json({ error: "Failed to sync session" });
         }
 
         return res.status(200).json({ 
             message: "Profile updated successfully!",
-            user: { name: updatedUser.name, phone: updatedUser.phone }
+            user: { 
+                name: updatedUser.name, 
+                phone: updatedUser.phone,
+                isGoogleUser: !!updatedUser.googleId 
+            }
         });
     });
 });

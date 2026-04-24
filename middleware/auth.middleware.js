@@ -1,4 +1,4 @@
-import userModel from "../../models/user.model.js";
+import userModel from "../models/user.model.js";
 
 export const checkUser = (req, res, next) => {
     // 1. Check if the session exists and has a user
@@ -37,7 +37,27 @@ export const redirectIfAuthenticated = (req, res, next) => {
 
 
 
+export const isAdmin = (req, res, next) => {
+  if (req.session && req.session.admin) {
+    return next();
+  }
 
+  res.set({
+    "Cache-Control": "no-store"
+  });
+
+  return res.redirect("/admin/login");
+};
+
+
+
+export const isLogout = (req, res, next) => {
+    if (req.session.admin) {
+        res.redirect("/admin/dashboard"); 
+    } else {
+        next();
+    }
+};
 export const requireAuth = (req,res,next)=>{
     if(req.session.user){
         return next();

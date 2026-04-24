@@ -169,25 +169,42 @@ export const forgotPasswordService = async (email) => {
 
 // ✅ RESET PASSWORD
 export const resetPasswordService = async (email, password, confirmPassword) => {
-  try {
-    if (password !== confirmPassword) {
-      return { success: false, message: "Passwords do not match" };
+    try {
+        // 1. Basic presence check
+        if (!password || !confirmPassword) {
+            return { success: false, message: "All fields are required" };
+        }
+
+        // 2. Matching check
+        if (password !== confirmPassword) {
+            return { success: false, message: "Passwords do not match" };
+        }
+
+        // 3. Complexity/Length check
+        if (password.length < 8) {
+            return { success: false, message: "Password must be at least 8 characters long" };
+        }
+
+        // 4. User existence check
+        const user = await User.findOne({ email });
+        if (!user) {
+            return { success: false, message: "User session expired. Please restart the process." };
+        }
+
+        // 5. Old password check
+        const isSame = await bcrypt.compare(password, user.password);
+        if (isSame) {
+            return { success: false, message: "New password cannot be the same as your old password" };
+        }
+
+        // 6. Save new password
+        user.password = await bcrypt.hash(password, 10);
+        await user.save();
+
+        return { success: true };
+
+    } catch (error) {
+        console.error("Reset error:", error);
+        return { success: false, message: "An internal error occurred" };
     }
-
-    const user = await User.findOne({ email });
-
-    const isSame = await bcrypt.compare(password, user.password);
-    if (isSame) {
-      return { success: false, message: "New password cannot be old password" };
-    }
-
-    user.password = await bcrypt.hash(password, 10);
-    await user.save();
-
-    return { success: true };
-
-  } catch (error) {
-    console.error("Reset error:", error);
-    return { success: false, message: "Something went wrong" };
-  }
 };

@@ -4,7 +4,7 @@ import User from "../../models/user.model.js";
 export const showCustomers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
-    const limit = 8;
+    const limit = 6;
     const skip = (page - 1) * limit;
     const search = req.query.search || "";
     const status = req.query.status || "";

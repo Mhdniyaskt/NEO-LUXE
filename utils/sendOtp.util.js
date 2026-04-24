@@ -2,35 +2,27 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 import OTP from "../models/otp.model.js";
 import AppError from "./appError.util.js";
-import { HTTP_STATUS } from "../constants/http-status.constant.js";
 
 const emailTemplates = {
+  // Matching the session string "SIGNUP"
   SIGNUP: {
-    subject: "Verify your email",
-    body: (otp) => `
-      <p>Your signup OTP is <strong>${otp}</strong></p>
-      <p>Valid for 5 minutes.</p>
-    `
+    subject: "Verify Your Email | NEO-LUXE",
+    body: (otp) => `<h2>Security Verification</h2><p>Your signup code is: <strong>${otp}</strong></p>`
   },
+  // Matching the session string "password_reset" from handleForgotPassword
+  password_reset: {
+    subject: "Reset Your Password | NEO-LUXE",
+    body: (otp) => `<h2>Password Reset Request</h2><p>Your reset code is: <strong>${otp}</strong></p>`
+  },
+  // Added as a backup just in case
   FORGOT_PASSWORD: {
-    subject: "Reset your password",
-    body: (otp) => `
-      <p>Your password reset OTP is <strong>${otp}</strong></p>
-      <p>Valid for 5 minutes.</p>
-    `
-  },
-  EMAIL_CHANGE: {
-    subject: "Confirm your new email",
-    body: (otp) => `
-      <p>Use this OTP to confirm your email change:</p>
-      <strong>${otp}</strong>
-    `
+    subject: "Reset Your Password | NEO-LUXE",
+    body: (otp) => `<h2>Password Reset Request</h2><p>Your reset code is: <strong>${otp}</strong></p>`
   }
 };
 
 export const sendOTP = async (email, purpose) => {
   try {
-    // Rate limiting
     const recentOTP = await OTP.findOne({
       email,
       purpose,
@@ -38,18 +30,17 @@ export const sendOTP = async (email, purpose) => {
     });
 
     if (recentOTP) {
-      throw new AppError(
-        "Please wait before requesting another OTP",
-        HTTP_STATUS.TOO_MANY_REQUESTS
-      );
+      throw new AppError("Please wait 30 seconds before requesting another OTP", 429);
     }
 
-    // Generate OTP
+    // CRITICAL FIX: Check if purpose exists in templates
+    if (!emailTemplates[purpose]) {
+      console.error(`ERROR: Purpose "${purpose}" not found in emailTemplates.`);
+      throw new AppError("Invalid email request purpose.", 400);
+    }
+
     const otp = crypto.randomInt(100000, 999999).toString();
-    const hashedOtp = crypto
-      .createHash("sha256")
-      .update(otp)
-      .digest("hex");
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 
     await OTP.deleteMany({ email, purpose });
 
@@ -62,33 +53,18 @@ export const sendOTP = async (email, purpose) => {
     });
 
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: `"NEO-LUXE" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: emailTemplates[purpose].subject,
       html: emailTemplates[purpose].body(otp)
     });
 
-    await OTP.create({
-      email,
-      otp: hashedOtp,
-      purpose
-    });
-
+    await OTP.create({ email, otp: hashedOtp, purpose });
     return true;
 
   } catch (error) {
-    //  IMPORTANT PART
-    console.error("OTP sending failed:", error);
-
-    // If it's already a known AppError (rate limit), rethrow it
-    if (error instanceof AppError) {
-      throw error;
-    }
-
-    // Otherwise, hide internal details and throw a generic OTP failure
-    throw new AppError(
-      "Failed to send OTP. Please try again.",
-      HTTP_STATUS.BAD_REQUEST
-    );
+    if (error.isOperational || error instanceof AppError) throw error;
+    console.error("OTP System Failure:", error);
+    throw new AppError("Failed to deliver OTP. Please try again.", 400);
   }
 };

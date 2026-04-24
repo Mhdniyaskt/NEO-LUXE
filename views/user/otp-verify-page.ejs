@@ -85,9 +85,37 @@
     <script>
     const fields = document.querySelectorAll('.otp-field');
 
+    // --- NEW: Paste Functionality ---
+    fields[0].parentElement.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const data = e.clipboardData.getData('text').trim();
+        
+        // Check if the pasted content is numeric
+        if (!/^\d+$/.test(data)) return;
+
+        const digits = data.split('');
+        
+        fields.forEach((field, index) => {
+            if (digits[index]) {
+                field.value = digits[index];
+            }
+        });
+
+        // Focus the last filled field or the very last field
+        const lastIndex = Math.min(digits.length, fields.length) - 1;
+        if (lastIndex >= 0) fields[lastIndex].focus();
+    });
+
+    // --- Existing Input Logic ---
     fields.forEach((field, index) => {
         field.addEventListener('input', (e) => {
             const val = e.target.value;
+            // Ensure only numbers are kept (for mobile manual entry)
+            if (val && !/[0-9]/.test(val)) {
+                field.value = "";
+                return;
+            }
+
             if (val.length === 1 && index < fields.length - 1) {
                 fields[index + 1].focus();
             }
@@ -100,14 +128,8 @@
                 }
             }
         });
-
-        field.addEventListener('keypress', (e) => {
-            if (!/[0-9]/.test(e.key)) {
-                e.preventDefault();
-            }
-        });
     });
-
+    // AJAX SUBMISSION
     // AJAX SUBMISSION
     document.getElementById('otp-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -123,12 +145,12 @@
             return;
         }
 
+        // 1. Loading State
         submitBtn.disabled = true;
         btnText.innerText = "Verifying...";
         errorContainer.classList.add('hidden');
 
         try {
-            // CHANGE: Using dynamic actionUrl from EJS
             const response = await fetch('<%= actionUrl %>', { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -138,11 +160,21 @@
             const result = await response.json();
 
             if (result.success) {
-                window.location.href = result.redirect || "/";
+                // 2. SUCCESS MESSAGE STATE
+                // Change button to green/cyan and show success text
+                submitBtn.classList.remove('from-brand-accent', 'to-brand-cyan');
+                submitBtn.classList.add('bg-green-500'); // Or use your brand-cyan
+                btnText.innerHTML = '<i class="fa-solid fa-check mr-2"></i> Verified Successfully';
+                
+                // 3. WAIT 1.5 SECONDS THEN REDIRECT
+                setTimeout(() => {
+                    window.location.href = result.redirect || "/";
+                }, 1500); 
+
             } else {
+                // Handle failure
                 showError(result.message || "Invalid OTP");
                 resetBtn();
-                // If session expired, redirect user
                 if(result.redirect && !result.success) {
                     setTimeout(() => window.location.href = result.redirect, 2000);
                 }

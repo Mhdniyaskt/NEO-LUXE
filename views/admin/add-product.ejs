@@ -69,19 +69,7 @@
                             </div>
                         </div>
 
-                        <div class="card-bg rounded-2xl p-8">
-                            <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Offer & Pricing Strategy</h3>
-                            <div class="grid grid-cols-2 gap-6">
-                                <div>
-                                    <label class="label-style">Offer Percentage (%)</label>
-                                    <input type="number" name="offerPercentage" value="0" min="0" max="90" class="input-field">
-                                </div>
-                                <div>
-                                    <label class="label-style">Offer Expiry Date</label>
-                                    <input type="date" name="offerExpiry" class="input-field">
-                                </div>
-                            </div>
-                        </div>
+                        
 
                         <div id="variantsContainer" class="space-y-6">
                             </div>
@@ -151,39 +139,54 @@ function addVariant() {
     
     const container = document.getElementById('variantsContainer');
     const variantHtml = `
-        <div class="card-bg rounded-2xl p-8 variant-card relative" id="variant_container_${id}">
-            <button type="button" onclick="removeVariant(${id})" class="absolute top-6 right-6 text-slate-500 hover:text-rose-500 transition">
-                <i class="fas fa-trash"></i>
-            </button>
-            <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest mb-6">Variant Configuration</h4>
-            
-            <div class="grid grid-cols-3 gap-4 mb-6">
-                <div>
-                    <label class="label-style">Color Name</label>
-                    <input type="text" name="variants[${id}][color]" required class="input-field" placeholder="e.g. Silver">
-                </div>
-                <div>
-                    <label class="label-style">Base Price</label>
-                    <input type="number" name="variants[${id}][basePrice]" required class="input-field" placeholder="0">
-                </div>
-                <div>
-                    <label class="label-style">Stock Quantity</label>
-                    <input type="number" name="variants[${id}][stock]" required class="input-field" placeholder="0">
-                </div>
-            </div>
-
+    <div class="card-bg rounded-2xl p-8 variant-card relative" id="variant_container_${id}">
+        <button type="button" onclick="removeVariant(${id})" class="absolute top-6 right-6 text-slate-500 hover:text-rose-500 transition">
+            <i class="fas fa-trash"></i>
+        </button>
+        <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest mb-6">Variant Configuration</h4>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div>
-                <label class="label-style text-cyan-400">Gallery (Minimum 3 images)</label>
-                <input type="file" accept="image/*" multiple onchange="handleImageSelection(this, ${id})" class="input-field text-xs">
-                
-                <div id="preview_grid_${id}" class="grid grid-cols-4 gap-4 mt-6">
-                    </div>
+                <label class="label-style">Color Name</label>
+                <input type="text" name="variants[${id}][color]" required class="input-field" placeholder="e.g. Silver">
+            </div>
+            <div>
+                <label class="label-style">Regular Price (MRP)</label>
+                <input type="number" 
+                       name="variants[${id}][regularPrice]" 
+                       min="0" 
+                       required class="input-field" 
+                       placeholder="0">
+            </div>
+            <div>
+                <label class="label-style">Sale Price</label>
+                <input type="number" 
+                       name="variants[${id}][basePrice]" 
+                       min="0" 
+                       required class="input-field" 
+                       placeholder="0">
+            </div>
+            <div>
+                <label class="label-style">Stock Quantity</label>
+                <input type="number" 
+                       name="variants[${id}][stock]" 
+                       min="0" 
+                       required class="input-field" 
+                       placeholder="0">
             </div>
         </div>
-    `;
+
+        <div>
+            <label class="label-style text-cyan-400">Gallery (Minimum 3 images)</label>
+            <input type="file" accept="image/*" multiple onchange="handleImageSelection(this, ${id})" class="input-field text-xs">
+            
+            <div id="preview_grid_${id}" class="grid grid-cols-4 gap-4 mt-6">
+            </div>
+        </div>
+    </div>
+`;
     container.insertAdjacentHTML('beforeend', variantHtml);
 }
-
 function handleImageSelection(input, vId) {
     const files = Array.from(input.files);
     files.forEach(file => {

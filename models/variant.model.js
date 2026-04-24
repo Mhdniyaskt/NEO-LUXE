@@ -15,20 +15,14 @@ const variantSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
-    finalPrice: {
-      type: Number,
-      required: true,
-    },
-    // offerPercentage:{
-    //     type:Number,
-    //     min:0,
-    //     max:90,
-    //     default:0
-    // },
     stock: {
       type: Number,
       required: true,
       min: 0,
+    },
+    regularPrice: {
+      type: Number,
+      required: true,
     },
     images: [
       {

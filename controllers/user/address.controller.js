@@ -1,4 +1,4 @@
-import asyncHandler from "../../utils/asyncHandler.util.js";
+import asyncHandler from "../../utils/asyncHandler.util.js"
 import {
   getUserAddressesService,
   addAddressService,
@@ -24,22 +24,27 @@ export const showAddressManagement = asyncHandler(async (req, res) => {
     addresses: result.addresses,
     currentPage: page,
     totalPages: result.totalPages,
-    path: "/profile/address"
+    path: '/addresses'
   });
 });
 
 
-
 export const addAddress = asyncHandler(async (req, res) => {
-  const userId = req.session.user.id;
+    const userId = req.session.user.id;
+    
+    // Simple Server-side validation example
+    const { fullName, phone, streetAddress, city, state, pincode } = req.body;
+    const errors = {};
+    if (!fullName) errors.fullName = "Full name is required";
+    if (!phone || !/^\d{10}$/.test(phone)) errors.phone = "Enter a valid 10-digit phone number";
+    if (!pincode || !/^\d{6}$/.test(pincode)) errors.pincode = "Enter a valid 6-digit pincode";
 
-  const result = await addAddressService(userId, req.body);
+    if (Object.keys(errors).length > 0) {
+        return res.status(400).json({ success: false, errors });
+    }
 
-  if (!result.success) {
-    return res.status(400).json(result);
-  }
-
-  res.status(200).json(result);
+    const result = await addAddressService(userId, req.body);
+    res.status(result.success ? 200 : 400).json(result);
 });
 
 

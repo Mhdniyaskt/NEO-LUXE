@@ -42,19 +42,22 @@
                     <input type="text" name="search" value="<%= search %>" placeholder="Search by watch name..." class="w-full bg-[#0b1120] border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition">
                 </div>
                 
-                <div class="flex items-center gap-3">
-                    <select name="brand" class="bg-[#0b1120] border border-slate-800 rounded-xl py-3 px-4 text-xs text-slate-400 focus:outline-none appearance-none min-w-[120px]">
-                        <option value="">All Brands</option>
-                        <% brands.forEach(brandName => { %>
-                            <option value="<%= brandName %>" <%= selectedBrand === brandName ? 'selected' : '' %>><%= brandName %></option>
-                        <% }) %>
-                    </select>
-                    
-                    <button type="submit" class="bg-slate-800 text-white px-4 py-3 rounded-xl hover:bg-slate-700 transition">
-                        <i class="fas fa-filter"></i>
-                    </button>
-                    <a href="/admin/products" class="text-slate-500 text-xs hover:text-white underline">Clear</a>
-                </div>
+              <div class="flex items-center gap-3">
+    <select name="brand" class="bg-[#0b1120] border border-slate-800 rounded-xl py-3 px-4 text-xs text-slate-400 focus:outline-none appearance-none min-w-[120px]">
+        <option value="">All Brands</option>
+        <% brands.forEach(brandName => { %>
+            <option value="<%= brandName %>" <%= selectedBrand === brandName ? 'selected' : '' %>><%= brandName %></option>
+        <% }) %>
+    </select>
+    
+    <button type="submit" title="Apply Filter" class="bg-slate-800 text-white px-4 py-3 rounded-xl hover:bg-slate-700 transition">
+        <i class="fas fa-filter"></i>
+    </button>
+
+    <a href="/admin/products" title="Clear Filters" class="bg-[#1e293b]/30 text-slate-500 px-4 py-3 rounded-xl hover:bg-rose-500/10 hover:text-rose-500 border border-transparent hover:border-rose-500/20 transition flex items-center justify-center">
+        <i class="fas fa-undo-alt"></i>
+    </a>
+</div>
             </form>
         </section>
 
@@ -67,8 +70,8 @@
                                 <th class="px-6 py-5">Watch Details</th>
                                 <th class="px-6 py-5">Brand</th>
                                 <th class="px-6 py-5">Category</th>
-                                <th class="px-6 py-5">Starting Price</th>
-                                <th class="px-6 py-5 text-center">Max Offer</th>
+                                <th class="px-6 py-5"> Price</th>
+                                
                                 <th class="px-6 py-5">Total Stock</th>
                                 <th class="px-6 py-5">Status</th>
                                 <th class="px-6 py-5 text-right">Actions</th>
@@ -101,13 +104,7 @@
                                     <td class="px-6 py-4">
                                         <div class="font-bold text-cyan-400">₹<%= product.minPrice ? product.minPrice.toLocaleString() : 'N/A' %></div>
                                     </td>
-                                    <td class="px-6 py-4 text-center">
-                                        <% if(product.offerPercentage > 0) { %>
-                                            <span class="text-rose-500 font-bold text-xs"><%= product.offerPercentage %>%</span>
-                                        <% } else { %>
-                                            <span class="text-slate-700">None</span>
-                                        <% } %>
-                                    </td>
+                                   
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-2">
                                             <span class="text-white font-medium"><%= product.totalStock %></span>
@@ -172,24 +169,62 @@
 
 <script>
     async function confirmDelete(id) {
-        if(confirm('Are you sure you want to move this watch to trash?')) {
-            try {
-                const response = await fetch(`/admin/products/delete/${id}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' }
+    const result = await Swal.fire({
+        title: 'Move to Trash?',
+        text: "You can restore this product later if needed.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444', // Rose/Red for delete
+        cancelButtonColor: '#1e293b',  // Dark slate for cancel
+        confirmButtonText: 'Yes, delete it!',
+        background: '#0b1120',         // Matching your UI
+        color: '#94a3b8'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            // Show a loading state while the request processes
+            Swal.showLoading();
+
+            const response = await fetch(`/admin/products/delete/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const data = await response.json();
+
+            if (data.success) {
+                await Swal.fire({
+                    title: 'Deleted!',
+                    text: 'The product has been moved to trash.',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    background: '#0b1120',
+                    color: '#94a3b8'
                 });
-                const result = await response.json();
-                if(result.success) {
-                    location.reload();
-                } else {
-                    alert(result.message || 'Error deleting product');
-                }
-            } catch (error) {
-                console.error('Delete error:', error);
-                alert('An error occurred while deleting.');
+                location.reload();
+            } else {
+                Swal.fire({
+                    title: 'Error!',
+                    text: data.message || 'Failed to delete the product.',
+                    icon: 'error',
+                    background: '#0b1120',
+                    color: '#94a3b8'
+                });
             }
+        } catch (error) {
+            console.error('Delete error:', error);
+            Swal.fire({
+                title: 'Server Error!',
+                text: 'Something went wrong with the communication.',
+                icon: 'error',
+                background: '#0b1120',
+                color: '#94a3b8'
+            });
         }
     }
+}
 </script>
 
 </body>

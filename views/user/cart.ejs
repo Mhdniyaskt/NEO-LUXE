@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Cart | Premium Watches</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+    <style>
+        body { background: #0a0e1a; margin: 0; padding: 0; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        .cart-row { animation: fadeUp .3s ease both; }
+        .qty-btn { width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+            background:#1e2640;border:1px solid #252e47;color:#94a3b8;font-size:1rem;cursor:pointer;transition:.15s;user-select:none; }
+        .qty-btn:hover:not(:disabled) { border-color:#00d4ff;color:#00d4ff; }
+        .qty-btn:disabled { opacity:.35;cursor:not-allowed; }
+        .item-removing { opacity:0;transform:translateX(40px);transition:.3s ease; }
+        .summary-row { display:flex;justify-content:space-between;align-items:center;padding:.55rem 0; }
+        .summary-row + .summary-row { border-top:1px solid #1e2640; }
+        
+        /* Smooth scrolling for the whole page */
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body>
+
+   
+
+    <div class="min-h-screen text-slate-200 pb-20" style="font-family:'DM Sans',sans-serif;background:#0a0e1a">
+        <div class="max-w-4xl mx-auto px-4 pt-8">
+
+            <p class="text-xs text-slate-500 mb-4 uppercase tracking-widest">
+                <a href="/" class="hover:text-slate-300 transition">Home</a>
+                <span class="mx-1">/</span>
+                <a href="/shop" class="hover:text-slate-300 transition">Shop</a>
+                <span class="mx-1">/</span>
+                <span class="text-cyan-400 font-semibold">Cart</span>
+            </p>
+
+            <div class="flex items-center justify-between mb-6">
+                <h1 style="font-family:'Playfair Display',serif;font-size:1.9rem;font-weight:700;color:#fff">
+                    Your Cart
+                    <% if (cart && cart.items.length) { %>
+                        <span class="text-slate-500 text-base font-normal ml-2">(<%= cart.items.length %> Item<%= cart.items.length !== 1 ? 's' : '' %>)</span>
+                    <% } %>
+                </h1>
+                <a href="/shop" class="flex items-center gap-2 text-sm border border-[#1e2640] text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition px-4 py-2 rounded-full">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    Continue Shopping
+                </a>
+            </div>
+
+            <% if (typeof cartIssues !== 'undefined' && cartIssues.length) { %>
+                <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-5">
+                    <% cartIssues.forEach(issue => { %>
+                        <p class="text-amber-400 text-xs flex items-center gap-2">
+                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                            <%= issue %>
+                        </p>
+                    <% }) %>
+                </div>
+            <% } %>
+
+            <div id="toast" class="fixed top-5 right-5 z-50 hidden">
+                <div class="bg-[#0f1526] border border-[#1e2640] rounded-xl px-4 py-3 text-sm flex items-center gap-3 shadow-2xl">
+                    <span id="toastIcon" class="text-lg">✓</span>
+                    <span id="toastMsg" class="text-slate-200"></span>
+                </div>
+            </div>
+
+            <% if (!cart || !cart.items || cart.items.length === 0) { %>
+                <div class="flex flex-col items-center justify-center py-28 text-center">
+                    <div class="w-20 h-20 bg-[#0f1526] border border-[#1e2640] rounded-2xl flex items-center justify-center mb-5">
+                        <svg class="w-10 h-10 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 7H4l1-7z"/>
+                        </svg>
+                    </div>
+                    <p class="text-white text-lg font-semibold mb-1">Your cart is empty</p>
+                    <p class="text-slate-500 text-sm mb-6">Looks like you haven't added anything yet.</p>
+                    <a href="/shop" class="bg-cyan-400 text-[#0a0e1a] font-semibold text-sm px-6 py-3 rounded-xl hover:bg-cyan-300 transition">
+                        Browse Collections
+                    </a>
+                </div>
+
+            <% } else { %>
+
+                <div id="cartItemsList" class="space-y-3 mb-8">
+                    <% cart.items.forEach((item, idx) => {
+                        const product = item.product;
+                        const variant = item.variant;
+                        const img     = variant.images && variant.images.length ? variant.images[0] : '';
+                        const outOfStock = variant.stock === 0;
+                        const atMax      = item.quantity >= 10 || item.quantity >= variant.stock;
+                        const atMin      = item.quantity <= 1;
+                    %>
+                    <div id="row-<%= variant._id %>"
+     class="cart-row bg-[#0f1526] border border-[#1e2640] rounded-2xl p-4 flex items-center gap-4 relative"
+     style="--delay: <%= idx * 0.06 %>s; animation-delay: var(--delay);">
+                            <div class="w-20 h-20 bg-[#161d30] rounded-xl overflow-hidden flex-shrink-0 relative">
+                                <% if (img) { %>
+                                    <img src="<%= img %>" alt="<%= product.name %>" class="w-full h-full object-cover" />
+                                <% } else { %>
+                                    <div class="w-full h-full flex items-center justify-center text-slate-600">
+                                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                                    </div>
+                                <% } %>
+                                <% if (outOfStock) { %>
+                                    <div class="absolute inset-0 bg-[#0a0e1a]/70 flex items-center justify-center rounded-xl">
+                                        <span class="text-red-400 text-[9px] font-bold uppercase tracking-wider">Out of Stock</span>
+                                    </div>
+                                <% } %>
+                            </div>
+
+                            <div class="flex-1 min-w-0">
+                                <h3 class="text-white font-semibold text-sm truncate mb-0.5"><%= product.name %></h3>
+                                <p class="text-slate-500 text-xs uppercase tracking-wider mb-2">
+                                    <% if (variant.dial) { %>DIAL: <%= variant.dial %><% } %>
+                                    <% if (variant.dial && variant.strapMaterial) { %> | <% } %>
+                                    <% if (variant.strapMaterial) { %>STRAP: <%= variant.strapMaterial %><% } %>
+                                </p>
+
+                                <div class="flex items-center gap-4 flex-wrap">
+                                    <div class="flex items-baseline gap-1.5">
+                                        <span class="text-white font-bold text-base">₹<%= variant.finalPrice.toLocaleString('en-IN') %></span>
+                                        <% if (variant.appliedOffer > 0) { %>
+                                            <span class="text-slate-500 text-xs line-through">₹<%= variant.basePrice.toLocaleString('en-IN') %></span>
+                                            <span class="text-xs text-green-400 font-semibold">-<%= variant.appliedOffer %>%</span>
+                                        <% } %>
+                                    </div>
+
+                                    <div class="flex items-center gap-2">
+                                        <button class="qty-btn" onclick="updateQty('<%= variant._id %>', -1)" <%= atMin ? 'disabled' : '' %>>−</button>
+                                        <span id="qty-<%= variant._id %>" class="text-white text-sm font-semibold w-6 text-center"><%= item.quantity %></span>
+                                        <button class="qty-btn" onclick="updateQty('<%= variant._id %>', 1)" <%= atMax ? 'disabled' : '' %> id="plus-<%= variant._id %>">+</button>
+                                        <% if (variant.stock <= 5 && variant.stock > 0) { %>
+                                            <span class="text-amber-400 text-[10px]">Only <%= variant.stock %> left</span>
+                                        <% } %>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col items-end gap-3 flex-shrink-0">
+                                <button onclick="removeItem('<%= variant._id %>')"
+                                    class="text-slate-600 hover:text-red-400 transition p-1">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
+                                <div class="text-right">
+                                    <p class="text-slate-500 text-[10px] uppercase tracking-wider">Subtotal</p>
+                                    <p id="itemSub-<%= variant._id %>" class="text-cyan-400 font-bold text-base">
+                                        ₹<%= (variant.finalPrice * item.quantity).toLocaleString('en-IN') %>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <div class="max-w-xl ml-auto">
+                    <div class="bg-[#0f1526] border border-[#1e2640] rounded-2xl p-6">
+                        <h2 class="text-white font-bold text-lg mb-4" style="font-family:'Playfair Display',serif">Order Summary</h2>
+
+                        <div class="summary-row">
+                            <span class="text-slate-400 text-sm">Subtotal</span>
+                            <span class="text-white font-medium text-sm" id="summSubtotal">₹<%= summary.subtotal.toLocaleString('en-IN') %></span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-400 text-sm">Shipping estimate</span>
+                            <span id="summShipping"
+                                class="font-semibold text-sm <%= summary.shipping === 0 ? 'text-cyan-400' : 'text-white' %>">
+                                <%= summary.shipping === 0 ? 'Free' : '₹' + summary.shipping %>
+                            </span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-400 text-sm">Tax estimate (18%)</span>
+                            <span class="text-white text-sm" id="summTax">₹<%= summary.tax.toLocaleString('en-IN') %></span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="text-slate-400 text-sm">Discount</span>
+                            <span class="text-green-400 font-semibold text-sm" id="summDiscount">
+                                -₹<%= summary.discount.toLocaleString('en-IN') %>
+                            </span>
+                        </div>
+
+                        <div class="border-t border-[#1e2640] mt-3 pt-4 flex items-end justify-between">
+                            <div>
+                                <p class="text-white font-bold text-base">Total Amount</p>
+                                <p class="text-slate-500 text-xs">Including all taxes</p>
+                            </div>
+                            <p id="summTotal" class="text-cyan-400 font-bold text-2xl">₹<%= summary.total.toLocaleString('en-IN') %></p>
+                        </div>
+
+                        <% const hasOutOfStock = cart.items.some(i => i.variant.stock === 0); %>
+                        <% if (hasOutOfStock) { %>
+                            <p class="text-red-400 text-xs text-center mt-3 mb-2">Remove out-of-stock items to proceed</p>
+                        <% } %>
+
+                        <a href="<%= hasOutOfStock ? '#' : '/checkout' %>"
+                            id="checkoutBtn"
+                            class="mt-4 w-full py-3.5 rounded-xl flex items-center justify-center gap-3 font-semibold text-sm transition
+                                <%= hasOutOfStock ? 'bg-slate-700 text-slate-500 cursor-not-allowed pointer-events-none' : 'bg-cyan-400 text-[#0a0e1a] hover:bg-cyan-300' %>">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+                            </svg>
+                            Proceed to Checkout
+                        </a>
+
+                        <p class="text-slate-600 text-xs text-center mt-3 flex items-center justify-center gap-1.5">
+                            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/></svg>
+                            Secure SSL Encryption &amp; 2-Year Warranty
+                        </p>
+                    </div>
+                </div>
+
+            <% } %>
+        </div>
+    </div>
+
+    <footer class="py-10 border-t border-white/5 bg-[#0a0e1a] text-center">
+        <p class="text-slate-600 text-xs">&copy; 2026 ChronoLuxe Premium Horology. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // ── Helpers ──────────────────────────────────────────────────────
+        function fmt(n) {
+            return '₹' + Number(n).toLocaleString('en-IN');
+        }
+
+        function showToast(msg, ok = true) {
+            const t = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const msgEl = document.getElementById('toastMsg');
+            
+            msgEl.textContent = msg;
+            icon.textContent = ok ? '✓' : '✕';
+            icon.className = ok ? 'text-green-400 text-lg' : 'text-red-400 text-lg';
+            
+            t.classList.remove('hidden');
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(() => t.classList.add('hidden'), 2800);
+        }
+
+        function updateSummary(s) {
+            document.getElementById('summSubtotal').textContent = fmt(s.subtotal);
+            const shipEl = document.getElementById('summShipping');
+            shipEl.textContent = s.shipping === 0 ? 'Free' : fmt(s.shipping);
+            shipEl.className = 'font-semibold text-sm ' + (s.shipping === 0 ? 'text-cyan-400' : 'text-white');
+            document.getElementById('summTax').textContent = fmt(s.tax);
+            document.getElementById('summDiscount').textContent = '-' + fmt(s.discount || 0);
+            document.getElementById('summTotal').textContent = fmt(s.total);
+        }
+
+        // ── Remove item ──────────────────────────────────────────────────
+        async function removeItem(variantId) {
+            const row = document.getElementById('row-' + variantId);
+            try {
+                const res = await fetch('/cart/remove/' + variantId, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    row.classList.add('item-removing');
+                    setTimeout(() => {
+                        row.remove();
+                        updateSummary(data.summary);
+                        const remaining = document.querySelectorAll('[id^="row-"]').length;
+                        const h1 = document.querySelector('h1');
+                        if (remaining === 0) {
+                            location.reload();
+                        } else {
+                            h1.innerHTML = 'Your Cart <span class="text-slate-500 text-base font-normal ml-2">(' + remaining + ' Item' + (remaining !== 1 ? 's' : '') + ')</span>';
+                        }
+                    }, 300);
+                    showToast(data.message || 'Item removed');
+                } else {
+                    showToast(data.message || 'Failed to remove', false);
+                }
+            } catch (e) {
+                showToast('Something went wrong', false);
+            }
+        }
+
+        // ── Update quantity ──────────────────────────────────────────────
+        async function updateQty(variantId, change) {
+            const qtyEl = document.getElementById('qty-' + variantId);
+            const subEl = document.getElementById('itemSub-' + variantId);
+            const plusEl = document.getElementById('plus-' + variantId);
+
+            try {
+                const res = await fetch('/cart/update-qty', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ variantId, change }),
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    qtyEl.textContent = data.quantity;
+                    subEl.textContent = fmt(data.itemSubtotal);
+                    updateSummary(data);
+
+                    // Disable plus button if at max stock or limit 10
+                    if (plusEl) {
+                        plusEl.disabled = data.quantity >= 10 || data.quantity >= data.stock;
+                    }
+                } else {
+                    showToast(data.message || 'Could not update', false);
+                }
+            } catch (e) {
+                showToast('Something went wrong', false);
+            }
+        }
+    </script>
+</body>
+</html>

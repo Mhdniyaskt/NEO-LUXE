@@ -70,19 +70,26 @@ export const showForgotPassword = (req, res) => {
 };
 
 // FORGOT HANDLE
+// This runs when they enter email on /forgot-password
 export const handleForgotPassword = asyncHandler(async (req, res) => {
-  const email = req.body.email || req.session.user?.email;
+    const email = req.body.email;
 
-  const result = await forgotPasswordService(email);
+    // Call service to generate OTP and send email
+    const result = await forgotPasswordService(email);
 
-  if (!result.success) return res.json(result);
+    if (result.success) {
+        // Store info in session for the next step
+        req.session.email = result.email;
+        req.session.otpPurpose = "FORGOT_PASSWORD";
+        
+        return res.json({ 
+            success: true, 
+            redirect: "/verify-otp" // Now they go to enter the code
+        });
+    }
 
-  req.session.email = result.email;
-  req.session.otpPurpose = result.otpPurpose;
-
-  return res.json({ success: true, redirect: "/verify-otp" });
+    return res.json(result);
 });
-
 // RESET PAGE
 export const showResetPassword = (req, res) => {
   if (!req.session.allowPasswordReset || !req.session.email) {
@@ -92,25 +99,35 @@ export const showResetPassword = (req, res) => {
 };
 
 // RESET HANDLE
+// This runs when they submit the NEW PASSWORD form
 export const handleResetPassword = asyncHandler(async (req, res) => {
-  const email = req.session.email;
+    const { password, confirmPassword } = req.body;
+    const email = req.session.email; // Get email from session, not body
 
-  const result = await resetPasswordService(
-    email,
-    req.body.password,
-    req.body.confirmPassword
-  );
+    // SECURITY CHECK
+    if (!req.session.allowPasswordReset || !email) {
+        return res.status(403).json({ 
+            success: false, 
+            message: "Unauthorized. Please verify your OTP first.",
+            redirect: "/forgot-password" 
+        });
+    }
 
-  if (!result.success) return res.json(result);
+    // Call the RESET service to change the password in DB
+    const result = await resetPasswordService(email, password, confirmPassword);
 
-  const isLoggedIn = !!req.session.user;
+    if (result.success) {
+        // CLEANUP
+        req.session.allowPasswordReset = false;
+        delete req.session.email;
+        delete req.session.otpPurpose;
 
-  delete req.session.allowPasswordReset;
-  delete req.session.email;
-  delete req.session.otpPurpose;
+        return res.json({ 
+            success: true, 
+            message: "Password updated!", 
+            redirect: "/login" 
+        });
+    }
 
-  return res.json({
-    success: true,
-    redirect: isLoggedIn ? "/profile" : "/login"
-  });
+    return res.json(result);
 });

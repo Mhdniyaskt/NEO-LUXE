@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Our Collections | Premium Watches</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        /* Neo-Luxe Theme Overrides */
+        body { 
+            background: #0a0e1a; 
+            font-family: 'DM Sans', sans-serif;
+            color: #e2e8f0;
+        }
+
+        /* Custom Radio Buttons */
+        .filter-radio:checked + label .radio-dot { 
+            background: #00d4ff; 
+            border-color: #00d4ff; 
+        }
+        .filter-radio:checked + label .radio-dot::after { 
+            display: block; 
+        }
+        .radio-dot { 
+            width: 16px; 
+            height: 16px; 
+            border: 2px solid #334155; 
+            border-radius: 50%; 
+            position: relative; 
+            flex-shrink: 0; 
+            transition: .2s; 
+        }
+        .radio-dot::after { 
+            content: ''; 
+            width: 6px; 
+            height: 6px; 
+            background: #0a0e1a; 
+            border-radius: 50%; 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%); 
+            display: none; 
+        }
+
+        /* Interactions & Animations */
+        .card-hover { 
+            transition: transform .25s, border-color .25s, box-shadow .25s; 
+        }
+        .card-hover:hover { 
+            transform: translateY(-4px); 
+            border-color: #00d4ff !important; 
+            box-shadow: 0 0 24px rgba(0, 212, 255, 0.12); 
+        }
+        
+        @keyframes fadeUp { 
+            from { opacity: 0; transform: translateY(16px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+      .product-card { 
+    animation: fadeUp 0.35s ease both; 
+    animation-delay: var(--delay); /* Use the variable here */
+}
+
+        select option { 
+            background: #161d30; 
+        }
+        
+        .btn-discover { 
+            letter-spacing: .08em; 
+        }
+    </style>
+</head>
+
+<body>
+    <div class="min-h-screen">
+        
+        <nav class="max-w-7xl mx-auto px-6 py-4 text-xs text-slate-500">
+            <a href="/" class="hover:text-slate-300 transition">Home</a>
+            <span class="mx-1">/</span>
+            <span class="text-slate-300">Shop All</span>
+        </nav>
+
+        <!-- <header class="text-center py-8 pb-10">
+            <h1 style="font-family:'Playfair Display', serif;" class="text-4xl md:text-5xl font-bold tracking-[0.12em] text-white uppercase">
+                Our Collections
+            </h1>
+            <p class="text-slate-400 text-sm mt-3 max-w-md mx-auto leading-relaxed">
+                Explore our extensive collection of premium watches, from classic analogs to modern masterpieces.
+            </p>
+        </header> -->
+     <td></td>
+        <main class="max-w-7xl mx-auto px-6 pb-20 flex flex-col lg:flex-row gap-8">
+
+            <aside class="w-64 flex-shrink-0 hidden lg:block">
+                <form id="filterForm" method="GET" action="/shop">
+                    <input type="hidden" name="search" value="<%= query.search || '' %>" />
+                    <input type="hidden" name="sort" value="<%= query.sort || 'new' %>" />
+                    <input type="hidden" name="page" value="1" />
+
+                    <div class="flex items-center justify-between mb-6">
+                        <span class="text-sm font-semibold text-white tracking-wide">Filter By</span>
+                        <a href="/shop" class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition">CLEAR ALL</a>
+                    </div>
+
+                    <section class="mb-8">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-[0.15em] mb-4">Categories</p>
+                        <div class="space-y-3">
+                            <% categories.forEach(cat => { %>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="radio" name="category" value="<%= cat._id %>" class="filter-radio sr-only"
+                                        <%= query.category && query.category.toString() === cat._id.toString() ? 'checked' : '' %>
+                                        onchange="this.form.submit()" />
+                                    <span class="radio-dot group-hover:border-cyan-400"></span>
+                                    <span class="text-sm text-slate-300 group-hover:text-white transition"><%= cat.name %></span>
+                                </label>
+                            <% }) %>
+                        </div>
+                    </section>
+
+                    <section class="mb-8">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-[0.15em] mb-4">Price Range</p>
+                        <div class="space-y-3">
+                            <% const priceOpts = [
+                                { label: 'All Prices', val: '' },
+                                { label: 'Under ₹5,000', val: '0-5000' },
+                                { label: '₹5,000 – ₹10,000', val: '5000-10000' },
+                                { label: 'Above ₹10,000', val: '10000-' }
+                            ]; %>
+                            <% priceOpts.forEach(opt => { %>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="radio" name="price" value="<%= opt.val %>" class="filter-radio sr-only"
+                                        <%= (query.price || '') === opt.val ? 'checked' : '' %>
+                                        onchange="this.form.submit()" />
+                                    <span class="radio-dot group-hover:border-cyan-400"></span>
+                                    <span class="text-sm text-slate-300 group-hover:text-white transition"><%= opt.label %></span>
+                                </label>
+                            <% }) %>
+                        </div>
+                    </section>
+
+                    <section class="mb-8">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-[0.15em] mb-4">Strap Type</p>
+                        <div class="space-y-3">
+                            <% ['Leather','Metal','Silicone'].forEach(s => { %>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="radio" name="strap" value="<%= s.toLowerCase() %>" class="filter-radio sr-only"
+                                        <%= query.strap === s.toLowerCase() ? 'checked' : '' %>
+                                        onchange="this.form.submit()" />
+                                    <span class="radio-dot group-hover:border-cyan-400"></span>
+                                    <span class="text-sm text-slate-300 group-hover:text-white transition"><%= s %></span>
+                                </label>
+                            <% }) %>
+                        </div>
+                    </section>
+
+                    <section class="mb-8">
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-[0.15em] mb-4">Sort By</p>
+                        <div class="space-y-3">
+                            <% const sortOpts = [
+                                { val:'new', label:'New Arrivals' },
+                                { val:'popular', label:'Popularity' },
+                                { val:'lowToHigh', label:'Price: Low to High' },
+                                { val:'highToLow', label:'Price: High to Low' },
+                                { val:'az', label:'A – Z' },
+                                { val:'za', label:'Z – A' }
+                            ]; %>
+                            <% sortOpts.forEach(opt => { %>
+                                <label class="flex items-center gap-3 cursor-pointer group">
+                                    <input type="radio" name="sort" value="<%= opt.val %>" class="filter-radio sr-only"
+                                        <%= (query.sort || 'new') === opt.val ? 'checked' : '' %>
+                                        onchange="this.form.submit()" />
+                                    <span class="radio-dot group-hover:border-cyan-400"></span>
+                                    <span class="text-sm text-slate-300 group-hover:text-white transition"><%= opt.label %></span>
+                                </label>
+                            <% }) %>
+                        </div>
+                    </section>
+                </form>
+            </aside>
+
+            <div class="flex-1 min-w-0">
+
+                <form method="GET" action="/shop" id="searchForm" class="mb-8">
+                    <input type="hidden" name="category" value="<%= query.category || '' %>" />
+                    <input type="hidden" name="price" value="<%= query.price || '' %>" />
+                    <input type="hidden" name="sort" value="<%= query.sort || 'new' %>" />
+                    <input type="hidden" name="page" value="1" />
+
+                    <div class="flex gap-3">
+                        <div class="relative flex-1">
+                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                            </span>
+                            <input type="text" name="search" value="<%= query.search || '' %>"
+                                placeholder="Search watches..."
+                                class="w-full bg-[#0f1526] border border-[#1e2640] rounded-xl pl-11 pr-10 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition" />
+                            <% if (query.search) { %>
+                                <a href="/shop?<%= new URLSearchParams({...query, search:''}).toString() %>" 
+                                   class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xl">&times;</a>
+                            <% } %>
+                        </div>
+                        <button type="submit" class="px-7 py-3 bg-cyan-400 text-[#0a0e1a] text-sm font-bold rounded-xl hover:bg-cyan-300 transition">
+                            SEARCH
+                        </button>
+                        <button type="button" onclick="document.getElementById('mobileFilter').classList.toggle('hidden')"
+                            class="lg:hidden px-4 py-3 bg-[#161d30] border border-[#1e2640] text-slate-300 text-sm rounded-xl">
+                            Filters
+                        </button>
+                    </div>
+                </form>
+
+                <div id="mobileFilter" class="hidden lg:hidden bg-[#0f1526] border border-[#1e2640] rounded-2xl p-6 mb-8">
+                    <form method="GET" action="/shop" class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <input type="hidden" name="search" value="<%= query.search || '' %>" />
+                        <div>
+                            <label class="text-xs text-slate-500 font-bold uppercase mb-2 block">Category</label>
+                            <select name="category" class="w-full bg-[#161d30] border border-[#1e2640] text-slate-300 text-sm rounded-lg p-2.5 focus:outline-none">
+                                <option value="">All Categories</option>
+                                <% categories.forEach(cat => { %>
+                                    <option value="<%= cat._id %>" <%= query.category === cat._id.toString() ? 'selected' : '' %>><%= cat.name %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500 font-bold uppercase mb-2 block">Sort By</label>
+                            <select name="sort" class="w-full bg-[#161d30] border border-[#1e2640] text-slate-300 text-sm rounded-lg p-2.5 focus:outline-none">
+                                <option value="new" <%=(query.sort||'new')==='new'?'selected':''%>>Newest</option>
+                                <option value="lowToHigh"<%=query.sort==='lowToHigh'?'selected':''%>>Price: Low to High</option>
+                                <option value="highToLow"<%=query.sort==='highToLow'?'selected':''%>>Price: High to Low</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="sm:col-span-2 w-full py-3 bg-cyan-400 text-[#0a0e1a] font-bold rounded-xl">APPLY FILTERS</button>
+                    </form>
+                </div>
+
+                <div class="flex items-center justify-between mb-6 flex-wrap gap-4">
+                    <p class="text-sm text-slate-400">
+                        Showing <span class="text-white font-bold"><%= products.length %></span> of <span class="text-white font-bold"><%= totalProducts %></span> results
+                    </p>
+                    
+                    <div class="flex gap-2">
+                        <% if (query.category) { 
+                            const cat = categories.find(c => c._id.toString() === query.category);
+                            if (cat) { %>
+                            <span class="text-[10px] bg-cyan-400/10 text-cyan-400 border border-cyan-400/20 px-3 py-1 rounded-full flex items-center uppercase font-bold tracking-wider">
+                                <%= cat.name %>
+                                <a href="/shop?<%= new URLSearchParams({...query, category:''}).toString() %>" class="ml-2 hover:text-white text-sm">&times;</a>
+                            </span>
+                        <% }} %>
+                    </div>
+                </div>
+
+                <% if (products.length === 0) { %>
+                    <div class="text-center py-32 border border-dashed border-slate-800 rounded-3xl">
+                        <p class="text-slate-500 italic">No timepieces match your criteria.</p>
+                        <a href="/shop" class="text-cyan-400 text-sm mt-4 inline-block hover:underline">View All Collection</a>
+                    </div>
+                <% } else { %>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+    <% products.forEach((product, i) => { %>
+        <article class="product-card bg-[#0f1526] border border-[#1e2640] rounded-2xl overflow-hidden card-hover"
+                 style="--delay: <%= i * 0.05 %>s">
+            
+            <div class="relative aspect-square bg-[#161d30] overflow-hidden group">
+                <% if (product.variant && product.variant.images && product.variant.images.length) { %>
+                    <img src="<%= product.variant.images[0] %>" alt="<%= product.name %>"
+                         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                <% } else { %>
+                    <div class="w-full h-full flex items-center justify-center text-slate-700">No Image</div>
+                <% } %>
+
+                <div class="absolute top-4 left-4 flex flex-col gap-2">
+                    <% if ((new Date() - new Date(product.createdAt)) < 7*24*60*60*1000) { %>
+                        <span class="bg-cyan-400 text-[#0a0e1a] text-[10px] font-black px-2.5 py-1 rounded uppercase tracking-tighter shadow-lg shadow-cyan-400/20">New</span>
+                    <% } %>
+                </div>
+
+                <button class="absolute top-4 right-4 w-9 h-9 bg-[#0a0e1a]/60 backdrop-blur-md rounded-full flex items-center justify-center text-slate-300 hover:text-red-400 transition-all border border-white/10">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6"> 
+                <h3 class="text-white text-base font-bold truncate mb-1"><%= product.name %></h3>
+                <p class="text-slate-500 text-[12px] mb-4 uppercase tracking-[0.15em] font-medium">
+                    <%= product.category ? product.category.name : 'Uncategorized' %>
+                </p>
+
+                <div class="flex items-center justify-between mb-6">
+                    <div class="flex flex-col">
+                        <span class="text-white font-bold text-xl tracking-tight">
+                            ₹<%= product.variant ? product.variant.finalPrice.toLocaleString('en-IN') : '0' %>
+                        </span>
+                        <% if (product.variant && product.variant.appliedOffer > 0) { %>
+                            <span class="text-slate-600 text-xs line-through">₹<%= product.variant.basePrice.toLocaleString('en-IN') %></span>
+                        <% } %>
+                    </div>
+                    
+                    <form action="/cart/add" method="POST">
+                        <input type="hidden" name="productId" value="<%= product._id %>" />
+                        <input type="hidden" name="variantId" value="<%= product.variant ? product.variant._id : '' %>" />
+                        <input type="hidden" name="quantity" value="1" />
+                        <button type="submit" class="w-11 h-11 bg-[#1e2640] border border-[#252e47] rounded-xl flex items-center justify-center text-slate-400 hover:text-cyan-400 hover:border-cyan-400 hover:bg-cyan-400/5 transition-all">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
+
+                <a href="/shop/<%= product._id %>"
+                   class="block text-center text-[11px] font-bold text-slate-400 border border-[#1e2640] py-3.5 rounded-xl hover:border-cyan-400 hover:text-cyan-400 hover:bg-cyan-400/5 transition-all uppercase tracking-widest">
+                    Discover Timepiece
+                </a>
+            </div>
+        </article>
+    <% }) %>
+</div>
+                <% } %>
+
+                <% if (totalPages > 1) { %>
+                    <nav class="flex items-center justify-center gap-2 mt-16">
+                        <% const baseQ = Object.fromEntries(Object.entries(query).filter(([k]) => k !== 'page')); %>
+                        
+                        <% if (currentPage > 1) { %>
+                            <a href="/shop?<%= new URLSearchParams({...baseQ, page: currentPage-1}).toString() %>"
+                               class="w-10 h-10 bg-[#0f1526] border border-[#1e2640] rounded-xl flex items-center justify-center text-slate-400 hover:border-cyan-400 hover:text-cyan-400 transition">&larr;</a>
+                        <% } %>
+
+                        <% for(let i=1; i<=totalPages; i++) { %>
+                            <a href="/shop?<%= new URLSearchParams({...baseQ, page: i}).toString() %>"
+                               class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition
+                               <%= currentPage == i ? 'bg-cyan-400 text-[#0a0e1a]' : 'bg-[#0f1526] border border-[#1e2640] text-slate-400 hover:border-cyan-400' %>">
+                                <%= i %>
+                            </a>
+                        <% } %>
+
+                        <% if (currentPage < totalPages) { %>
+                            <a href="/shop?<%= new URLSearchParams({...baseQ, page: currentPage+1}).toString() %>"
+                               class="w-10 h-10 bg-[#0f1526] border border-[#1e2640] rounded-xl flex items-center justify-center text-slate-400 hover:border-cyan-400 hover:text-cyan-400 transition">&rarr;</a>
+                        <% } %>
+                    </nav>
+                <% } %>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

@@ -6,6 +6,7 @@
     <title>Neo-Luxe | Watch Categories</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #020617; }
         .sidebar-bg { background-color: #020617; border-right: 1px solid #1e293b; }
@@ -71,7 +72,7 @@
                             <tr>
                                 <th class="px-6 py-4">Category Name</th>
                                 <th class="px-6 py-4">Description</th>
-                                <th class="px-6 py-4 text-center">Offer</th>
+                                
                                 <th class="px-6 py-4 text-center">Status</th>
                                 <th class="px-6 py-4 text-center">Visibility</th>
                                 <th class="px-6 py-4 text-center">Action</th>
@@ -83,15 +84,7 @@
                                 <tr class="hover:bg-slate-800/20 transition-colors">
                                     <td class="px-6 py-5 font-bold text-white"><%= category.name %></td>
                                     <td class="px-6 py-5 text-slate-400 text-xs max-w-xs truncate"><%= category.description %></td>
-                                    <td class="px-6 py-5 text-center">
-    <% if (category.offerPercent > 0) { %>
-        <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-1 rounded text-[10px] font-bold">
-            <%= category.offerPercent %>% OFF
-        </span>
-    <% } else { %>
-        <i class="fas fa-times-circle text-slate-600 text-base"></i>
-    <% } %>
-</td>
+                                    
                                     <td class="px-6 py-5 text-center">
                                         <span id="status-badge-<%= category._id %>" class="text-[9px] font-black border border-cyan-500/30 px-2 py-0.5 rounded text-cyan-400 bg-cyan-500/5">
                                             <%= category.isListed ? 'LISTED' : 'UNLISTED' %>
@@ -111,7 +104,7 @@
         data-id="<%= category._id %>"
         data-name="<%= category.name %>"
         data-desc="<%= category.description %>"
-        data-offer="<%= category.offerPercent %>"> <i class="fas fa-edit"></i>
+        > <i class="fas fa-edit"></i>
 </button>
                                             <button onclick="deleteCategory('<%= category._id %>')" class="hover:text-red-400 transition">
                                                 <i class="fas fa-trash"></i>
@@ -156,23 +149,7 @@
                 <textarea id="categoryDescription" name="description" class="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg py-2.5 px-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition"></textarea>
             </div>
 
-            <div class="border-t border-slate-800/50 pt-6">
-                <h4 class="text-base font-semibold text-white tracking-tight mb-4">Category Offer</h4>
-                <div class="grid grid-cols-2 gap-6">
-                    <div class="space-y-1.5 relative">
-                        <label class="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Offer Type</label>
-                        <select id="offerType" name="offerType" class="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg py-2.5 px-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition appearance-none">
-                            <option value="percentage">Percentage (%)</option>
-                            <option value="flat">Flat Amount</option>
-                        </select>
-                        <i class="fas fa-chevron-down absolute right-4 top-[38px] text-slate-600 text-xs pointer-events-none"></i>
-                    </div>
-                    <div class="space-y-1.5">
-                        <label class="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Offer Value</label>
-                        <input type="number" id="offerValue" name="offerValue" placeholder="0" class="w-full bg-[#1e293b]/50 border border-slate-700 rounded-lg py-2.5 px-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition">
-                    </div>
-                </div>
-            </div>
+            
 
             <div class="flex justify-end items-center space-x-4 pt-6 border-t border-slate-800">
                 <button type="button" id="closeModalBtn" class="bg-transparent px-6 py-2.5 rounded-lg text-slate-400 hover:text-white transition text-sm font-semibold">Cancel</button>
@@ -184,33 +161,45 @@
     </div>
 </div>
 
+<div id="toastContainer" class="fixed top-10 right-10 z-[100] flex flex-col gap-3"></div>
+
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- Search Logic ---
-        const searchInput = document.getElementById('categorySearchInput');
-        const searchBtn = document.getElementById('searchBtn');
-        const clearSearchBtn = document.getElementById('clearSearchBtn');
-
-        const performSearch = () => {
-            const query = searchInput.value.trim();
-            window.location.href = `/admin/categories?search=${encodeURIComponent(query)}&page=1`;
-        };
-
-        searchBtn.addEventListener('click', performSearch);
-        searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
-        clearSearchBtn.addEventListener('click', () => { window.location.href = '/admin/categories'; });
-
-        // --- Modal Elements ---
+        // --- Core UI Elements ---
         const modal = document.getElementById('categoryModalOverlay');
         const form = document.getElementById('categoryForm');
-        const modalTitle = document.getElementById('modalTitle');
         const submitBtn = document.getElementById('submitBtn');
-        
         const categoryIdInput = document.getElementById('categoryId');
         const nameInput = document.getElementById('categoryName');
         const descInput = document.getElementById('categoryDescription');
-        const offerValInput = document.getElementById('offerValue');
+      
 
+        // --- Toast Notification System ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const isSuccess = type === 'success';
+            const bgColor = isSuccess ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-red-500/10 border-red-500/30';
+            const textColor = isSuccess ? 'text-cyan-400' : 'text-red-400';
+            const icon = isSuccess ? 'fa-check-circle' : 'fa-exclamation-circle';
+
+            toast.className = `${bgColor} ${textColor} border backdrop-blur-xl px-6 py-4 rounded-xl shadow-2xl flex items-center min-w-[320px] transform translate-y-10 opacity-0 transition-all duration-500 ease-out`;
+            toast.innerHTML = `
+                <i class="fas ${icon} mr-3 text-lg"></i>
+                <span class="text-[11px] font-black uppercase tracking-widest">${message}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 10);
+            
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-x-10');
+                setTimeout(() => toast.remove(), 500);
+            }, 4000);
+        }
+
+        // --- Modal Control ---
         const openModal = () => {
             modal.classList.remove('hidden');
             setTimeout(() => modal.classList.add('opacity-100'), 10);
@@ -221,51 +210,60 @@
             setTimeout(() => modal.classList.add('hidden'), 300);
         };
 
-        // --- Add Button Handler ---
+        // --- Search Logic ---
+        const searchInput = document.getElementById('categorySearchInput');
+        const performSearch = () => {
+            const query = searchInput.value.trim();
+            window.location.href = `/admin/categories?search=${encodeURIComponent(query)}&page=1`;
+        };
+
+        document.getElementById('searchBtn').addEventListener('click', performSearch);
+        searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') performSearch(); });
+        document.getElementById('clearSearchBtn').addEventListener('click', () => { window.location.href = '/admin/categories'; });
+
+        // --- Add Button ---
         document.getElementById('addCategoryBtn').addEventListener('click', () => {
             form.reset();
             categoryIdInput.value = "";
-            modalTitle.innerText = "Add Watch Category";
+            document.getElementById('modalTitle').innerText = "Add Watch Category";
             submitBtn.innerText = "Add Category";
             openModal();
         });
 
-        // --- Edit Button Handler (Delegated) ---
+        // --- Edit Button (Delegation) ---
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('.editBtn');
             if (btn) {
-                modalTitle.innerText = "Edit Watch Category";
+                document.getElementById('modalTitle').innerText = "Edit Watch Category";
                 submitBtn.innerText = "Update Category";
-                
-                // Fill inputs from data attributes
                 categoryIdInput.value = btn.dataset.id;
                 nameInput.value = btn.dataset.name;
                 descInput.value = btn.dataset.desc;
-                // Use data-offer which we mapped to offerPercent in EJS
-                offerValInput.value = btn.dataset.offer || 0; 
-                
+               
                 openModal();
             }
         });
 
-        // --- Form Submission ---
+        // --- AJAX Form Submission (Add/Edit) ---
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const id = categoryIdInput.value;
-            
+            const url = id ? '/admin/edit-category' : '/admin/add-category';
+            const method = id ? 'PUT' : 'POST'; 
+
             const formData = {
                 id,
                 name: nameInput.value.trim(),
                 description: descInput.value.trim(),
-                // Matches the variable name in your controller's req.body
-                offerValue: Number(offerValInput.value) || 0 
+               
             };
 
-            const url = id ? '/admin/edit-category' : '/admin/add-category';
-            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing';
+
             try {
                 const response = await fetch(url, {
-                    method: 'POST', // Both your routes are POST in controller
+                    method: method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
@@ -273,59 +271,83 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    location.reload();
+                    showToast(result.message, 'success');
+                    setTimeout(() => location.reload(), 1200);
                 } else {
-                    alert(result.message || "Something went wrong");
+                    showToast(result.message, 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = id ? "Update Category" : "Add Category";
                 }
             } catch (error) { 
-                console.error('Error saving category:', error);
-                alert("Failed to save category."); 
+                showToast("Server communication error", 'error');
+                submitBtn.disabled = false;
             }
         });
 
-        // --- Modal Close Handlers ---
+        // --- Toggle Logic ---
+        window.toggleCategoryStatus = async (id) => {
+            try {
+                const response = await fetch(`/admin/toggle-category/${id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if (result.success) {
+                    const badge = document.getElementById(`status-badge-${id}`);
+                    const isNowListed = badge.innerText.trim() === 'UNLISTED';
+                    badge.innerText = isNowListed ? 'LISTED' : 'UNLISTED';
+                    showToast(`Category ${isNowListed ? 'Listed' : 'Unlisted'}`, 'success');
+                } else { 
+                    showToast(result.message, 'error');
+                }
+            } catch (error) { 
+                showToast("Failed to update status", 'error');
+            }
+        };
+
+        // --- Delete Logic with SweetAlert2 ---
+window.deleteCategory = (id) => {
+    Swal.fire({
+        title: 'ARE YOU SURE?',
+        text: "This category will be moved to trash.",
+        icon: 'warning',
+        showCancelButton: true,
+        background: '#0b1120', // Matches your card-bg
+        color: '#f8fafc',      // text-slate-300
+        confirmButtonColor: '#06b6d4', // Cyan-500
+        cancelButtonColor: '#1e293b',  // Slate-800
+        confirmButtonText: 'YES, DELETE IT',
+        cancelButtonText: 'CANCEL',
+        customClass: {
+            popup: 'border border-slate-800 rounded-2xl',
+            title: 'font-bold tracking-tight',
+            confirmButton: 'rounded-lg px-6 py-2 font-bold text-xs uppercase tracking-widest',
+            cancelButton: 'rounded-lg px-6 py-2 font-bold text-xs uppercase tracking-widest'
+        }
+    }).then(async (result) => {
+        if (result.isConfirmed) {
+            try {
+                const response = await fetch(`/admin/delete-category/${id}`, { method: 'DELETE' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    showToast("Category deleted successfully", 'success');
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showToast(data.message, 'error');
+                }
+            } catch (error) {
+                showToast("Deletion failed", 'error');
+            }
+        }
+    });
+};
+
+        // Modal Close Listeners
         document.getElementById('closeModalBtn').addEventListener('click', closeModal);
         document.getElementById('closeModalX').addEventListener('click', closeModal);
         modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
     });
-
-    // --- Toggle Status (List/Unlist) ---
-    async function toggleCategoryStatus(id) {
-        try {
-            const response = await fetch(`/admin/toggle-category/${id}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' }
-            });
-            const result = await response.json();
-            if (result.success) {
-                const badge = document.getElementById(`status-badge-${id}`);
-                const isNowListed = badge.innerText.trim() === 'UNLISTED';
-                badge.innerText = isNowListed ? 'LISTED' : 'UNLISTED';
-            } else { 
-                alert(result.message); 
-                location.reload(); 
-            }
-        } catch (error) { 
-            console.error('Error toggling status:', error); 
-        }
-    }
-
-    // --- Delete (Soft Delete) ---
-    async function deleteCategory(id) {
-        if (confirm('Are you sure you want to move this category to trash?')) {
-            try {
-                const response = await fetch(`/admin/delete-category/${id}`, { method: 'DELETE' });
-                const result = await response.json();
-                if (result.success) {
-                    location.reload();
-                } else {
-                    alert(result.message);
-                }
-            } catch (error) { 
-                alert("Failed to delete."); 
-            }
-        }
-    }
 </script>
 </body>
 </html>
