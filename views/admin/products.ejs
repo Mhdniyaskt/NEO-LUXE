@@ -6,6 +6,7 @@
     <title>Neo-Luxe | Watch Management</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #020617; }
         .sidebar-bg { background-color: #020617; border-right: 1px solid #1e293b; }
@@ -116,9 +117,12 @@
                                         </div>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <span class="px-3 py-1 rounded-full text-[10px] font-bold <%= product.isActive ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' : 'bg-slate-800 text-slate-500 border border-slate-700' %>">
+                                        <button
+                                            onclick="toggleStatus('<%= product._id %>', this)"
+                                            data-active="<%= product.isActive %>"
+                                            class="px-3 py-1 rounded-full text-[10px] font-bold transition-all <%= product.isActive ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20' : 'bg-slate-800 text-slate-500 border border-slate-700 hover:bg-cyan-500/10 hover:text-cyan-400 hover:border-cyan-500/20' %>">
                                             <%= product.isActive ? 'Active' : 'Inactive' %>
-                                        </span>
+                                        </button>
                                     </td>
                                     <td class="px-6 py-4 text-right">
                                         <div class="flex justify-end space-x-3 text-slate-500">
@@ -168,6 +172,58 @@
 </div>
 
 <script>
+    async function toggleStatus(id, btn) {
+        const isActive = btn.dataset.active === 'true';
+        const action   = isActive ? 'Unlist' : 'List';
+
+        const result = await Swal.fire({
+            title: `${action} this product?`,
+            text: isActive
+                ? 'It will be hidden from the storefront.'
+                : 'It will become visible on the storefront.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: isActive ? '#ef4444' : '#06b6d4',
+            cancelButtonColor: '#1e293b',
+            confirmButtonText: `Yes, ${action}`,
+            background: '#0b1120',
+            color: '#94a3b8',
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const res  = await fetch(`/admin/products/toggle/${id}`, { method: 'PATCH' });
+            const data = await res.json();
+
+            if (data.success) {
+                // Update button in-place — no full reload needed
+                btn.dataset.active = data.isActive;
+                if (data.isActive) {
+                    btn.textContent = 'Active';
+                    btn.className = 'px-3 py-1 rounded-full text-[10px] font-bold transition-all bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20';
+                } else {
+                    btn.textContent = 'Inactive';
+                    btn.className = 'px-3 py-1 rounded-full text-[10px] font-bold transition-all bg-slate-800 text-slate-500 border border-slate-700 hover:bg-cyan-500/10 hover:text-cyan-400 hover:border-cyan-500/20';
+                }
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: data.message,
+                    showConfirmButton: false,
+                    timer: 2000,
+                    background: '#0b1120',
+                    color: '#94a3b8',
+                });
+            } else {
+                Swal.fire('Error', data.message, 'error');
+            }
+        } catch {
+            Swal.fire('Error', 'Could not update product status.', 'error');
+        }
+    }
+
     async function confirmDelete(id) {
     const result = await Swal.fire({
         title: 'Move to Trash?',

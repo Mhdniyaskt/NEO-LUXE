@@ -40,6 +40,7 @@ router.delete("/delete-category/:id", categoryCtrl.softDeleteCategory);
 router.delete('/products/:productId/variants/:variantId/images/:imageName', productController.deleteVariantImage);
 // Products
 router.get('/products', noCache, productController.getProductPage);
+router.get('/products/check-name', productController.checkProductName);
 
 router
   .route('/products/add')
@@ -52,5 +53,6 @@ router
   .put(upload2.any(), productController.postEditProduct);
 
 router.patch('/products/delete/:id', productController.softDeleteProduct);
+router.patch('/products/toggle/:id', productController.toggleProductStatus);
 
 export default router;

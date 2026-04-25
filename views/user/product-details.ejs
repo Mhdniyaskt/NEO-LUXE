@@ -34,18 +34,7 @@
 
 <body class="text-slate-200" style="font-family:'DM Sans', sans-serif;">
 
-  <header class="w-full border-b border-[#1e2640] py-4 bg-[#0a0e1a]">
-    <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
-      <div class="text-xl font-bold tracking-tighter text-white">CHRONOS</div>
-      <div class="flex gap-6 items-center">
-        <a href="/shop" class="text-sm hover:text-cyan-400 transition">Shop</a>
-        <div class="relative">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
-            <span data-cart-count class="absolute -top-2 -right-2 bg-cyan-400 text-[#0a0e1a] text-[10px] font-bold px-1.5 rounded-full">0</span>
-        </div>
-      </div>
-    </div>
-  </header>
+
 
   <main class="min-h-screen pb-20 mt-6">
     <div class="max-w-7xl mx-auto px-4 sm:px-6">
@@ -67,7 +56,7 @@
             <% } %>
 
             <% if (defaultVariant.images && defaultVariant.images.length) { %>
-              <img id="mainImg" src="<%= defaultVariant.images[0] %>" alt="<%= product.name %>" class="w-full h-full object-contain p-6" />
+              <img id="mainImg" src="<%= defaultVariant.images[0].url %>" alt="<%= product.name %>" class="w-full h-full object-contain p-6" />
             <% } else { %>
               <div class="text-slate-600 text-sm">No image available</div>
             <% } %>
@@ -81,8 +70,8 @@
           <div class="flex gap-3" id="thumbRow">
             <% if (defaultVariant.images) { %>
               <% defaultVariant.images.slice(0,4).forEach((img, i) => { %>
-                <div class="thumb w-20 h-20 bg-[#0f1526] border border-[#1e2640] rounded-xl overflow-hidden flex-shrink-0 <%= i===0?'active':'' %>" onclick="switchImg(this,'<%= img %>')">
-                  <img src="<%= img %>" class="w-full h-full object-cover" loading="lazy" />
+                <div class="thumb w-20 h-20 bg-[#0f1526] border border-[#1e2640] rounded-xl overflow-hidden flex-shrink-0 <%= i===0?'active':'' %>" onclick="switchImg(this,'<%= img.url %>')">
+                  <img src="<%= img.url %>" class="w-full h-full object-cover" loading="lazy" />
                 </div>
               <% }) %>
             <% } %>
@@ -119,51 +108,83 @@
           </div>
 
           <div class="flex items-center gap-3">
-            <span class="text-3xl font-bold text-white">₹<%= defaultVariant.finalPrice.toLocaleString('en-IN') %></span>
-            <% if (defaultVariant.appliedOffer > 0) { %>
-              <span class="text-slate-500 line-through text-lg">₹<%= defaultVariant.basePrice.toLocaleString('en-IN') %></span>
-              <span class="bg-red-500/20 text-red-400 text-xs font-bold px-2 py-1 rounded-md">-<%= defaultVariant.appliedOffer %>% OFF</span>
+            <span class="text-3xl font-bold text-white">₹<%= defaultVariant.basePrice.toLocaleString('en-IN') %></span>
+            <% if (defaultVariant.regularPrice > defaultVariant.basePrice) { %>
+              <span class="text-slate-500 line-through text-lg">₹<%= defaultVariant.regularPrice.toLocaleString('en-IN') %></span>
+              <%
+                const discPct = Math.round(
+                  (defaultVariant.regularPrice - defaultVariant.basePrice) / defaultVariant.regularPrice * 100
+                );
+              %>
+              <span class="bg-red-500/20 text-red-400 text-xs font-bold px-2.5 py-1 rounded-md">−<%= discPct %>% OFF</span>
             <% } %>
           </div>
 
           <div>
-            <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Color: <span class="text-white"><%= defaultVariant.color||'Silver Elite' %></span></p>
-     <div class="flex gap-2">
-  <% variants.forEach((v, i) => { 
-    const swatchColor = v.colorHex || (i === 0 ? '#e0e0e0' : i === 1 ? '#d4a017' : '#1e3a5f');
-    const isActive = v._id.toString() === defaultVariant._id.toString();
-  %>
-    <a href="/shop/<%= product._id %>?variantId=<%= v._id %>" 
-       class="swatch <%= isActive ? 'active' : '' %>"
-       title="<%= v.color || 'Variant ' + (i + 1) %>">
-       
-       <span class="block w-full h-full rounded-full" 
-             data-swatch="<%= swatchColor %>"
-             style="background-color: var(--bg-fallback, #1e2640);"
-             onclick="this.style.backgroundColor='<%= swatchColor %>'"
-             onmouseenter="this.style.backgroundColor='<%= swatchColor %>'"
-             root-color="<%= swatchColor %>">
-       </span>
-    </a>
-  <% }) %>
-</div>
+            <p class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Color: <span id="colorLabel" class="text-white"><%= defaultVariant.color || 'N/A' %></span></p>
+            <div class="flex gap-2">
+              <%
+                // Map common color names to CSS hex values
+                const colorMap = {
+                  red:        '#ef4444', crimson:    '#dc143c', rose:       '#f43f5e',
+                  pink:       '#ec4899', orange:     '#f97316', amber:      '#f59e0b',
+                  yellow:     '#eab308', gold:       '#d4a017', lime:       '#84cc16',
+                  green:      '#22c55e', emerald:    '#10b981', teal:       '#14b8a6',
+                  cyan:       '#06b6d4', sky:        '#0ea5e9', blue:       '#3b82f6',
+                  navy:       '#1e3a5f', indigo:     '#6366f1', violet:     '#8b5cf6',
+                  purple:     '#a855f7', fuchsia:    '#d946ef', brown:      '#92400e',
+                  chocolate:  '#7b3f00', bronze:     '#cd7f32', silver:     '#c0c0c0',
+                  white:      '#f1f5f9', black:      '#1e293b', gray:       '#6b7280',
+                  grey:       '#6b7280', slate:      '#64748b', charcoal:   '#374151',
+                  beige:      '#d4b896', ivory:      '#fffff0', cream:      '#fffdd0',
+                  coral:      '#ff6b6b', salmon:     '#fa8072', tan:        '#d2b48c',
+                  khaki:      '#c3b091', olive:      '#808000', midnight:   '#191970',
+                  steel:      '#4682b4', titanium:   '#878681', platinum:   '#e5e4e2',
+                  gunmetal:   '#2a3439', champagne:  '#f7e7ce', copper:     '#b87333',
+                };
+
+                function resolveColor(colorName) {
+                  if (!colorName) return '#334155';
+                  const lower = colorName.toLowerCase().trim();
+                  // Direct match
+                  if (colorMap[lower]) return colorMap[lower];
+                  // Partial match — find first key that appears in the color name
+                  for (const [key, hex] of Object.entries(colorMap)) {
+                    if (lower.includes(key)) return hex;
+                  }
+                  // Last resort: use CSS named color directly (browser will handle it)
+                  return lower;
+                }
+              %>
+              <% variants.forEach((v) => {
+                const swatchColor = resolveColor(v.color);
+                const isActive    = v._id.toString() === defaultVariant._id.toString();
+              %>
+                <a href="/shop/<%= product._id %>?variantId=<%= v._id %>"
+                   class="swatch <%= isActive ? 'active' : '' %>"
+                   title="<%= v.color || 'Variant' %>"
+                   data-color-name="<%= v.color || '' %>">
+                  <span class="block w-full h-full rounded-full border border-white/10"
+                        style="background-color: <%= swatchColor %>;">
+                  </span>
+                </a>
+              <% }) %>
+            </div>
           </div>
 
           <div class="flex items-center gap-3 flex-wrap">
-            <div class="flex items-center bg-[#161d30] border border-[#1e2640] rounded-xl overflow-hidden">
-              <button onclick="adjustQty(-1)" class="px-4 py-3 text-slate-300 hover:text-white hover:bg-[#1e2640] transition">−</button>
-              <input id="qtyInput" type="number" value="1" min="1" max="<%= Math.min(defaultVariant.stock||10,10) %>" class="w-12 text-center bg-transparent text-white text-sm focus:outline-none" />
-              <button onclick="adjustQty(1)" class="px-4 py-3 text-slate-300 hover:text-white hover:bg-[#1e2640] transition">+</button>
-            </div>
-
             <% if (defaultVariant.stock === 0) { %>
               <button disabled class="flex-1 py-3 rounded-xl bg-slate-700/60 text-slate-500 text-sm font-semibold cursor-not-allowed">Sold Out</button>
             <% } else { %>
               <form id="addCartForm" action="/cart/add" method="POST" class="flex-1">
                 <input type="hidden" name="productId" value="<%= product._id %>" />
                 <input type="hidden" name="variantId" value="<%= defaultVariant._id %>" />
-                <input type="hidden" name="quantity" id="formQty" value="1" />
-                <button type="submit" class="w-full py-3 rounded-xl bg-cyan-400 text-[#0a0e1a] font-semibold text-sm hover:bg-cyan-300 transition">Add to Cart</button>
+                <input type="hidden" name="quantity" value="1" />
+                <button type="button"
+                        onclick="addToCart(this, '<%= product._id %>', '<%= defaultVariant._id %>')"
+                        class="w-full py-3 rounded-xl bg-cyan-400 text-[#0a0e1a] font-semibold text-sm hover:bg-cyan-300 transition">
+                  Add to Cart
+                </button>
               </form>
               <form action="/checkout/buy-now" method="POST">
                 <input type="hidden" name="productId" value="<%= product._id %>" />
@@ -173,15 +194,7 @@
             <% } %>
           </div>
 
-          <div class="bg-[#0f1526] border border-[#1e2640] rounded-xl p-4">
-            <p class="text-xs font-semibold text-cyan-400 uppercase tracking-widest mb-3 flex items-center gap-2">Product Highlights</p>
-            <div class="grid grid-cols-2 gap-y-3 gap-x-4 text-xs">
-              <div><p class="text-slate-500 mb-0.5">Dial</p><p class="text-white font-medium"><%= defaultVariant.dial||'Sunburst Silver' %></p></div>
-              <div><p class="text-slate-500 mb-0.5">Strap</p><p class="text-white font-medium"><%= defaultVariant.strapMaterial||'316L Stainless Steel' %></p></div>
-              <div><p class="text-slate-500 mb-0.5">Water Resistance</p><p class="text-white font-medium"><%= product.waterResistance||'50m (5 ATM)' %></p></div>
-              <div><p class="text-slate-500 mb-0.5">Warranty</p><p class="text-white font-medium"><%= product.warranty||'5 Years' %></p></div>
-            </div>
-          </div>
+          
         </div>
       </div>
 
@@ -196,18 +209,26 @@
           <div id="tab-specs">
             <h2 style="font-family:'Playfair Display',serif" class="text-xl font-bold text-white mb-4">Technical Specifications</h2>
             <div class="rounded-xl overflow-hidden border border-[#1e2640]">
-              <% [
-                ['Case Diameter', defaultVariant.caseDiameter || '42 mm'],
-                ['Case Material', defaultVariant.caseMaterial || '316L Stainless Steel'],
-                ['Strap Color', defaultVariant.strapColor || 'Brushed Silver'],
-                ['Glass Type', product.glassType || 'Sapphire Crystal'],
-                ['Weight', defaultVariant.weight || '145 g'],
-                ['Country of Origin', product.countryOfOrigin || 'Switzerland'],
-              ].forEach(([label, val]) => { %>
-                <div class="spec-row flex px-5 py-3">
-                  <span class="text-slate-400 text-sm w-48 flex-shrink-0"><%= label %></span>
-                  <span class="text-white text-sm"><%= val %></span>
-                </div>
+              <%
+                const specs = [
+                  ['Brand',          product.brand                          ],
+                  ['Category',       product.category ? product.category.name : '—'],
+                  ['Case Size',      product.specifications?.caseSize       ],
+                  ['Strap Type',     product.specifications?.strapType      ],
+                  ['Movement Type',  product.specifications?.movementType   ],
+                  ['Color',          defaultVariant.color                   ],
+                  ['Sale Price',     '₹' + defaultVariant.basePrice.toLocaleString('en-IN')],
+                  ['Regular Price',  '₹' + defaultVariant.regularPrice.toLocaleString('en-IN')],
+                  ['Stock',          defaultVariant.stock + ' units'        ],
+                ];
+              %>
+              <% specs.forEach(([label, val]) => { %>
+                <% if (val) { %>
+                  <div class="spec-row flex px-5 py-3.5">
+                    <span class="text-slate-400 text-sm w-48 flex-shrink-0"><%= label %></span>
+                    <span class="text-white text-sm font-medium"><%= val %></span>
+                  </div>
+                <% } %>
               <% }) %>
             </div>
           </div>
@@ -223,12 +244,69 @@
           </div>
         </div>
 
-        <div class="bg-[#0f1526] border border-[#1e2640] rounded-2xl p-6 text-center sticky top-10 h-fit">
-          <h3 style="font-family:'Playfair Display',serif" class="text-lg font-bold text-white mb-2">Need help choosing?</h3>
-          <p class="text-slate-400 text-xs mb-5">Our watch experts are available to guide you.</p>
-          <a href="/support/chat" class="w-full py-3 rounded-xl bg-cyan-400 text-[#0a0e1a] font-semibold text-sm flex items-center justify-center hover:bg-cyan-300 transition">Chat with Expert</a>
-        </div>
       </div>
+
+      <!-- ── Similar Products ─────────────────────────────────────────── -->
+      <% if (recommendations && recommendations.length > 0) { %>
+      <section class="mt-20">
+        <div class="flex items-end justify-between mb-8">
+          <div>
+            <p class="text-[10px] text-cyan-400 uppercase tracking-[0.2em] font-bold mb-1">You May Also Like</p>
+            <h2 style="font-family:'Playfair Display',serif" class="text-2xl font-bold text-white">Similar Timepieces</h2>
+          </div>
+          <a href="/shop" class="text-xs text-slate-400 hover:text-cyan-400 transition uppercase tracking-widest font-semibold">
+            View All →
+          </a>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <% recommendations.forEach((rec) => {
+            const rv         = rec.variant;
+            const salePrice  = rv ? rv.basePrice    : 0;
+            const regPrice   = rv ? rv.regularPrice : 0;
+            const rdiscPct   = (regPrice > salePrice && regPrice > 0)
+                                 ? Math.round((regPrice - salePrice) / regPrice * 100) : 0;
+            const recImg     = rv && rv.images && rv.images.length ? rv.images[0].url : null;
+          %>
+          <a href="/shop/<%= rec._id %>"
+             class="group bg-[#0f1526] border border-[#1e2640] rounded-2xl overflow-hidden hover:border-cyan-400/40 hover:shadow-lg hover:shadow-cyan-400/5 transition-all duration-300">
+
+            <!-- Image -->
+            <div class="relative aspect-square bg-[#161d30] overflow-hidden">
+              <% if (recImg) { %>
+                <img src="<%= recImg %>" alt="<%= rec.name %>"
+                     class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                     onerror="this.onerror=null;this.src='/images/placeholder-watch.jpg'" />
+              <% } else { %>
+                <div class="w-full h-full flex items-center justify-center">
+                  <span class="text-[10px] text-slate-600 uppercase tracking-widest italic">No Image</span>
+                </div>
+              <% } %>
+
+              <!-- Discount badge -->
+              <% if (rdiscPct > 0) { %>
+                <div class="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-lg">
+                  −<%= rdiscPct %>%
+                </div>
+              <% } %>
+            </div>
+
+            <!-- Info -->
+            <div class="p-4">
+              <p class="text-[10px] text-slate-500 uppercase tracking-widest mb-1"><%= rec.brand %></p>
+              <h3 class="text-white text-sm font-bold truncate mb-2 group-hover:text-cyan-400 transition"><%= rec.name %></h3>
+              <div class="flex items-baseline gap-2">
+                <span class="text-white font-bold">₹<%= salePrice.toLocaleString('en-IN') %></span>
+                <% if (regPrice > salePrice) { %>
+                  <span class="text-slate-600 text-xs line-through">₹<%= regPrice.toLocaleString('en-IN') %></span>
+                <% } %>
+              </div>
+            </div>
+          </a>
+          <% }) %>
+        </div>
+      </section>
+      <% } %>
 
     </div>
   </main>
@@ -237,18 +315,18 @@
     <p>&copy; 2026 Chronos Luxe. All rights reserved.</p>
   </footer>
 
-  <div id="toast" class="fixed top-5 right-5 z-50 hidden">
-    <div class="bg-[#0f1526] border border-[#1e2640] rounded-xl px-4 py-3 text-sm flex items-center gap-3 shadow-2xl">
-      <span id="toastIcon"></span>
-      <span id="toastMsg" class="text-slate-200"></span>
-    </div>
-  </div>
-
   <script>
 
     document.querySelectorAll('[data-swatch]').forEach(el => {
-    el.style.backgroundColor = el.getAttribute('data-swatch');
-  });
+      el.style.backgroundColor = el.getAttribute('data-swatch');
+    });
+
+    // Update color label on swatch hover
+    document.querySelectorAll('.swatch[data-color-name]').forEach(swatch => {
+      swatch.addEventListener('mouseenter', () => {
+        document.getElementById('colorLabel').textContent = swatch.dataset.colorName;
+      });
+    });
     function handleZoom(e, box) {
       const img = box.querySelector('img');
       if (!img) return;
@@ -267,15 +345,6 @@
       el.classList.add('active');
     }
 
-    function adjustQty(d) {
-      const inp = document.getElementById('qtyInput');
-      const fq = document.getElementById('formQty');
-      let v = parseInt(inp.value) + d;
-      v = Math.max(1, Math.min(parseInt(inp.max)||10, v));
-      inp.value = v;
-      if (fq) fq.value = v;
-    }
-
     function switchTab(id, btn) {
       ['specs','desc','reviews'].forEach(t => document.getElementById('tab-'+t).classList.add('hidden'));
       document.querySelectorAll('.tab-btn').forEach(b => {
@@ -285,25 +354,6 @@
       document.getElementById('tab-'+id).classList.remove('hidden');
       btn.classList.add('active','text-cyan-400');
       btn.classList.remove('text-slate-500');
-    }
-
-    const addCartForm = document.getElementById('addCartForm');
-    if (addCartForm) {
-      addCartForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const fd = new FormData(addCartForm);
-        try {
-          const res = await fetch('/cart/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(Object.fromEntries(fd.entries())),
-          });
-          const data = await res.json();
-          showToast(data.message, data.success);
-          const badge = document.querySelector('[data-cart-count]');
-          if (badge && data.cartCount !== undefined) badge.textContent = data.cartCount;
-        } catch { showToast('Something went wrong', false); }
-      });
     }
 
     function showToast(msg, ok=true) {

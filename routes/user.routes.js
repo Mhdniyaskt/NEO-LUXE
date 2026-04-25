@@ -116,9 +116,9 @@ router.get("/shop/:id", getProductDetails);
 
 
  
-router.get('/cart',       getCart);         // GET  /cart
-router.post('/cart/add',            addToCart);       // POST /cart/add
-router.delete('/cart/remove/:variantId',  removeFromCart);// DELETE /cart/remove/:variantId
-router.patch('/cart/update-qty',       updateQty);       // PATCH /cart/update-qty
+router.get('/cart',                          requireAuth, getCart);
+router.post('/cart/add',                     addToCart);          // addToCart handles its own 401 JSON response
+router.delete('/cart/remove/:variantId',     requireAuth, removeFromCart);
+router.patch('/cart/update-qty',             requireAuth, updateQty);
 
 export default router;

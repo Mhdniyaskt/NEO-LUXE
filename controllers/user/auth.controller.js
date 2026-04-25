@@ -6,11 +6,82 @@ import {
   forgotPasswordService,
   resetPasswordService
 } from "../../services/auth.service.js";
+import Product from "../../models/product.model.js";
+import Variant from "../../models/variant.model.js";
+import Category from "../../models/category.model.js";
 
 // HOME
 export const loadHome = async (req, res) => {
   const result = await homeService(res.locals.user);
-  res.render("user/home-page", { layout: "layouts/user", user: result.user });
+
+  // ── Featured / hero product (newest active product with a variant image) ──
+  const heroProduct = await Product.findOne({ isActive: true, isDeleted: false })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  let heroImage = null;
+  if (heroProduct) {
+    const heroVariant = await Variant.findOne({
+      product: heroProduct._id, isActive: true, isDeleted: false,
+    }).lean();
+    heroImage = heroVariant?.images?.[0]?.url || null;
+  }
+
+  // ── Listed categories (up to 6) with one product image each ──────────────
+  const categories = await Category.find({ isListed: true, isDeleted: false })
+    .sort({ createdAt: -1 })
+    .limit(6)
+    .lean();
+
+  for (const cat of categories) {
+    const prod = await Product.findOne({
+      category: cat._id, isActive: true, isDeleted: false,
+    }).lean();
+    if (prod) {
+      const v = await Variant.findOne({ product: prod._id, isActive: true, isDeleted: false }).lean();
+      cat.image = v?.images?.[0]?.url || null;
+    } else {
+      cat.image = null;
+    }
+  }
+
+  // ── Best sellers (8 newest active products) ───────────────────────────────
+  const rawProducts = await Product.find({ isActive: true, isDeleted: false })
+    .populate({ path: 'category', match: { isListed: true, isDeleted: false }, select: 'name' })
+    .sort({ createdAt: -1 })
+    .limit(16)
+    .lean();
+
+  const bestSellers = [];
+  for (const p of rawProducts) {
+    if (!p.category) continue;
+    const v = await Variant.findOne({ product: p._id, isActive: true, isDeleted: false })
+      .sort({ basePrice: 1 })
+      .lean();
+    if (!v) continue;
+    bestSellers.push({
+      ...p,
+      variant: {
+        ...v,
+        image:       v.images?.[0]?.url || null,
+        salePrice:   v.basePrice,
+        regPrice:    v.regularPrice,
+        discPct:     v.regularPrice > v.basePrice
+                       ? Math.round((v.regularPrice - v.basePrice) / v.regularPrice * 100)
+                       : 0,
+      },
+    });
+    if (bestSellers.length === 8) break;
+  }
+
+  res.render("user/home-page", {
+    layout: "layouts/user",
+    user: result.user,
+    heroProduct,
+    heroImage,
+    categories,
+    bestSellers,
+  });
 };
 
 // SIGNUP PAGE

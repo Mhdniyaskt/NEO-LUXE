@@ -9,104 +9,121 @@ export const getProducts = asyncHandler(async (req, res) => {
     category,
     brand,
     price,
-    strap,
-    sort = 'new',
+    sort = 'az',   // ← was missing from destructuring — caused sort to always be undefined
     page = 1,
   } = req.query;
- 
+
   const LIMIT = 8;
-  const skip  = (Number(page) - 1) * LIMIT;
- 
-  // ── 1. Listed categories ───────────────────────────────────────
+  const skip = (Number(page) - 1) * LIMIT;
+
+  // 1. Listed categories only
   const listedCategories = await Category.find({
-    isListed:  true,
+    isListed: true,
     isDeleted: false,
-  }).select('_id name').lean();
- 
+  })
+    .select('_id name')
+    .lean();
+
   const listedIds = listedCategories.map((c) => c._id);
- 
-  // ── 2. Build product filter (only active + listed category) ───
+
+  // 2. Build product filter
   const productFilter = {
-    isActive:  true,
+    isActive: true,
     isDeleted: false,
-    category:  category ? category : { $in: listedIds },
+    category: category ? category : { $in: listedIds },
   };
- 
-  if (search)  productFilter.name  = { $regex: search.trim(), $options: 'i' };
-  if (brand)   productFilter.brand = brand;
- 
-  // ── 3. Build variant filter ────────────────────────────────────
+
+  if (search) {
+    productFilter.name = { $regex: search.trim(), $options: 'i' };
+  }
+
+  if (brand) {
+    productFilter.brand = { $regex: `^${brand.trim()}$`, $options: 'i' };
+  }
+
+  // 3. Variant filter — price only (strap removed)
   const variantFilter = { isActive: true, isDeleted: false };
- 
+
   if (price) {
     const [rawMin, rawMax] = price.split('-');
     const priceRange = {};
-    if (rawMin) priceRange.$gte = Number(rawMin);
-    if (rawMax) priceRange.$lte = Number(rawMax);
-    if (Object.keys(priceRange).length) variantFilter.finalPrice = priceRange;
+    if (rawMin !== '' && rawMin !== undefined) priceRange.$gte = Number(rawMin);
+    if (rawMax !== '' && rawMax !== undefined) priceRange.$lte = Number(rawMax);
+    if (Object.keys(priceRange).length) variantFilter.regularPrice = priceRange;
   }
- 
-  if (strap) variantFilter.strapType = { $regex: strap, $options: 'i' };
- 
-  // ── 4. Fetch products + cheapest qualifying variant ────────────
-  //    Use Promise.all instead of sequential awaits for performance
+
+  // 4. Fetch matching products
   const rawProducts = await Product.find(productFilter)
     .populate({ path: 'category', select: 'name', match: { isListed: true } })
     .lean();
- 
+
+  // 5. Attach cheapest valid variant to each product
   const withVariants = await Promise.all(
     rawProducts.map(async (product) => {
+      if (!product.category) return null;
+
       const variant = await Variant.findOne({
         ...variantFilter,
         product: product._id,
       })
-        .sort({ finalPrice: 1 })
+        .sort({ regularPrice: 1 })
         .lean();
- 
-      if (!variant) return null; // product has no active/matching variant → hide it
+
+      if (!variant) return null;
+
+      variant.finalPrice   = variant.basePrice ?? variant.regularPrice ?? 0;
+      variant.salePrice    = variant.basePrice ?? 0;
+      variant.regularPrice = variant.regularPrice ?? 0;
+      variant.appliedOffer =
+        variant.regularPrice && variant.basePrice && variant.regularPrice > variant.basePrice
+          ? Math.round((variant.regularPrice - variant.basePrice) / variant.regularPrice * 100)
+          : 0;
+
+      variant.displayImage =
+        variant.images && variant.images.length > 0
+          ? variant.images[0].url
+          : null;
+
       return { ...product, variant };
     })
   );
- 
-  // Drop nulls (no variant matched) and products whose category didn't populate
-  // (populate returns null when match fails → category = null means unlisted)
-  const finalProducts = withVariants.filter(
-    (p) => p !== null && p.category !== null
-  );
- 
-  // ── 5. Sort in JS (after price-filter already narrowed the set) ─
+
+  const finalProducts = withVariants.filter(Boolean);
+
+  // 6. Sort — 4 options only (no strap / new / popular)
   const sorters = {
     lowToHigh: (a, b) => a.variant.finalPrice - b.variant.finalPrice,
     highToLow: (a, b) => b.variant.finalPrice - a.variant.finalPrice,
     az:        (a, b) => a.name.localeCompare(b.name),
     za:        (a, b) => b.name.localeCompare(a.name),
-    popular:   (a, b) => (b.soldCount || 0) - (a.soldCount || 0),
-    new:       (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
   };
-  finalProducts.sort(sorters[sort] || sorters.new);
- 
-  // ── 6. Pagination ──────────────────────────────────────────────
+
+  finalProducts.sort(sorters[sort] || sorters.az);
+
+  // 7. Paginate after sort
   const totalProducts = finalProducts.length;
-  const totalPages    = Math.ceil(totalProducts / LIMIT);
+  const totalPages    = Math.ceil(totalProducts / LIMIT) || 1;
   const paginated     = finalProducts.slice(skip, skip + LIMIT);
- 
-  // ── 7. Brand list for optional sidebar filter ──────────────────
+
+  // 8. Brand list for sidebar
   const brands = await Product.distinct('brand', {
     isActive:  true,
     isDeleted: false,
+    category:  { $in: listedIds },
     brand:     { $exists: true, $ne: '' },
   });
- 
-  // ── 8. Render ──────────────────────────────────────────────────
+  brands.sort((a, b) => a.localeCompare(b));
+
+  // 9. Render
   res.render('user/shop-page', {
-    layout:       'layouts/user',
-    products:     paginated,
-    categories:   listedCategories,
-    brands,                          // ← new: passed to EJS for brand filter
-    currentPage:  Number(page),
+    layout: 'layouts/user',
+    products:    paginated,
+    categories:  listedCategories,
+    brands,
+    currentPage: Number(page),
     totalPages,
-    totalProducts,                   // ← new: used in "Showing X of Y" line
-    query:        req.query,
+    totalProducts,
+    query: req.query,
   });
 });
 
@@ -191,7 +208,8 @@ export const getProductDetails = asyncHandler(async (req, res) => {
         category: product.category, 
         variant:  { 
           ...variant, 
-          finalPrice: variant.basePrice, 
+          finalPrice:   variant.basePrice, 
+          regularPrice: variant.regularPrice,
           appliedOffer: 0 
         },
       };

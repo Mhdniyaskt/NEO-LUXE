@@ -31,6 +31,10 @@ function calcSummary(items) {
 
 // ─── GET /cart ───────────────────────────────────────────────────────────────
 export const getCart = asyncHandler(async (req, res) => {
+  if (!req.session?.user?.id) {
+    return res.redirect('/login');
+  }
+
   const cart = await Cart.findOne({ user: req.session.user.id })
     .populate({ path: 'items.product', populate: { path: 'category' } })
     .populate('items.variant');
@@ -44,30 +48,46 @@ export const getCart = asyncHandler(async (req, res) => {
       const { product, variant } = item;
       const category = product?.category;
 
+      // ── Hard removes (item stripped from cart entirely) ──────────────
       if (!product || !variant || !category) {
-        cartIssues.push('Some items are no longer available');
+        cartIssues.push('Some items are no longer available and were removed.');
         continue;
       }
-      if (!product.isActive || product.isDeleted) {
-        cartIssues.push(`${product.name} is unavailable`);
+      if (product.isDeleted) {
+        cartIssues.push(`"${product.name}" has been removed from the store.`);
         continue;
       }
-      if (!category.isListed) {
-        cartIssues.push(`${product.name} is no longer listed`);
+      if (variant.isDeleted) {
+        cartIssues.push(`A variant of "${product.name}" is no longer available.`);
         continue;
-      }
-      if (!variant.isActive || variant.isDeleted) {
-        cartIssues.push(`Variant of ${product.name} is unavailable`);
-        continue;
-      }
-      if (variant.stock < item.quantity) {
-        cartIssues.push(`Only ${variant.stock} left for ${product.name}`);
       }
 
-      // Map basePrice to finalPrice for EJS compatibility without offer logic
-      item.variant.finalPrice = variant.basePrice;
+      // ── Soft flags (item kept but marked, blocks checkout) ───────────
+      item.blockReason = null;
+
+      if (!product.isActive) {
+        item.blockReason = 'Product is currently unlisted';
+      } else if (!category.isListed) {
+        item.blockReason = `Category "${category.name}" is currently unlisted`;
+      } else if (!variant.isActive) {
+        item.blockReason = 'This variant is currently unavailable';
+      } else if (variant.stock === 0) {
+        item.blockReason = 'Out of stock';
+      } else if (variant.stock < item.quantity) {
+        // Clamp quantity to available stock instead of blocking
+        item.quantity = variant.stock;
+        cartIssues.push(`Quantity for "${product.name}" adjusted to available stock (${variant.stock}).`);
+      }
+
+      if (item.blockReason) {
+        cartIssues.push(`"${product.name}": ${item.blockReason}`);
+      }
+
+      // Map prices
+      item.variant.finalPrice   = variant.basePrice;
+      item.variant.regularPrice = variant.regularPrice;
       item.variant.appliedOffer = 0;
-      
+
       validItems.push(item);
     }
 
@@ -75,7 +95,9 @@ export const getCart = asyncHandler(async (req, res) => {
     await cart.save();
   }
 
-  const summary = calcSummary(cart?.items ?? []);
+  const summary = calcSummary(
+    (cart?.items ?? []).filter(i => !i.blockReason)
+  );
 
   res.render('user/cart', {
     layout: 'layouts/user',

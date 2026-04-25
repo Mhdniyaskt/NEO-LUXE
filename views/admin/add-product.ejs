@@ -18,6 +18,10 @@
         .custom-glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
         .custom-scroll::-webkit-scrollbar { width: 5px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        /* Prevent scroll wheel from changing number inputs */
+        input[type=number] { -moz-appearance: textfield; }
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body class="font-sans antialiased overflow-hidden">
@@ -44,9 +48,11 @@
                         <div class="card-bg rounded-2xl p-8">
                             <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Basic Information</h3>
                             <div class="space-y-6">
-                                <div>
+                <div>
                                     <label class="label-style">Product Name *</label>
-                                    <input type="text" name="name" required class="input-field" placeholder="e.g. Submariner Date">
+                                    <input type="text" name="name" id="productName" required class="input-field" placeholder="e.g. Submariner Date"
+                                           oninput="checkNameAvailability(this.value)">
+                                    <p id="nameStatus" class="mt-1.5 text-[11px] font-semibold hidden"></p>
                                 </div>
                                 <div class="grid grid-cols-2 gap-6">
                                     <div>
@@ -268,6 +274,30 @@ function removeVariant(vId) {
 
 async function handleFormSubmit(e) {
     e.preventDefault();
+
+    // ── Duplicate name check before submit ───────────────────────
+    const nameInput = document.getElementById('productName');
+    const trimmedName = nameInput.value.trim();
+    if (!trimmedName) {
+        return Swal.fire('Required', 'Product name cannot be empty.', 'warning');
+    }
+    try {
+        const checkRes  = await fetch(`/admin/products/check-name?name=${encodeURIComponent(trimmedName)}`);
+        const checkData = await checkRes.json();
+        if (checkData.exists) {
+            return Swal.fire({
+                title: 'Duplicate Name',
+                text: `A product named "${trimmedName}" already exists. Please use a different name.`,
+                icon: 'error',
+                background: '#0b1120',
+                color: '#94a3b8',
+                confirmButtonColor: '#06b6d4'
+            });
+        }
+    } catch {
+        return Swal.fire('Error', 'Could not verify product name. Please try again.', 'error');
+    }
+
     const formData = new FormData(e.target);
 
     const variantIds = Object.keys(variantImagesData);
@@ -306,6 +336,45 @@ async function handleFormSubmit(e) {
 
 // Start with 1 variant by default
 addVariant();
+
+// ── Name availability check ──────────────────────────────────────────────────
+let nameCheckTimer;
+async function checkNameAvailability(value) {
+    const statusEl = document.getElementById('nameStatus');
+    const trimmed = value.trim();
+
+    clearTimeout(nameCheckTimer);
+
+    if (!trimmed) {
+        statusEl.classList.add('hidden');
+        return;
+    }
+
+    nameCheckTimer = setTimeout(async () => {
+        try {
+            const res  = await fetch(`/admin/products/check-name?name=${encodeURIComponent(trimmed)}`);
+            const data = await res.json();
+
+            statusEl.classList.remove('hidden', 'text-red-400', 'text-green-400');
+            if (data.exists) {
+                statusEl.textContent = '✕ A product with this name already exists.';
+                statusEl.classList.add('text-red-400');
+            } else {
+                statusEl.textContent = '✓ Name is available.';
+                statusEl.classList.add('text-green-400');
+            }
+        } catch {
+            statusEl.classList.add('hidden');
+        }
+    }, 400);
+}
+
+// Prevent scroll wheel from changing number input values
+document.addEventListener('wheel', (e) => {
+    if (document.activeElement?.type === 'number') {
+        document.activeElement.blur();
+    }
+}, { passive: true });
 </script>
 </body>
 </html>

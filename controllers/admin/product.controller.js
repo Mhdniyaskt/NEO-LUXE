@@ -65,222 +65,156 @@ export const getaddProducts = asyncHandler(async (req, res) => {
 });
 
 export const postAddProducts = asyncHandler(async (req, res) => {
-  const {
-    name,
-    brand,
-    category,
-    description,
-    caseSize,
-    strapType,
-    movementType,
-    isListed,
-    variants,
-  } = req.body;
+    const {
+        name,
+        brand,
+        category,
+        description,
+        caseSize,
+        strapType,
+        movementType,
+        isListed,
+        variants,
+    } = req.body;
 
-  // --- 1. BASIC REQUIRED VALIDATION ---
-  if (!name || !brand || !category) {
-    return res.status(400).json({
-      success: false,
-      message: "Name, brand and category are required",
-    });
-  }
-
-  if (!variants) {
-    return res.status(400).json({
-      success: false,
-      message: "Variant data missing",
-    });
-  }
-
-  const variantArray = Array.isArray(variants)
-    ? variants
-    : Object.values(variants);
-
-  if (variantArray.length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "At least one variant is required",
-    });
-  }
-
-  // --- 2. STRING VALIDATION ---
-  if (name.trim().length < 3) {
-    return res.status(400).json({
-      success: false,
-      message: "Product name must be at least 3 characters",
-    });
-  }
-
-  // --- 3. CATEGORY VALIDATION ---
-  const categoryExists = await Category.findById(category);
-  if (!categoryExists) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid category",
-    });
-  }
-
-  // --- 4. DUPLICATE PRODUCT CHECK ---
-  const existing = await Product.findOne({
-    name: name.trim(),
-    isDeleted: false,
-  });
-
-  if (existing) {
-    return res.status(400).json({
-      success: false,
-      message: "Product already exists",
-    });
-  }
-
-  // --- 5. DUPLICATE VARIANT COLOR CHECK ---
-  const colors = variantArray.map(v => v.color?.toLowerCase());
-  if (new Set(colors).size !== colors.length) {
-    return res.status(400).json({
-      success: false,
-      message: "Duplicate variant colors not allowed",
-    });
-  }
-
-  // --- TECHNICAL SPECS VALIDATION ---
-  if (!caseSize || caseSize.trim().length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Case size is required",
-    });
-  }
-
-  if (!strapType || strapType.trim().length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Strap type is required",
-    });
-  }
-
-  if (!movementType || movementType.trim().length === 0) {
-    return res.status(400).json({
-      success: false,
-      message: "Movement type is required",
-    });
-  }
-
-
-
-  // --- 7. CREATE VARIANTS ---
-  for (let i = 0; i < variantArray.length; i++) {
-    const v = variantArray[i];
-
-    // --- Variant validation ---
-    if (!v.color) {
-      return res.status(400).json({
-        success: false,
-        message: `Color is required for variant ${i + 1}`,
-      });
+    // --- 1. BASIC REQUIRED VALIDATION ---
+    if (!name || !brand || !category) {
+        return res.status(400).json({ success: false, message: "Name, brand and category are required" });
     }
 
-    const regularPrice = Number(v.regularPrice);
-    if (!regularPrice || regularPrice <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid regular price for variant ${i + 1}`,
-      });
+    if (!variants) {
+        return res.status(400).json({ success: false, message: "Variant data missing" });
     }
 
-    const basePrice = Number(v.basePrice);
-    if (!basePrice || basePrice <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid base price for variant ${i + 1}`,
-      });
+    const variantArray = Array.isArray(variants) ? variants : Object.values(variants);
+
+    if (variantArray.length === 0) {
+        return res.status(400).json({ success: false, message: "At least one variant is required" });
     }
 
-    if (basePrice > regularPrice) {
-      return res.status(400).json({
-        success: false,
-        message: `Base price cannot be greater than regular price for variant ${i + 1}`,
-      });
+    // --- 2. STRING & CATEGORY VALIDATION ---
+    if (name.trim().length < 3) {
+        return res.status(400).json({ success: false, message: "Product name must be at least 3 characters" });
     }
 
-    const stock = Number(v.stock || 0);
-    if (stock < 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Stock cannot be negative for variant ${i + 1}`,
-      });
+    const categoryExists = await Category.findById(category);
+    if (!categoryExists) {
+        return res.status(400).json({ success: false, message: "Invalid category" });
     }
 
-    // --- IMAGE HANDLING ---
-    const variantFiles = (req.files || []).filter(
-      (file) => file.fieldname === `variantImages_${i}`
-    );
-
-    if (variantFiles.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: `At least one image required for variant ${i + 1}`,
-      });
+    // --- 3. DUPLICATE PRODUCT CHECK ---
+    const existing = await Product.findOne({ name: name.trim(), isDeleted: false });
+    if (existing) {
+        return res.status(400).json({ success: false, message: "Product already exists" });
     }
 
-    // --- IMAGE TYPE VALIDATION ---
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-    variantFiles.forEach(file => {
-      if (!allowedTypes.includes(file.mimetype)) {
-        throw new Error("Invalid image format");
-      }
+    // --- 4. PRE-VALIDATION PASS (CRITICAL FIX) ---
+    // We check all variants here BEFORE creating the product. 
+    // If this fails, no "ghost" product is created in the DB.
+    const colors = [];
+    for (let i = 0; i < variantArray.length; i++) {
+        const v = variantArray[i];
+        const regularPrice = Number(v.regularPrice);
+        const basePrice = Number(v.basePrice);
+        const stock = Number(v.stock || 0);
+
+        if (!v.color || regularPrice <= 0 || basePrice <= 0 || stock < 0) {
+            return res.status(400).json({ success: false, message: `Invalid data for variant ${i + 1}` });
+        }
+
+        if (basePrice > regularPrice) {
+            return res.status(400).json({ success: false, message: `Variant ${i + 1}: Sale price cannot exceed Regular Price.` });
+        }
+
+        // Check for duplicate colors within the same submission
+        if (colors.includes(v.color.toLowerCase())) {
+            return res.status(400).json({ success: false, message: `Duplicate variant color: ${v.color}` });
+        }
+        colors.push(v.color.toLowerCase());
+
+        // Check if images exist for this specific variant index
+        const hasImages = (req.files || []).some(file => file.fieldname === `variantImages_${i}`);
+        if (!hasImages) {
+            return res.status(400).json({ success: false, message: `Variant ${i + 1}: At least one image is required.` });
+        }
+    }
+
+    // --- 5. TECHNICAL SPECS VALIDATION ---
+    if (!caseSize?.trim() || !strapType?.trim() || !movementType?.trim()) {
+        return res.status(400).json({ success: false, message: "All technical specifications are required" });
+    }
+
+    // --- 6. CREATE PRODUCT (ONLY AFTER ALL VALIDATIONS PASS) ---
+    const product = await Product.create({
+        name: name.trim(),
+        brand: brand.trim(),
+        category,
+        description,
+        specifications: { caseSize, strapType, movementType },
+        isActive: isListed === "true" || isListed === "on" || isListed === true,
     });
 
-      // --- 6. CREATE PRODUCT ---
-  const product = await Product.create({
-    name: name.trim(),
-    brand: brand.trim(),
-    category,
-    description,
-    specifications: { caseSize, strapType, movementType },
-    isActive: Boolean(isListed),
-  });
+    const variantIds = [];
 
-    // --- SAVE VARIANT ---
-    await Variant.create({
-      product: product._id,
-      color: v.color,
-      stock,
-      regularPrice,
-      basePrice,
-      images: variantFiles.map((file, idx) => ({
-        url: file.path || file.filename,
-        isPrimary: idx === 0,
-      })),
+    // --- 7. CREATE VARIANTS ---
+    for (let i = 0; i < variantArray.length; i++) {
+        const v = variantArray[i];
+        const variantFiles = (req.files || []).filter(
+            (file) => file.fieldname === `variantImages_${i}`
+        );
+
+        const newVariant = await Variant.create({
+            product: product._id,
+            color: v.color,
+            stock: Number(v.stock),
+            regularPrice: Number(v.regularPrice),
+            basePrice: Number(v.basePrice),
+            images: variantFiles.map((file, idx) => ({
+                url: file.path || file.filename,
+                isPrimary: idx === 0,
+            })),
+        });
+
+        variantIds.push(newVariant._id);
+    }
+
+    // --- 8. LINK VARIANTS BACK TO PRODUCT ---
+    await Product.findByIdAndUpdate(product._id, {
+        variants: variantIds
     });
-  }
 
-  return res.status(201).json({
-    success: true,
-    message: "Product added successfully",
-  });
+    return res.status(201).json({
+        success: true,
+        message: "Product and all variants added successfully",
+    });
 });
 
 
 
 export const geteditProduct = asyncHandler(async (req, res) => {
-  const product = await Product.findById(req.params.id);
-  if (!product) return res.redirect("/admin/products");
+    const { id } = req.params;
+    
+    // 1. REMOVE .populate('variants') here. 
+    // Just find the product by ID.
+    const product = await Product.findById(id); 
 
-  const categories = await Category.find({ isListed: true });
-  const variants = await Variant.find({
-    product: product._id,
-    isDeleted: false,
-  });
+    if (!product) return res.redirect("/admin/products");
 
-  // Attach variants to the product object before rendering
-  const productData = product.toObject();
-  productData.variants = variants;
-  
-  
-  res.render("admin/edit-product", {
-    product: productData, // Now product.variants will exist
-    categories,
-    layout: "layouts/admin",
-  });
+    const categories = await Category.find({ isListed: true });
+    
+    // 2. You are ALREADY doing this correctly! 
+    // This fetches all variants linked to the product.
+    const variants = await Variant.find({
+        product: product._id,
+        isDeleted: false,
+    });
+
+    res.render("admin/edit-product", { 
+        product, 
+        categories, 
+        variants,
+        layout: "layouts/admin" 
+    });
 });
 
 
@@ -298,51 +232,54 @@ export const postEditProduct = asyncHandler(async (req, res) => {
         return res.status(400).json({ success: false, message: "Required fields are missing." });
     }
 
-    const variantArray = Array.isArray(variants) ? variants : Object.values(variants || {});
+    // Convert variants object/array into a workable array of [key, value] pairs
+    // This allows us to access the original 'index' (like the timestamp) for image mapping
+    const variantEntries = Object.entries(variants || {});
 
-    // 2. PRE-VALIDATION PASS: Check all variants before saving anything
-    for (let i = 0; i < variantArray.length; i++) {
-        const v = variantArray[i];
+    // 2. PRE-VALIDATION PASS
+    for (const [index, v] of variantEntries) {
         const regularPrice = Number(v.regularPrice);
         const basePrice = Number(v.basePrice);
         const stock = Number(v.stock);
 
-        if (isNaN(regularPrice) || regularPrice <= 0) {
+        if (isNaN(regularPrice) || regularPrice <= 0 || isNaN(basePrice) || basePrice <= 0) {
             return res.status(400).json({ 
                 success: false, 
-                message: `Variant ${i + 1}: Regular Price (MRP) must be a valid number greater than 0.` 
-            });
-        }
-
-        if (isNaN(basePrice) || basePrice <= 0) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `Variant ${i + 1}: Sale price must be a valid number greater than 0.` 
+                message: `Variant ${v.color || ''}: Prices must be valid numbers greater than 0.` 
             });
         }
 
         if (basePrice > regularPrice) {
             return res.status(400).json({ 
                 success: false, 
-                message: `Variant ${i + 1}: Sale price (${basePrice}) cannot be higher than the Regular price (${regularPrice}).` 
+                message: `Variant ${v.color || ''}: Sale price cannot be higher than the Regular price.` 
             });
         }
 
         if (isNaN(stock) || stock < 0) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `Variant ${i + 1}: Stock cannot be negative.` 
-            });
+            return res.status(400).json({ success: false, message: `Variant ${v.color || ''}: Stock cannot be negative.` });
+        }
+
+        // IMAGE VALIDATION FOR NEW VARIANTS
+        // We use the 'index' from the object key to match 'variantImages_TIMESTAMP'
+        if (!v._id || v._id === 'undefined') {
+            const newFiles = req.files ? req.files.filter(f => f.fieldname === `variantImages_${index}`) : [];
+            if (newFiles.length === 0) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: `New variant (${v.color}): At least one image is required.` 
+                });
+            }
         }
     }
-// Ensure this part in your controller handles the isActive checkbox correctly
-const isListedBool = isActive === "on" || isActive === "true" || isActive === true;
 
-    // 3. Update Main Product Info (Only runs if all variants passed validation)
+    const isListedBool = isActive === "on" || isActive === "true" || isActive === true;
+
+    // 3. Update Main Product Info
     const updatedProduct = await Product.findByIdAndUpdate(id, {
-        name,
+        name: name.trim(),
         category,
-        brand,
+        brand: brand.trim(),
         description,
         specifications: { caseSize, strapType, movementType },
         isActive: isListedBool
@@ -353,12 +290,11 @@ const isListedBool = isActive === "on" || isActive === "true" || isActive === tr
     }
 
     // 4. Process Variants
-    for (let i = 0; i < variantArray.length; i++) {
-        const v = variantArray[i];
+    for (const [index, v] of variantEntries) {
         
-        // Handle Images
-        const newFiles = req.files ? req.files.filter(f => f.fieldname === `variantImages_${i}`) : [];
-        let keptImages = req.body[`existingImages_${i}`] || [];
+        // Match images using the unique key (timestamp or array index) from frontend
+        const newFiles = req.files ? req.files.filter(f => f.fieldname === `variantImages_${index}`) : [];
+        let keptImages = req.body[`existingImages_${index}`] || [];
         if (!Array.isArray(keptImages)) keptImages = [keptImages];
 
         const finalImages = [
@@ -368,35 +304,34 @@ const isListedBool = isActive === "on" || isActive === "true" || isActive === tr
 
         if (finalImages.length > 0) finalImages[0].isPrimary = true;
 
-        // ... inside your loop after handling images ...
+        // Check if it's an existing variant or a new one
+        if (v._id && v._id !== 'undefined' && v._id.length > 5) {
+            // Update existing variant
+            await Variant.findByIdAndUpdate(v._id, {
+                color: v.color,
+                stock: Number(v.stock),
+                regularPrice: Number(v.regularPrice),
+                basePrice: Number(v.basePrice),
+                images: finalImages,
+                isActive: true
+            });
+        } else {
+            // Create new variant
+            const newVariant = await Variant.create({
+                product: id,
+                color: v.color,
+                stock: Number(v.stock),
+                regularPrice: Number(v.regularPrice),
+                basePrice: Number(v.basePrice),
+                images: finalImages,
+                isActive: true
+            });
 
-if (v._id) {
-    // Update existing variant
-    await Variant.findByIdAndUpdate(v._id, {
-        color: v.color,
-        stock: Number(v.stock),
-        regularPrice: Number(v.regularPrice),
-        basePrice: Number(v.basePrice),
-        images: finalImages,
-        isActive: true
-    });
-} else {
-    // Create new variant
-    const newVariant = await Variant.create({
-        product: id,
-        color: v.color,
-        stock: Number(v.stock),
-        regularPrice: Number(v.regularPrice),
-        basePrice: Number(v.basePrice),
-        images: finalImages,
-        isActive: true
-    });
-
-    // CRITICAL: Link the new variant to the Product document
-    await Product.findByIdAndUpdate(id, {
-        $push: { variants: newVariant._id }
-    });
-}
+            // IMPORTANT: Link the new variant ID to the Product's variants array
+            await Product.findByIdAndUpdate(id, {
+                $push: { variants: newVariant._id }
+            });
+        }
     }
 
     res.json({ success: true, message: "Product and variants updated successfully" });
@@ -444,4 +379,37 @@ export const softDeleteProduct = asyncHandler(async (req, res) => {
     { isDeleted: true, isActive: false },
   );
   res.json({ success: true, message: "Product and variants moved to trash" });
+});
+
+// @desc    Toggle product isActive (list / unlist)
+export const toggleProductStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const product = await Product.findById(id);
+  if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+
+  product.isActive = !product.isActive;
+  await product.save();
+
+  res.json({
+    success: true,
+    isActive: product.isActive,
+    message: product.isActive ? "Product listed successfully" : "Product unlisted successfully",
+  });
+});
+
+// @desc    Check if product name already exists (for live validation)
+export const checkProductName = asyncHandler(async (req, res) => {
+  const { name, excludeId } = req.query;
+  if (!name || !name.trim()) {
+    return res.json({ exists: false });
+  }
+  const query = {
+    name: { $regex: `^${name.trim()}$`, $options: 'i' },
+    isDeleted: false,
+  };
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+  const existing = await Product.findOne(query).lean();
+  res.json({ exists: !!existing });
 });

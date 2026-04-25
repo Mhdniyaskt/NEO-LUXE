@@ -3,7 +3,7 @@
 <head>
   <title>User Panel</title>
 </head>
-<body>
+<body data-logged-in="<%= locals.isLoggedIn ? 'true' : 'false' %>">
 
   <%- include('../partials/user-header') %>
 
@@ -12,6 +12,101 @@
   </main>
 
   <%- include('../partials/user-footer') %>
+
+  <!-- ── Global cart toast ──────────────────────────────────────────── -->
+  <div id="cartToast"
+       class="fixed bottom-6 right-6 z-[999] flex items-center gap-3 px-5 py-3.5
+              bg-[#0f1526] border rounded-2xl shadow-2xl text-sm
+              transition-all duration-300 translate-y-4 opacity-0 pointer-events-none"
+       style="min-width:260px">
+    <span id="cartToastIcon" class="text-lg flex-shrink-0"></span>
+    <span id="cartToastMsg" class="text-slate-200 font-medium"></span>
+  </div>
+
+  <!-- ── Shared add-to-cart helper (available on every user page) ───── -->
+  <script>
+    // Show bottom-right toast
+    function _showCartToast(msg, ok) {
+      const toast   = document.getElementById('cartToast');
+      const iconEl  = document.getElementById('cartToastIcon');
+      const msgEl   = document.getElementById('cartToastMsg');
+
+      iconEl.textContent = ok ? '✓' : '✕';
+      iconEl.className   = ok ? 'text-green-400 text-lg flex-shrink-0'
+                               : 'text-red-400 text-lg flex-shrink-0';
+      msgEl.textContent  = msg;
+
+      // Border colour
+      toast.classList.remove('border-green-500/30', 'border-red-500/30', 'border-[#1e2640]');
+      toast.classList.add(ok ? 'border-green-500/30' : 'border-red-500/30');
+
+      // Animate in
+      toast.classList.remove('translate-y-4', 'opacity-0', 'pointer-events-none');
+      toast.classList.add('translate-y-0', 'opacity-100');
+
+      clearTimeout(window._cartToastTimer);
+      window._cartToastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-4', 'opacity-0', 'pointer-events-none');
+        toast.classList.remove('translate-y-0', 'opacity-100');
+      }, 3000);
+    }
+
+    /**
+     * addToCart(btn, productId, variantId)
+     *  - btn        : the button element (used for loading state)
+     *  - productId  : product _id string
+     *  - variantId  : variant _id string
+     */
+    async function addToCart(btn, productId, variantId) {
+      // ── 1. Client-side login guard ──────────────────────────────────
+      const loggedIn = document.body.dataset.loggedIn === 'true';
+      if (!loggedIn) {
+        window.location.href = '/login';
+        return;
+      }
+
+      // ── 2. Loading state ────────────────────────────────────────────
+      const originalHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+      </svg>`;
+
+      try {
+        const res  = await fetch('/cart/add', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ productId, variantId, quantity: 1 }),
+        });
+
+        // ── 3. Not logged in (server-side check) ──────────────────────
+        if (res.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
+
+        const data = await res.json();
+
+        // ── 4. Show result toast ──────────────────────────────────────
+        _showCartToast(data.message, data.success);
+
+        // ── 5. Update cart badge in header if present ─────────────────
+        if (data.success && data.cartCount !== undefined) {
+          document.querySelectorAll('[data-cart-count]').forEach(el => {
+            el.textContent = data.cartCount;
+            el.classList.toggle('hidden', data.cartCount === 0);
+          });
+        }
+
+      } catch {
+        _showCartToast('Something went wrong. Please try again.', false);
+      } finally {
+        btn.disabled  = false;
+        btn.innerHTML = originalHTML;
+      }
+    }
+  </script>
 
   <!-- ✅ Back button fix -->
   <script>

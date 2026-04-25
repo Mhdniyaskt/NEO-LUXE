@@ -18,6 +18,10 @@
         .custom-glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
         .custom-scroll::-webkit-scrollbar { width: 5px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        /* Prevent scroll wheel from changing number inputs */
+        input[type=number] { -moz-appearance: textfield; }
+        input[type=number]::-webkit-outer-spin-button,
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         /* Cropper Modal Styles *//* Ensure the modal covers the full screen and centers content */
 /* Fix for Cropper.js overflow */
 .cropper-container {
@@ -96,7 +100,9 @@
                             <div class="space-y-6">
                                 <div>
                                     <label class="label-style">Product Name *</label>
-                                    <input type="text" name="name" value="<%= product.name %>" required class="input-field">
+                                    <input type="text" name="name" id="productName" value="<%= product.name %>" required class="input-field"
+                                           oninput="checkNameAvailability(this.value)">
+                                    <p id="nameStatus" class="mt-1.5 text-[11px] font-semibold hidden"></p>
                                 </div>
                                 <div class="grid grid-cols-2 gap-6">
                                     <div>
@@ -120,7 +126,7 @@
                         </div>
 
                         <div class="space-y-6">
-                            <% product.variants.forEach((variant, index) => { %>
+                            <% variants.forEach((variant, index) => { %>
                             <div class="card-bg rounded-2xl p-8 relative">
                                 <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest mb-6">Variant #<%= index + 1 %></h4>
                                 <input type="hidden" name="variants[<%=index%>][_id]" value="<%= variant._id %>">
@@ -167,7 +173,7 @@
                             </div>
                             <% }) %>
                             <div id="variantsContainer" class="space-y-6">
-    <% product.variants.forEach((variant, index) => { %>
+   <% variants.forEach((variant, index) => { %>
         <% }) %>
 </div>
 
@@ -198,8 +204,8 @@
                                     <input type="text" name="movementType" value="<%= product.specifications.movementType %>" class="input-field">
                                 </div>
                               <div class="flex items-center gap-2">
-    <input type="checkbox" name="isListed" id="isListed" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
-    <label for="isListed" class="text-sm">Active / Listed in Store</label>
+    <input type="checkbox" name="isActive" id="isActive" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
+    <label for="isActive" class="text-sm">Active / Listed in Store</label>
 </div>
                             </div>
                             <button type="submit" class="w-full mt-8 bg-cyan-500 text-slate-900 py-4 rounded-xl font-black text-xs uppercase tracking-widest custom-glow hover:bg-cyan-400">
@@ -215,9 +221,42 @@
 
 <script>
     // 1. Core State
-    let variantCount = parseInt("<%= product.variants.length %>") || 0;
+   let variantCount = parseInt("<%= variants.length %>") || 0;
     let cropper;
     const variantImagesData = {}; // Stores cropped blobs keyed by variant index/ID
+
+    // ── Name availability check (excludes current product) ───────────────────
+    const CURRENT_PRODUCT_ID = '<%= product._id %>';
+    let nameCheckTimer;
+    async function checkNameAvailability(value) {
+        const statusEl = document.getElementById('nameStatus');
+        const trimmed  = value.trim();
+
+        clearTimeout(nameCheckTimer);
+
+        if (!trimmed) {
+            statusEl.classList.add('hidden');
+            return;
+        }
+
+        nameCheckTimer = setTimeout(async () => {
+            try {
+                const res  = await fetch(`/admin/products/check-name?name=${encodeURIComponent(trimmed)}&excludeId=${CURRENT_PRODUCT_ID}`);
+                const data = await res.json();
+
+                statusEl.classList.remove('hidden', 'text-red-400', 'text-green-400');
+                if (data.exists) {
+                    statusEl.textContent = '✕ A product with this name already exists.';
+                    statusEl.classList.add('text-red-400');
+                } else {
+                    statusEl.textContent = '✓ Name is available.';
+                    statusEl.classList.add('text-green-400');
+                }
+            } catch {
+                statusEl.classList.add('hidden');
+            }
+        }, 400);
+    }
 
     // 2. Add New Variant Function
     function addNewVariant() {
@@ -225,44 +264,44 @@
         // Use a timestamp for the index to ensure it's always unique, even if others are removed
         const index = Date.now(); 
 
-        const variantHtml = `
-            <div class="card-bg rounded-2xl p-8 relative border-t-2 border-cyan-500 animate-fade-in mt-6" id="variant_card_${index}">
-                <div class="flex justify-between items-center mb-6">
-                    <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest">New Variant</h4>
-                    <button type="button" onclick="document.getElementById('variant_card_${index}').remove()" class="text-rose-500 hover:text-rose-400 text-xs font-bold uppercase tracking-tighter">
-                        <i class="fas fa-trash mr-1"></i> Remove Variant
-                    </button>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div>
-                        <label class="label-style">Color</label>
-                        <input type="text" name="newVariants[${index}][color]" placeholder="e.g. Midnight Blue" class="input-field" required>
-                    </div>
-                    <div>
-                        <label class="label-style">Regular Price</label>
-                        <input type="number" name="newVariants[${index}][regularPrice]" class="input-field" required>
-                    </div>
-                    <div>
-                        <label class="label-style">Sale Price</label>
-                        <input type="number" name="newVariants[${index}][basePrice]" class="input-field" required>
-                    </div>
-                    <div>
-                        <label class="label-style">Stock</label>
-                        <input type="number" name="newVariants[${index}][stock]" value="0" class="input-field" required>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="label-style text-cyan-500">Gallery Management</label>
-                    <label class="label-style">Add Images (Required for new variant)</label>
-                    <input type="file" multiple accept="image/*" class="input-field text-xs mb-2" 
-                        onchange="initCropProcess(this, '${index}')">
-                    
-                    <div id="new_preview_${index}" class="flex gap-2 flex-wrap mt-2"></div>
-                </div>
+       const variantHtml = `
+    <div class="card-bg rounded-2xl p-8 relative border-t-2 border-cyan-500 animate-fade-in mt-6" id="variant_card_${index}">
+        <div class="flex justify-between items-center mb-6">
+            <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest">New Variant</h4>
+            <button type="button" onclick="document.getElementById('variant_card_${index}').remove()" class="text-rose-500 hover:text-rose-400 text-xs font-bold uppercase tracking-tighter">
+                <i class="fas fa-trash mr-1"></i> Remove Variant
+            </button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div>
+                <label class="label-style">Color</label>
+                <input type="text" name="variants[${index}][color]" placeholder="e.g. Midnight Blue" class="input-field" required>
             </div>
-        `;
+            <div>
+                <label class="label-style">Regular Price</label>
+                <input type="number" name="variants[${index}][regularPrice]" class="input-field" required>
+            </div>
+            <div>
+                <label class="label-style">Sale Price</label>
+                <input type="number" name="variants[${index}][basePrice]" class="input-field" required>
+            </div>
+            <div>
+                <label class="label-style">Stock</label>
+                <input type="number" name="variants[${index}][stock]" value="0" class="input-field" required>
+            </div>
+        </div>
+
+        <div>
+            <label class="label-style text-cyan-500">Gallery Management</label>
+            <label class="label-style">Add Images (Required for new variant)</label>
+            <input type="file" multiple accept="image/*" class="input-field text-xs mb-2" 
+                onchange="initCropProcess(this, '${index}')">
+            
+            <div id="new_preview_${index}" class="flex gap-2 flex-wrap mt-2"></div>
+        </div>
+    </div>
+`;
 
         container.insertAdjacentHTML('beforeend', variantHtml);
     }
@@ -359,6 +398,30 @@
     // 4. Submission Logic
     async function handleEditSubmit(e, productId) {
         e.preventDefault();
+
+        // ── Duplicate name check (exclude current product) ───────────
+        const nameInput  = document.getElementById('productName');
+        const trimmedName = nameInput.value.trim();
+        if (!trimmedName) {
+            return Swal.fire('Required', 'Product name cannot be empty.', 'warning');
+        }
+        try {
+            const checkRes  = await fetch(`/admin/products/check-name?name=${encodeURIComponent(trimmedName)}&excludeId=${productId}`);
+            const checkData = await checkRes.json();
+            if (checkData.exists) {
+                return Swal.fire({
+                    title: 'Duplicate Name',
+                    text: `Another product named "${trimmedName}" already exists. Please use a different name.`,
+                    icon: 'error',
+                    background: '#0b1120',
+                    color: '#94a3b8',
+                    confirmButtonColor: '#06b6d4'
+                });
+            }
+        } catch {
+            return Swal.fire('Error', 'Could not verify product name. Please try again.', 'error');
+        }
+
         const formData = new FormData(e.target);
 
         // Append the Blobs from variantImagesData to FormData
@@ -369,7 +432,7 @@
             });
         });
 
-        if (!formData.has('isListed')) formData.append('isListed', 'false');
+        if (!formData.has('isActive')) formData.append('isActive', 'false');
 
         try {
             const response = await fetch(`/admin/products/edit/${productId}`, {
@@ -394,6 +457,13 @@
             Swal.fire('Error', 'Submission failed', 'error');
         }
     }
+
+    // Prevent scroll wheel from changing number input values
+    document.addEventListener('wheel', (e) => {
+        if (document.activeElement?.type === 'number') {
+            document.activeElement.blur();
+        }
+    }, { passive: true });
 </script>
 </body>
 </html>
