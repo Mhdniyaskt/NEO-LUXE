@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Orders | Neo-Luxe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    body { background:#0a0e1a; font-family:'DM Sans',sans-serif; }
+    .status-badge {
+      display:inline-block; font-size:10px; font-weight:700; padding:2px 10px;
+      border-radius:999px; text-transform:capitalize; letter-spacing:.05em;
+    }
+    .status-pending    { background:#f59e0b22; color:#f59e0b; border:1px solid #f59e0b44; }
+    .status-confirmed  { background:#22c55e22; color:#22c55e; border:1px solid #22c55e44; }
+    .status-processing { background:#3b82f622; color:#3b82f6; border:1px solid #3b82f644; }
+    .status-shipped    { background:#8b5cf622; color:#8b5cf6; border:1px solid #8b5cf644; }
+    .status-delivered  { background:#10b98122; color:#10b981; border:1px solid #10b98144; }
+    .status-cancelled  { background:#ef444422; color:#ef4444; border:1px solid #ef444444; }
+    .status-returned   { background:#6b728022; color:#6b7280; border:1px solid #6b728044; }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen">
+
+  <div class="max-w-4xl mx-auto px-4 pt-8 pb-24">
+
+    <!-- Breadcrumb -->
+    <p class="text-xs text-slate-500 mb-5 uppercase tracking-widest">
+      <a href="/" class="hover:text-slate-300 transition">Home</a>
+      <span class="mx-1.5">/</span>
+      <a href="/profile" class="hover:text-slate-300 transition">Profile</a>
+      <span class="mx-1.5">/</span>
+      <span class="text-cyan-400 font-semibold">My Orders</span>
+    </p>
+
+    <h1 style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;color:#fff" class="mb-8">
+      My Orders
+    </h1>
+
+    <% if (!orders || orders.length === 0) { %>
+      <div class="flex flex-col items-center justify-center py-32 text-center">
+        <div class="w-20 h-20 bg-[#0f1526] border border-[#1e2640] rounded-3xl flex items-center justify-center mb-6">
+          <svg class="w-10 h-10 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+          </svg>
+        </div>
+        <p class="text-white text-xl font-semibold mb-2">No orders yet</p>
+        <p class="text-slate-500 text-sm mb-8">Your order history will appear here.</p>
+        <a href="/shop" class="bg-cyan-400 text-[#0a0e1a] font-bold text-sm px-8 py-3 rounded-xl hover:bg-cyan-300 transition">
+          Start Shopping
+        </a>
+      </div>
+    <% } else { %>
+      <div class="space-y-4">
+        <% orders.forEach(order => { %>
+          <div class="bg-[#0f1526] border border-[#1e2640] rounded-2xl p-5 hover:border-cyan-400/20 transition">
+            <div class="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <p class="text-slate-500 text-[10px] uppercase tracking-widest mb-0.5">Order ID</p>
+                <p class="text-white font-mono text-xs font-semibold"><%= order._id %></p>
+              </div>
+              <div class="text-right flex-shrink-0">
+                <span class="status-badge status-<%= order.status %>"><%= order.status %></span>
+                <p class="text-slate-500 text-[10px] mt-1">
+                  <%= new Date(order.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) %>
+                </p>
+              </div>
+            </div>
+
+            <!-- Items preview -->
+            <div class="flex gap-2 mb-4 flex-wrap">
+              <% order.items.slice(0, 3).forEach(item => { %>
+                <div class="w-12 h-12 bg-[#161d30] rounded-lg overflow-hidden border border-[#1e2640] flex-shrink-0">
+                  <% if (item.imageUrl) { %>
+                    <img src="<%= item.imageUrl %>" alt="<%= item.productName %>" class="w-full h-full object-cover"/>
+                  <% } else { %>
+                    <div class="w-full h-full flex items-center justify-center text-slate-700">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                    </div>
+                  <% } %>
+                </div>
+              <% }) %>
+              <% if (order.items.length > 3) { %>
+                <div class="w-12 h-12 bg-[#161d30] rounded-lg border border-[#1e2640] flex items-center justify-center text-slate-500 text-xs font-bold">
+                  +<%= order.items.length - 3 %>
+                </div>
+              <% } %>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-slate-500 text-xs">
+                  <%= order.items.length %> item<%= order.items.length !== 1 ? 's' : '' %> ·
+                  <%= order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online' %>
+                </p>
+                <p class="text-cyan-400 font-bold text-lg">₹<%= order.total.toLocaleString('en-IN') %></p>
+              </div>
+              <a href="/orders/<%= order._id %>"
+                 class="text-xs border border-[#1e2640] text-slate-300 hover:border-cyan-400 hover:text-cyan-400 transition px-4 py-2 rounded-full">
+                View Details →
+              </a>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <footer class="py-8 border-t border-white/5 text-center">
+    <p class="text-slate-700 text-xs">&copy; 2026 Neo-Luxe Premium Horology. All rights reserved.</p>
+  </footer>
+
+</body>
+</html>

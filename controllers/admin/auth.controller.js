@@ -39,13 +39,14 @@ export const handleAdminLogin = async (req, res) => {
 
 
 export const handleAdminLogout = (req, res) => {
+  // Destroy only the admin session; the user session (different cookie) is unaffected
   req.session.destroy((err) => {
     if (err) {
-      console.error("Logout error:", err);
+      console.error("Admin logout error:", err);
       return res.status(500).send("Could not log out.");
     }
 
-    res.clearCookie("connect.sid");
+    res.clearCookie("neo_luxe_admin");
     res.redirect("/admin/login");
   });
 };

@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <style>
     body { background:#0a0e1a; margin: 0; padding: 0; }
@@ -51,6 +52,8 @@
           <div id="zoomBox" class="zoom-wrap bg-[#0f1526] border border-[#1e2640] rounded-2xl aspect-square flex items-center justify-center mb-4 relative" onclick="handleZoom(event,this)">
             <% if (defaultVariant.stock === 0) { %>
               <span class="absolute top-3 left-3 bg-red-500/90 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase z-10 tracking-wider">Out of Stock</span>
+            <% } else if (!defaultVariant.isActive) { %>
+              <span class="absolute top-3 left-3 bg-slate-600/90 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase z-10 tracking-wider">Unavailable</span>
             <% } else { %>
               <span class="absolute top-3 left-3 bg-cyan-400 text-[#0a0e1a] text-[10px] font-bold px-3 py-1 rounded-full uppercase z-10 tracking-wider">New Arrival</span>
             <% } %>
@@ -100,6 +103,8 @@
             <span class="text-slate-400 text-xs">(<%= product.reviewCount||124 %> Reviews)</span>
             <% if (defaultVariant.stock === 0) { %>
               <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-full font-semibold">Out of Stock</span>
+            <% } else if (!defaultVariant.isActive) { %>
+              <span class="text-[10px] bg-slate-500/20 text-slate-400 border border-slate-500/30 px-2 py-0.5 rounded-full font-semibold">Unavailable</span>
             <% } else if (defaultVariant.stock <= 5) { %>
               <span class="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-semibold">Only <%= defaultVariant.stock %> left</span>
             <% } else { %>
@@ -157,35 +162,46 @@
                 }
               %>
               <% variants.forEach((v) => {
-                const swatchColor = resolveColor(v.color);
-                const isActive    = v._id.toString() === defaultVariant._id.toString();
+                const swatchColor  = resolveColor(v.color);
+                const isSelected   = v._id.toString() === defaultVariant._id.toString();
+                const isOOS        = v.stock === 0;
+                const isInactive   = !v.isActive;
+                const isUnavailable = isOOS || isInactive;
               %>
                 <a href="/shop/<%= product._id %>?variantId=<%= v._id %>"
-                   class="swatch <%= isActive ? 'active' : '' %>"
-                   title="<%= v.color || 'Variant' %>"
+                   class="swatch <%= isSelected ? 'active' : '' %> relative"
+                   title="<%= v.color || 'Variant' %><%= isInactive ? ' (Unavailable)' : isOOS ? ' (Out of Stock)' : '' %>"
                    data-color-name="<%= v.color || '' %>">
-                  <span class="block w-full h-full rounded-full border border-white/10"
+                  <span class="block w-full h-full rounded-full border border-white/10 <%= isUnavailable ? 'opacity-35' : '' %>"
                         style="background-color: <%= swatchColor %>;">
                   </span>
+                  <% if (isUnavailable) { %>
+                    <!-- diagonal strike-through line -->
+                    <span class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <span style="display:block;width:130%;height:1.5px;background:#ef4444;transform:rotate(-45deg);opacity:.8;"></span>
+                    </span>
+                  <% } %>
                 </a>
               <% }) %>
             </div>
           </div>
 
           <div class="flex items-center gap-3 flex-wrap">
-            <% if (defaultVariant.stock === 0) { %>
-              <button disabled class="flex-1 py-3 rounded-xl bg-slate-700/60 text-slate-500 text-sm font-semibold cursor-not-allowed">Sold Out</button>
+            <% if (!defaultVariant.isActive || defaultVariant.stock === 0) { %>
+              <button disabled class="flex-1 py-3 rounded-xl bg-slate-700/60 text-slate-500 text-sm font-semibold cursor-not-allowed">
+                <%= !defaultVariant.isActive ? 'Unavailable' : 'Sold Out' %>
+              </button>
             <% } else { %>
-              <form id="addCartForm" action="/cart/add" method="POST" class="flex-1">
-                <input type="hidden" name="productId" value="<%= product._id %>" />
-                <input type="hidden" name="variantId" value="<%= defaultVariant._id %>" />
-                <input type="hidden" name="quantity" value="1" />
-                <button type="button"
-                        onclick="addToCart(this, '<%= product._id %>', '<%= defaultVariant._id %>')"
-                        class="w-full py-3 rounded-xl bg-cyan-400 text-[#0a0e1a] font-semibold text-sm hover:bg-cyan-300 transition">
-                  Add to Cart
-                </button>
-              </form>
+              <button id="addCartBtn"
+                      type="button"
+                      onclick="addToCart(this, '<%= product._id %>', '<%= defaultVariant._id %>')"
+                      class="flex-1 py-3 rounded-xl bg-cyan-400 text-[#0a0e1a] font-semibold text-sm hover:bg-cyan-300 transition flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                </svg>
+                Add to Cart
+              </button>
               <form action="/checkout/buy-now" method="POST">
                 <input type="hidden" name="productId" value="<%= product._id %>" />
                 <input type="hidden" name="variantId" value="<%= defaultVariant._id %>" />
@@ -357,13 +373,27 @@
     }
 
     function showToast(msg, ok=true) {
-      const t = document.getElementById('toast');
-      document.getElementById('toastMsg').textContent = msg;
-      document.getElementById('toastIcon').textContent = ok ? '✓' : '✕';
-      document.getElementById('toastIcon').className = ok ? 'text-green-400' : 'text-red-400';
-      t.classList.remove('hidden');
-      setTimeout(() => t.classList.add('hidden'), 2800);
+      // kept for any legacy inline calls — real feedback comes from layout toast
     }
+
+    // ── Flip button to "Go to Cart" after a successful add ────────────
+    document.addEventListener('cartAdded', (e) => {
+      const btn = document.getElementById('addCartBtn');
+      if (!btn) return;
+      btn._cartHandled = true;   // tell the layout not to restore original HTML
+      btn.disabled  = false;
+      btn.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+        </svg>
+        Go to Cart`;
+      btn.onclick   = () => window.location.href = '/cart';
+      btn.className = btn.className
+        .replace('bg-cyan-400', 'bg-green-500')
+        .replace('hover:bg-cyan-300', 'hover:bg-green-400')
+        .replace('text-[#0a0e1a]', 'text-white');
+    });
   </script>
 </body>
 </html>

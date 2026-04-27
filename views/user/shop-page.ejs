@@ -76,7 +76,20 @@
             animation-delay: var(--delay);
         }
 
-        select option { background: #161d30; }
+        /* ── Sidebar toggle ─────────────────────────────────────────────── */
+        #sidebar-panel {
+            transition: width .3s ease, opacity .3s ease, transform .3s ease;
+            overflow: hidden;
+        }
+        #sidebar-panel.collapsed {
+            width: 0 !important;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateX(-12px);
+        }
+        #toggle-sidebar-btn {
+            transition: background .2s, color .2s;
+        }
     </style>
 </head>
 
@@ -95,7 +108,7 @@
         <!-- ═══════════════════════════════════════════════════════════════
              SIDEBAR  — one single form for every filter + sort
              ═══════════════════════════════════════════════════════════════ -->
-        <aside class="w-64 flex-shrink-0 hidden lg:block">
+        <aside id="sidebar-panel" class="w-64 flex-shrink-0 hidden lg:block">
             <form id="filterForm" method="GET" action="/shop">
                 <!-- carry search & reset page on every filter change -->
                 <input type="hidden" name="search" value="<%= query.search || '' %>" />
@@ -221,6 +234,16 @@
              MAIN CONTENT
              ═══════════════════════════════════════════════════════════════ -->
         <div class="flex-1 min-w-0">
+
+            <!-- Toggle sidebar button (desktop only) -->
+            <button id="toggle-sidebar-btn"
+                    onclick="toggleSidebar()"
+                    class="hidden lg:flex items-center gap-2 mb-4 px-4 py-2 bg-[#0f1526] border border-[#1e2640] rounded-xl text-slate-400 hover:text-cyan-400 hover:border-cyan-400 transition text-xs font-semibold">
+                <svg id="toggle-icon" class="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                <span id="toggle-text">Hide Filters</span>
+            </button>
 
             <!-- Search bar -->
             <form method="GET" action="/shop" id="searchForm" class="mb-8">
@@ -381,21 +404,24 @@
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                     <% products.forEach((product, i) => { %>
                         <%
-                                    const v        = product.variant;
-                                    const salePrice = v ? (v.basePrice    ?? 0) : 0;
-                                    const regPrice  = v ? (v.regularPrice ?? salePrice) : 0;
-                                    const discPct   = (regPrice > salePrice && regPrice > 0)
-                                                        ? Math.round((regPrice - salePrice) / regPrice * 100)
-                                                        : 0;
-                                %>
-                        <article class="product-card bg-[#0f1526] border border-[#1e2640] rounded-2xl overflow-hidden card-hover"
+                            const v        = product.variant;
+                            const salePrice = v ? (v.basePrice    ?? 0) : 0;
+                            const regPrice  = v ? (v.regularPrice ?? salePrice) : 0;
+                            const discPct   = (regPrice > salePrice && regPrice > 0)
+                                                ? Math.round((regPrice - salePrice) / regPrice * 100)
+                                                : 0;
+                            const stock     = v ? (v.stock ?? 0) : 0;
+                            const isOOS     = stock === 0;
+                            const isLowStock = !isOOS && stock <= 5;
+                        %>
+                        <article class="product-card bg-[#0f1526] border rounded-2xl overflow-hidden <%= isOOS ? 'border-slate-700/50 opacity-75' : 'border-[#1e2640] card-hover' %>"
                                  style="--delay: <%= i * 0.05 %>s">
 
                             <div class="relative aspect-square bg-[#161d30] overflow-hidden group">
                                 <% if (product.variant && product.variant.displayImage) { %>
                                     <img src="<%= product.variant.displayImage %>"
                                          alt="<%= product.name %>"
-                                         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                         class="w-full h-full object-cover transition-transform duration-500 <%= isOOS ? 'grayscale opacity-50' : 'group-hover:scale-110' %>"
                                          onerror="this.onerror=null;this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMTYxZDMwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZpbGw9IiM2NDc0OGIiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5FTy1MVVhFPC90ZXh0Pjwvc3ZnPg==';" />
                                 <% } else { %>
                                     <div class="w-full h-full flex items-center justify-center bg-[#161d30]">
@@ -403,66 +429,81 @@
                                     </div>
                                 <% } %>
 
-                                <!-- Top-left: New badge -->
+                                <!-- Out-of-stock overlay -->
+                                <% if (isOOS) { %>
+                                    <div class="absolute inset-0 flex items-center justify-center bg-black/40">
+                                        <span class="bg-red-600/90 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-lg">
+                                            Out of Stock
+                                        </span>
+                                    </div>
+                                <% } %>
+
+                                <!-- Top-left badges -->
                                 <div class="absolute top-3 left-3 flex flex-col gap-1.5">
-                                    <% if ((new Date() - new Date(product.createdAt)) < 7*24*60*60*1000) { %>
+                                    <% if (!isOOS && (new Date() - new Date(product.createdAt)) < 7*24*60*60*1000) { %>
                                         <span class="bg-cyan-400 text-[#0a0e1a] text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-tighter shadow-lg shadow-cyan-400/20">New</span>
+                                    <% } %>
+                                    <% if (isLowStock) { %>
+                                        <span class="bg-amber-500/90 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-tighter">Only <%= stock %> left</span>
                                     <% } %>
                                 </div>
 
-                                <!-- Top-right: discount % badge OR wishlist icon -->
-                                <% if (discPct > 0) { %>
+                                <!-- Top-right: discount badge (only when in stock) -->
+                                <% if (!isOOS && discPct > 0) { %>
                                     <div class="absolute top-3 right-3 bg-red-500 text-white text-[11px] font-black px-2.5 py-1 rounded-lg shadow-lg shadow-red-500/30 leading-none">
                                         −<%= discPct %>%
                                     </div>
-                                <% } else { %>
-                                    <button class="absolute top-3 right-3 w-8 h-8 bg-[#0a0e1a]/60 backdrop-blur-md rounded-full flex items-center justify-center text-slate-300 hover:text-red-400 transition-all border border-white/10">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                                        </svg>
-                                    </button>
                                 <% } %>
                             </div>
 
                             <div class="p-6">
-                                <h3 class="text-white text-base font-bold truncate mb-1"><%= product.name %></h3>
+                                <h3 class="<%= isOOS ? 'text-slate-500' : 'text-white' %> text-base font-bold truncate mb-1"><%= product.name %></h3>
                                 <p class="text-slate-500 text-[12px] mb-3 uppercase tracking-[0.15em] font-medium">
                                     <%= product.category ? product.category.name : 'Uncategorized' %>
                                 </p>
 
                                 <div class="flex items-center justify-between mb-6">
                                     <div class="flex flex-col gap-0.5">
-                                        <!-- Sale price -->
-                                        <span class="text-white font-bold text-xl tracking-tight">
+                                        <span class="<%= isOOS ? 'text-slate-500' : 'text-white' %> font-bold text-xl tracking-tight">
                                             ₹<%= salePrice.toLocaleString('en-IN') %>
                                         </span>
-                                        <!-- Regular price with strikethrough — only when there's a discount -->
-                                        <% if (regPrice > salePrice) { %>
+                                        <% if (!isOOS && regPrice > salePrice) { %>
                                             <span class="text-slate-500 text-xs line-through">
                                                 ₹<%= regPrice.toLocaleString('en-IN') %>
                                             </span>
                                         <% } %>
                                     </div>
 
-                                    <form action="/cart/add" method="POST" onsubmit="return false;">
-                                        <input type="hidden" name="productId" value="<%= product._id %>" />
-                                        <input type="hidden" name="variantId" value="<%= product.variant ? product.variant._id : '' %>" />
-                                        <input type="hidden" name="quantity"  value="1" />
+                                    <!-- Cart button — disabled when OOS -->
+                                    <% if (isOOS) { %>
+                                        <button disabled
+                                                title="Out of stock"
+                                                class="w-11 h-11 bg-[#161d30] border border-slate-700/50 rounded-xl flex items-center justify-center text-slate-600 cursor-not-allowed">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                      d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                                            </svg>
+                                        </button>
+                                    <% } else { %>
                                         <button type="button"
-                                                onclick="addToCart(this, '<%= product._id %>', '<%= product.variant ? product.variant._id : '' %>')"
+                                                id="cartBtn-<%= product.variant._id %>"
+                                                onclick="addToCart(this, '<%= product._id %>', '<%= product.variant._id %>')"
+                                                title="Add to cart"
                                                 class="w-11 h-11 bg-[#1e2640] border border-[#252e47] rounded-xl flex items-center justify-center text-slate-400 hover:text-cyan-400 hover:border-cyan-400 hover:bg-cyan-400/5 transition-all">
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                       d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
                                             </svg>
                                         </button>
-                                    </form>
+                                    <% } %>
                                 </div>
 
                                 <a href="/shop/<%= product._id %>"
-                                   class="block text-center text-[11px] font-bold text-slate-400 border border-[#1e2640] py-3.5 rounded-xl hover:border-cyan-400 hover:text-cyan-400 hover:bg-cyan-400/5 transition-all uppercase tracking-widest">
-                                    Discover Timepiece
+                                   class="block text-center text-[11px] font-bold border py-3.5 rounded-xl transition-all uppercase tracking-widest
+                                          <%= isOOS
+                                              ? 'text-slate-400 border-[#1e2640] hover:border-red-400/50 hover:text-red-400'
+                                              : 'text-slate-400 border-[#1e2640] hover:border-cyan-400 hover:text-cyan-400 hover:bg-cyan-400/5' %>">
+                                    <%= isOOS ? 'View Details' : 'Discover Timepiece' %>
                                 </a>
                             </div>
                         </article>
@@ -502,5 +543,37 @@
         </div><!-- end main content -->
     </main>
 </div>
+
+<script>
+  // ── Sidebar toggle ────────────────────────────────────────────────────────
+  const sidebar    = document.getElementById('sidebar-panel');
+  const toggleText = document.getElementById('toggle-text');
+  const toggleIcon = document.getElementById('toggle-icon');
+
+  // Restore saved preference (default: open)
+  let sidebarOpen = localStorage.getItem('shopSidebarOpen') !== 'false';
+
+  function applySidebarState() {
+    if (!sidebar) return;
+    if (sidebarOpen) {
+      sidebar.classList.remove('collapsed');
+      if (toggleText) toggleText.textContent = 'Hide Filters';
+      if (toggleIcon) toggleIcon.style.transform = '';
+    } else {
+      sidebar.classList.add('collapsed');
+      if (toggleText) toggleText.textContent = 'Show Filters';
+      if (toggleIcon) toggleIcon.style.transform = 'rotate(90deg)';
+    }
+  }
+
+  function toggleSidebar() {
+    sidebarOpen = !sidebarOpen;
+    localStorage.setItem('shopSidebarOpen', sidebarOpen);
+    applySidebarState();
+  }
+
+  // Apply on page load (no animation flash)
+  applySidebarState();
+</script>
 </body>
 </html>

@@ -125,8 +125,9 @@ export const handleLogin = asyncHandler(async (req, res) => {
 
 // LOGOUT
 export const logout = (req, res) => {
+  // Destroy only the user session; the admin session (different cookie) is unaffected
   req.session.destroy(() => {
-    res.clearCookie("connect.sid");
+    res.clearCookie("neo_luxe_user");
     res.redirect("/login");
   });
 };

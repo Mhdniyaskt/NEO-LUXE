@@ -4,7 +4,8 @@ import Variant from '../../models/variant.model.js';
 import Cart from '../../models/cart.model.js';
 import Product from '../../models/product.model.js';
 
-const MAX_QTY = 10;
+const MAX_QTY   = 10;   // max quantity per variant line
+const MAX_ITEMS = 5;    // max distinct products in cart
 
 // ─── helper: recalculate cart totals from a populated cart ───────────────────
 function calcSummary(items) {
@@ -137,26 +138,65 @@ export const addToCart = asyncHandler(async (req, res) => {
   if (qty > MAX_QTY) return res.json({ success: false, message: `Maximum ${MAX_QTY} units allowed` });
   if (qty > variant.stock) return res.json({ success: false, message: 'Insufficient stock' });
 
+  // Effective ceiling: lower of stock and MAX_QTY
+  const maxAllowed = Math.min(variant.stock, MAX_QTY);
+
   let cart = await Cart.findOne({ user: userId });
+  let alreadyInCart = false;
+  let newQty = qty;
 
   if (!cart) {
+    // First item — no limit concern
     cart = new Cart({ user: userId, items: [{ product: productId, variant: variantId, quantity: qty }] });
   } else {
     const idx = cart.items.findIndex((i) => i.variant.toString() === variantId);
     if (idx > -1) {
-      const newQty = cart.items[idx].quantity + qty;
-      if (newQty > MAX_QTY) return res.json({ success: false, message: `Maximum ${MAX_QTY} units allowed` });
-      if (newQty > variant.stock) return res.json({ success: false, message: 'Exceeds available stock' });
+      // Variant already in cart — just update quantity, no new item slot used
+      alreadyInCart = true;
+      newQty = cart.items[idx].quantity + qty;
+      if (newQty > MAX_QTY) {
+        return res.json({
+          success: false,
+          message: `You already have ${cart.items[idx].quantity} in your cart. Maximum ${MAX_QTY} units allowed.`,
+          alreadyInCart: true,
+          currentQty: cart.items[idx].quantity,
+          maxAllowed,
+        });
+      }
+      if (newQty > variant.stock) {
+        return res.json({
+          success: false,
+          message: `Only ${variant.stock} units available. You already have ${cart.items[idx].quantity} in your cart.`,
+          alreadyInCart: true,
+          currentQty: cart.items[idx].quantity,
+          maxAllowed,
+        });
+      }
       cart.items[idx].quantity = newQty;
     } else {
+      // New distinct item — enforce the 5-item limit
+      if (cart.items.length >= MAX_ITEMS) {
+        return res.json({
+          success: false,
+          message: `Your cart is full. You can only have ${MAX_ITEMS} different products at a time.`,
+          cartFull: true,
+        });
+      }
       cart.items.push({ product: productId, variant: variantId, quantity: qty });
     }
   }
 
   await cart.save();
 
-  const cartCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
-  return res.json({ success: true, message: 'Added to cart', cartCount });
+  const cartCount = cart.items.length;
+  return res.json({
+    success: true,
+    message: alreadyInCart ? 'Cart updated' : 'Added to cart',
+    alreadyInCart,
+    newQty,
+    maxAllowed,
+    cartCount,
+  });
 });
 
 // ─── DELETE /cart/remove/:variantId ─────────────────────────────────────────

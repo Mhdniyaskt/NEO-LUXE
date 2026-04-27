@@ -82,6 +82,14 @@ export const postAddProducts = asyncHandler(async (req, res) => {
         return res.status(400).json({ success: false, message: "Name, brand and category are required" });
     }
 
+    if (!description || !description.trim()) {
+        return res.status(400).json({ success: false, message: "Product description is required" });
+    }
+
+    if (!caseSize?.trim() || !strapType?.trim() || !movementType?.trim()) {
+        return res.status(400).json({ success: false, message: "All technical specifications are required" });
+    }
+
     if (!variants) {
         return res.status(400).json({ success: false, message: "Variant data missing" });
     }
@@ -108,43 +116,47 @@ export const postAddProducts = asyncHandler(async (req, res) => {
         return res.status(400).json({ success: false, message: "Product already exists" });
     }
 
-    // --- 4. PRE-VALIDATION PASS (CRITICAL FIX) ---
-    // We check all variants here BEFORE creating the product. 
-    // If this fails, no "ghost" product is created in the DB.
+    // --- 4. PRE-VALIDATION PASS ---
+    // Check all variants BEFORE creating the product so no ghost records are left.
     const colors = [];
     for (let i = 0; i < variantArray.length; i++) {
         const v = variantArray[i];
         const regularPrice = Number(v.regularPrice);
-        const basePrice = Number(v.basePrice);
-        const stock = Number(v.stock || 0);
+        const basePrice    = Number(v.basePrice);
+        const stock        = Number(v.stock || 0);
 
         if (!v.color || regularPrice <= 0 || basePrice <= 0 || stock < 0) {
             return res.status(400).json({ success: false, message: `Invalid data for variant ${i + 1}` });
         }
-
         if (basePrice > regularPrice) {
             return res.status(400).json({ success: false, message: `Variant ${i + 1}: Sale price cannot exceed Regular Price.` });
         }
-
-        // Check for duplicate colors within the same submission
         if (colors.includes(v.color.toLowerCase())) {
             return res.status(400).json({ success: false, message: `Duplicate variant color: ${v.color}` });
         }
         colors.push(v.color.toLowerCase());
 
-        // Check if images exist for this specific variant index
-        const hasImages = (req.files || []).some(file => file.fieldname === `variantImages_${i}`);
+        // Images are keyed by the variant's object key (vId from frontend), not loop index.
+        // The frontend sends fieldname `variantImages_<vId>` where vId is the JS counter value.
+        // We derive the vId from the variants object keys to match correctly.
+    }
+
+    // Derive the original variant keys (vIds) from req.body.variants object
+    // so image fieldname matching works even when variants were deleted/re-added.
+    const variantKeys = Array.isArray(variants)
+        ? variantArray.map((_, i) => String(i))
+        : Object.keys(variants);
+
+    // Verify every variant has at least one uploaded image
+    for (let i = 0; i < variantKeys.length; i++) {
+        const vId = variantKeys[i];
+        const hasImages = (req.files || []).some(f => f.fieldname === `variantImages_${vId}`);
         if (!hasImages) {
             return res.status(400).json({ success: false, message: `Variant ${i + 1}: At least one image is required.` });
         }
     }
 
-    // --- 5. TECHNICAL SPECS VALIDATION ---
-    if (!caseSize?.trim() || !strapType?.trim() || !movementType?.trim()) {
-        return res.status(400).json({ success: false, message: "All technical specifications are required" });
-    }
-
-    // --- 6. CREATE PRODUCT (ONLY AFTER ALL VALIDATIONS PASS) ---
+    // --- 5. CREATE PRODUCT (ONLY AFTER ALL VALIDATIONS PASS) ---
     const product = await Product.create({
         name: name.trim(),
         brand: brand.trim(),
@@ -154,34 +166,24 @@ export const postAddProducts = asyncHandler(async (req, res) => {
         isActive: isListed === "true" || isListed === "on" || isListed === true,
     });
 
-    const variantIds = [];
-
-    // --- 7. CREATE VARIANTS ---
+    // --- 6. CREATE VARIANTS ---
     for (let i = 0; i < variantArray.length; i++) {
-        const v = variantArray[i];
-        const variantFiles = (req.files || []).filter(
-            (file) => file.fieldname === `variantImages_${i}`
-        );
+        const v      = variantArray[i];
+        const vId    = variantKeys[i];   // use the original key for image fieldname matching
+        const variantFiles = (req.files || []).filter(f => f.fieldname === `variantImages_${vId}`);
 
-        const newVariant = await Variant.create({
-            product: product._id,
-            color: v.color,
-            stock: Number(v.stock),
+        await Variant.create({
+            product:      product._id,
+            color:        v.color,
+            stock:        Number(v.stock),
             regularPrice: Number(v.regularPrice),
-            basePrice: Number(v.basePrice),
-            images: variantFiles.map((file, idx) => ({
-                url: file.path || file.filename,
+            basePrice:    Number(v.basePrice),
+            images:       variantFiles.map((file, idx) => ({
+                url:       file.path || file.filename,
                 isPrimary: idx === 0,
             })),
         });
-
-        variantIds.push(newVariant._id);
     }
-
-    // --- 8. LINK VARIANTS BACK TO PRODUCT ---
-    await Product.findByIdAndUpdate(product._id, {
-        variants: variantIds
-    });
 
     return res.status(201).json({
         success: true,

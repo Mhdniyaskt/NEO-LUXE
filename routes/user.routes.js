@@ -4,8 +4,7 @@ import * as authController from "../controllers/user/auth.controller.js";
 import * as otpController from "../controllers/user/otp.controller.js";
 import * as profileController from "../controllers/user/profile.controller.js";
 import * as emailController from "../controllers/user/profile.change.email.controller.js";
-import * as addressController from "../controllers/user/address.controller.js";
-import * as passwordController from "../controllers/user/profile.change.password.controller.js";
+import * as addressController from "../controllers/user/address.controller.js";import * as passwordController from "../controllers/user/profile.change.password.controller.js";
 
 import {
   checkUser,
@@ -19,6 +18,13 @@ import { upload } from "../middleware/upload.middleware.js";
 import { getProductDetails, getProducts } from "../controllers/user/shop.controller.js";
 import { getAbout } from "../controllers/user/about.controller.js";
 import { addToCart, getCart, removeFromCart, updateQty } from "../controllers/user/cart.controller.js";
+import {
+  getCheckout,
+  placeOrder,
+  buyNow,
+  getOrderConfirmation,
+  getOrders,
+} from "../controllers/user/checkout.controller.js";
 
 const router = express.Router();
 
@@ -105,6 +111,9 @@ router.get(
 
 router.post("/addresses", requireAuth, addressController.addAddress);
 
+// /default must be registered BEFORE /:addressId to avoid route shadowing
+router.patch("/addresses/:addressId/default", requireAuth, addressController.setDefaultAddress);
+
 router
   .route("/addresses/:addressId")
   .put(requireAuth, addressController.updateAddress)
@@ -120,5 +129,12 @@ router.get('/cart',                          requireAuth, getCart);
 router.post('/cart/add',                     addToCart);          // addToCart handles its own 401 JSON response
 router.delete('/cart/remove/:variantId',     requireAuth, removeFromCart);
 router.patch('/cart/update-qty',             requireAuth, updateQty);
+
+// Checkout & Orders
+router.get('/checkout',                      requireAuth, noCache, getCheckout);
+router.post('/checkout/place-order',         requireAuth, placeOrder);
+router.post('/checkout/buy-now',             requireAuth, buyNow);
+router.get('/orders',                        requireAuth, noCache, getOrders);
+router.get('/orders/:orderId',               requireAuth, noCache, getOrderConfirmation);
 
 export default router;

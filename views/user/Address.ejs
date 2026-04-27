@@ -1,355 +1,524 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Neo-Luxe | My Addresses</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-    <style>
-        body { font-family: "Inter", sans-serif; }
-        .active-nav-item {
-            background: linear-gradient(90deg, rgba(0, 163, 255, 0.1) 0%, rgba(0, 163, 255, 0.02) 100%);
-            border-right: 2px solid #00a3ff;
-            color: #00a3ff;
-        }
-        .modal-active { display: flex !important; }
-        .address-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-        .address-card:hover { transform: translateY(-5px); border-color: #00a3ff; }
-        .error-message { color: #ff4d4d; font-size: 0.7rem; margin-top: 4px; display: none; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-        .input-error { border-color: #ff4d4d !important; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neo-Luxe | My Addresses</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: "Inter", sans-serif; }
+    .active-nav-item {
+      background: linear-gradient(90deg, rgba(0,163,255,.1) 0%, rgba(0,163,255,.02) 100%);
+      border-right: 2px solid #00a3ff;
+      color: #00a3ff;
+    }
+    .modal-active { display: flex !important; }
 
-        .type-label { 
-            border: 1px solid #1f2937; 
-            background: transparent; 
-            color: #9ca3af; 
-            transition: all 0.2s ease; 
-        }
-        .type-label.selected { 
-            border-color: #00a3ff; 
-            background: rgba(0, 163, 255, 0.1); 
-            color: #fff; 
-        }
-    </style>
+    /* Card */
+    .address-card { transition: all .3s cubic-bezier(.4,0,.2,1); }
+    .address-card:hover { transform: translateY(-4px); border-color: #00a3ff55; }
+    .address-card.is-default { border-color: #00a3ff !important; }
+
+    /* Address-type toggle */
+    .type-label {
+      border: 1px solid #1f2937;
+      background: transparent;
+      color: #9ca3af;
+      transition: all .2s ease;
+    }
+    .type-label.selected {
+      border-color: #00a3ff;
+      background: rgba(0,163,255,.1);
+      color: #fff;
+    }
+
+    /* Validation */
+    .field-error { color: #f87171; font-size: .7rem; margin-top: 3px; display: none; font-weight: 600; letter-spacing: .04em; }
+    .input-error { border-color: #f87171 !important; }
+    input:focus { border-color: #00a3ff !important; }
+  </style>
 </head>
 <body class="bg-[#05080d] text-white min-h-screen flex flex-col">
 
-    <main class="max-w-7xl mx-auto w-full px-6 py-8 flex-grow">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-            <%- include('../partials/profile-sidebar') %>
+  <main class="max-w-7xl mx-auto w-full px-6 py-8 flex-grow">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-            <div class="lg:col-span-9 space-y-8">
-                <div class="flex justify-between items-end">
-                    <div>
-                        <h1 class="text-3xl font-bold mb-2">My Addresses</h1>
-                        <p class="text-gray-400 text-sm">Manage your saved delivery locations</p>
-                    </div>
-                    <button onclick="toggleModal('add')" class="bg-[#00a3ff] hover:bg-[#0082cc] text-white text-xs font-bold py-3.5 px-6 rounded-full shadow-lg shadow-cyan-500/20 transition flex items-center gap-2">
-                        <i class="fas fa-plus"></i> Add New Address
-                    </button>
-                </div>
+      <%- include('../partials/profile-sidebar') %>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <% if (addresses && addresses.length > 0) { %>
-                        <% addresses.forEach(addr => { %>
-                            <div class="address-card bg-[#0a0f18] rounded-3xl border border-gray-800 p-8 relative">
-                                <div class="flex justify-between items-start mb-6">
-                                    <span class="bg-[#00a3ff]/10 text-[#00a3ff] text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-[#00a3ff]/20">
-                                        <%= addr.addressType || 'Home' %>
-                                    </span>
-                                    <div class="flex gap-4 text-gray-500">
-                                        <button 
-                                            onclick='editAddress(this.getAttribute("data-addr"))' 
-                                            data-addr="<%= JSON.stringify(addr) %>"
-                                            class="hover:text-white transition" 
-                                            title="Edit">
-                                            <i class="fas fa-pencil-alt text-xs"></i>
-                                        </button>
-                                        <button onclick="deleteAddress('<%= addr._id %>')" class="hover:text-red-400 transition" title="Delete">
-                                            <i class="far fa-trash-alt text-xs"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                <h3 class="text-lg font-bold mb-2"><%= addr.fullName %></h3>
-                                <p class="text-gray-400 text-sm leading-relaxed mb-6">
-                                    <%= addr.streetAddress %>,<br>
-                                    <%= addr.city %>, <%= addr.state %> - <%= addr.pincode %>
-                                </p>
-                                <div class="pt-6 border-t border-gray-800 text-gray-400 text-sm flex items-center gap-3 font-medium">
-                                    <i class="fas fa-phone-alt text-[#00a3ff] text-xs"></i> <%= addr.phone %>
-                                </div>
-                            </div>
-                        <% }) %>
-                    <% } else { %>
-                        <div class="col-span-2 text-center py-20 bg-[#0a0f18] rounded-3xl border border-dashed border-gray-800">
-                            <i class="fas fa-map-marked-alt text-4xl text-gray-700 mb-4"></i>
-                            <p class="text-gray-500">No addresses found. Add one to get started!</p>
-                        </div>
+      <div class="lg:col-span-9 space-y-8">
+
+        <!-- Header -->
+        <div class="flex justify-between items-end">
+          <div>
+            <h1 class="text-3xl font-bold mb-1">My Addresses</h1>
+            <p class="text-gray-400 text-sm">Manage your saved delivery locations</p>
+          </div>
+          <button onclick="openAddModal()"
+                  class="bg-[#00a3ff] hover:bg-[#0082cc] text-white text-xs font-bold py-3.5 px-6 rounded-full shadow-lg shadow-cyan-500/20 transition flex items-center gap-2">
+            <i class="fas fa-plus"></i> Add New Address
+          </button>
+        </div>
+
+        <!-- Address grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <% if (addresses && addresses.length > 0) { %>
+            <% addresses.forEach(addr => { %>
+              <div class="address-card bg-[#0a0f18] rounded-3xl border border-gray-800 p-7 relative flex flex-col gap-4
+                          <%= addr.isDefault ? 'is-default' : '' %>">
+
+                <!-- Top row: type badge + default badge + actions -->
+                <div class="flex justify-between items-start">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="bg-[#00a3ff]/10 text-[#00a3ff] text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-[#00a3ff]/20">
+                      <%= addr.addressType || 'Home' %>
+                    </span>
+                    <% if (addr.isDefault) { %>
+                      <span class="bg-green-500/10 text-green-400 text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-green-500/20 flex items-center gap-1">
+                        <i class="fas fa-check-circle text-[8px]"></i> Default
+                      </span>
                     <% } %>
-                </div>
-
-                <% if (totalPages > 1) { %>
-                    <div class="mt-8 flex justify-center gap-2">
-                        <% for(let i = 1; i <= totalPages; i++) { %>
-                            <a href="?page=<%= i %>" 
-                               class="w-10 h-10 flex items-center justify-center rounded-xl border <%= currentPage === i ? 'bg-[#00a3ff] text-white border-[#00a3ff]' : 'border-gray-800 text-gray-400 hover:bg-gray-800' %> transition">
-                                <%= i %>
-                            </a>
-                        <% } %>
-                    </div>
-                <% } %>
-            </div>
-        </div>
-    </main>
-
-    <div id="addressModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="w-full max-w-xl bg-[#0a0f18] rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-800">
-            <div class="flex justify-between items-center px-10 py-8">
-                <h2 id="modalTitle" class="text-white text-xl font-bold">Add New Address</h2>
-                <button onclick="toggleModal()" class="text-gray-500 hover:text-white transition"><i class="fas fa-times text-lg"></i></button>
-            </div>
-
-            <form id="addressForm" class="px-10 pb-10 space-y-6" novalidate>
-                <input type="hidden" id="formMethod" value="POST">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">Full Name</label>
-                        <input type="text" name="fullName" class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl p-4 focus:ring-1 focus:ring-[#00a3ff] outline-none transition">
-                        <p id="err-fullName" class="error-message"></p>
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">Mobile Number</label>
-                        <input type="tel" name="phone" maxlength="10" class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl p-4 focus:ring-1 focus:ring-[#00a3ff] outline-none transition">
-                        <p id="err-phone" class="error-message"></p>
-                    </div>
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">Street Address</label>
-                    <input type="text" name="streetAddress" class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl p-4 focus:ring-1 focus:ring-[#00a3ff] outline-none transition">
-                    <p id="err-streetAddress" class="error-message"></p>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="space-y-1">
-                        <input type="text" name="city" placeholder="City" class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl p-4 focus:ring-1 focus:ring-[#00a3ff] outline-none">
-                        <p id="err-city" class="error-message"></p>
-                    </div>
-                    <div class="space-y-1">
-                        <input type="text" name="state" placeholder="State" class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl p-4 focus:ring-1 focus:ring-[#00a3ff] outline-none">
-                        <p id="err-state" class="error-message"></p>
-                    </div>
-                    <div class="space-y-1">
-                        <input type="text" name="pincode" placeholder="Pincode" maxlength="6" class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl p-4 focus:ring-1 focus:ring-[#00a3ff] outline-none">
-                        <p id="err-pincode" class="error-message"></p>
-                    </div>
-                </div>
-                
-                <div class="space-y-3">
-                    <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">Address Type</label>
-                    <div class="flex gap-4">
-                        <label class="type-label flex items-center gap-2 px-6 py-3 rounded-full cursor-pointer text-sm transition">
-                            <input type="radio" name="addressType" value="Home" onchange="updateRadioUI()" class="hidden"> Home
-                        </label>
-                        <label class="type-label flex items-center gap-2 px-6 py-3 rounded-full cursor-pointer text-sm transition">
-                            <input type="radio" name="addressType" value="Office" onchange="updateRadioUI()" class="hidden"> Office
-                        </label>
-                    </div>
-                </div>
-
-                <div class="pt-6 flex justify-end items-center gap-8">
-                    <button type="button" onclick="toggleModal()" class="text-gray-500 hover:text-white text-sm font-bold">Cancel</button>
-                    <button type="submit" id="saveBtn" class="bg-[#00a3ff] hover:bg-[#0082cc] text-white font-bold py-4 px-10 rounded-full shadow-lg shadow-cyan-500/20 transition">
-                        Save Address
+                  </div>
+                  <div class="flex gap-3 text-gray-500 flex-shrink-0">
+                    <button onclick="openEditModal('<%= addr._id %>')"
+                            class="hover:text-white transition" title="Edit">
+                      <i class="fas fa-pencil-alt text-xs"></i>
                     </button>
+                    <button onclick="deleteAddress('<%= addr._id %>')"
+                            class="hover:text-red-400 transition" title="Delete">
+                      <i class="far fa-trash-alt text-xs"></i>
+                    </button>
+                  </div>
                 </div>
-            </form>
+
+                <!-- Address details -->
+                <div>
+                  <h3 class="text-base font-bold mb-1"><%= addr.fullName %></h3>
+                  <p class="text-gray-400 text-sm leading-relaxed">
+                    <%= addr.streetAddress %>,<br>
+                    <%= addr.city %>, <%= addr.state %> — <%= addr.pincode %>
+                  </p>
+                </div>
+
+                <!-- Phone + set-default -->
+                <div class="flex items-center justify-between pt-4 border-t border-gray-800">
+                  <span class="text-gray-400 text-sm flex items-center gap-2">
+                    <i class="fas fa-phone-alt text-[#00a3ff] text-xs"></i>
+                    <%= addr.phone %>
+                  </span>
+                  <% if (!addr.isDefault) { %>
+                    <button onclick="setDefault('<%= addr._id %>', this)"
+                            class="text-[10px] font-bold text-gray-500 hover:text-[#00a3ff] transition uppercase tracking-widest flex items-center gap-1">
+                      <i class="far fa-star text-[10px]"></i> Set Default
+                    </button>
+                  <% } %>
+                </div>
+
+              </div>
+            <% }) %>
+          <% } else { %>
+            <div class="col-span-2 text-center py-24 bg-[#0a0f18] rounded-3xl border border-dashed border-gray-800">
+              <i class="fas fa-map-marked-alt text-4xl text-gray-700 mb-4 block"></i>
+              <p class="text-gray-500 mb-6">No addresses yet. Add one to get started!</p>
+              <button onclick="openAddModal()"
+                      class="bg-[#00a3ff] hover:bg-[#0082cc] text-white text-xs font-bold py-3 px-6 rounded-full transition">
+                <i class="fas fa-plus mr-1"></i> Add Address
+              </button>
+            </div>
+          <% } %>
         </div>
+
+        <!-- Pagination -->
+        <% if (totalPages > 1) { %>
+          <div class="flex justify-center gap-2 mt-4">
+            <% for (let i = 1; i <= totalPages; i++) { %>
+              <a href="?page=<%= i %>"
+                 class="w-10 h-10 flex items-center justify-center rounded-xl border transition
+                        <%= currentPage === i ? 'bg-[#00a3ff] text-white border-[#00a3ff]' : 'border-gray-800 text-gray-400 hover:bg-gray-800' %>">
+                <%= i %>
+              </a>
+            <% } %>
+          </div>
+        <% } %>
+
+      </div>
     </div>
+  </main>
 
-    <script>
-    function updateRadioUI() {
-        const labels = document.querySelectorAll('.type-label');
-        labels.forEach(label => {
-            const radio = label.querySelector('input');
-            if (radio.checked) {
-                label.classList.add('selected');
-            } else {
-                label.classList.remove('selected');
-            }
-        });
+  <!-- ═══════════════════════════════════════════════════════════════════
+       ADDRESS MODAL  (shared for Add + Edit)
+  ═══════════════════════════════════════════════════════════════════ -->
+  <div id="addressModal"
+       class="fixed inset-0 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="w-full max-w-xl bg-[#0a0f18] rounded-[2.5rem] shadow-2xl border border-gray-800 overflow-hidden">
+
+      <!-- Modal header -->
+      <div class="flex justify-between items-center px-10 py-7 border-b border-gray-800">
+        <h2 id="modalTitle" class="text-white text-xl font-bold">Add New Address</h2>
+        <button onclick="closeModal()" class="text-gray-500 hover:text-white transition">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Form -->
+      <form id="addressForm" class="px-10 py-8 space-y-5" novalidate>
+        <input type="hidden" id="editAddressId" value="">
+
+        <!-- Full name + phone -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5 block">Full Name *</label>
+            <input type="text" name="fullName" placeholder="e.g. John Doe"
+                   class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl px-4 py-3.5 outline-none transition text-sm" />
+            <p id="err-fullName" class="field-error"></p>
+          </div>
+          <div>
+            <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5 block">Mobile Number *</label>
+            <input type="tel" name="phone" placeholder="10-digit number" maxlength="10"
+                   class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl px-4 py-3.5 outline-none transition text-sm" />
+            <p id="err-phone" class="field-error"></p>
+          </div>
+        </div>
+
+        <!-- Street address -->
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-1.5 block">Street Address *</label>
+          <input type="text" name="streetAddress" placeholder="House no., street, area"
+                 class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl px-4 py-3.5 outline-none transition text-sm" />
+          <p id="err-streetAddress" class="field-error"></p>
+        </div>
+
+        <!-- City / State / Pincode -->
+        <div class="grid grid-cols-3 gap-4">
+          <div>
+            <input type="text" name="city" placeholder="City *"
+                   class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl px-4 py-3.5 outline-none transition text-sm" />
+            <p id="err-city" class="field-error"></p>
+          </div>
+          <div>
+            <input type="text" name="state" placeholder="State *"
+                   class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl px-4 py-3.5 outline-none transition text-sm" />
+            <p id="err-state" class="field-error"></p>
+          </div>
+          <div>
+            <input type="text" name="pincode" placeholder="Pincode *" maxlength="6"
+                   class="w-full bg-[#05080d] border border-gray-800 text-white rounded-2xl px-4 py-3.5 outline-none transition text-sm" />
+            <p id="err-pincode" class="field-error"></p>
+          </div>
+        </div>
+
+        <!-- Address type -->
+        <div>
+          <label class="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2 block">Address Type</label>
+          <div class="flex gap-3">
+            <label class="type-label flex items-center gap-2 px-5 py-2.5 rounded-full cursor-pointer text-sm">
+              <input type="radio" name="addressType" value="Home" class="hidden" onchange="syncTypeUI()"> Home
+            </label>
+            <label class="type-label flex items-center gap-2 px-5 py-2.5 rounded-full cursor-pointer text-sm">
+              <input type="radio" name="addressType" value="Office" class="hidden" onchange="syncTypeUI()"> Office
+            </label>
+          </div>
+        </div>
+
+        <!-- Set as default checkbox -->
+        <label class="flex items-center gap-3 cursor-pointer select-none group">
+          <div class="relative">
+            <input type="checkbox" id="isDefaultCheck" name="isDefault" value="true" class="sr-only peer">
+            <div class="w-5 h-5 rounded-md border border-gray-700 bg-[#05080d] peer-checked:bg-[#00a3ff] peer-checked:border-[#00a3ff] transition flex items-center justify-center">
+              <i class="fas fa-check text-[9px] text-white hidden peer-checked:block"></i>
+            </div>
+          </div>
+          <span class="text-sm text-gray-400 group-hover:text-white transition">Set as default address</span>
+        </label>
+
+        <!-- Actions -->
+        <div class="flex justify-end items-center gap-6 pt-2">
+          <button type="button" onclick="closeModal()"
+                  class="text-gray-500 hover:text-white text-sm font-bold transition">Cancel</button>
+          <button type="submit" id="saveBtn"
+                  class="bg-[#00a3ff] hover:bg-[#0082cc] text-white font-bold py-3.5 px-10 rounded-full shadow-lg shadow-cyan-500/20 transition flex items-center gap-2">
+            <span id="saveBtnText">Save Address</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+  // Address data injected server-side — safe, no HTML-attribute escaping issues
+  const ADDRESS_MAP = {
+    <% addresses.forEach(addr => { %>
+      '<%= addr._id %>': <%- JSON.stringify({
+        _id:           addr._id,
+        fullName:      addr.fullName,
+        phone:         addr.phone,
+        streetAddress: addr.streetAddress,
+        city:          addr.city,
+        state:         addr.state,
+        pincode:       addr.pincode,
+        addressType:   addr.addressType,
+        isDefault:     addr.isDefault,
+      }) %>,
+    <% }) %>
+  };
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  function syncTypeUI() {
+    document.querySelectorAll('.type-label').forEach(label => {
+      label.classList.toggle('selected', label.querySelector('input').checked);
+    });
+  }
+
+  function clearErrors() {
+    document.querySelectorAll('.field-error').forEach(p => {
+      p.textContent = '';
+      p.style.display = 'none';
+    });
+    document.querySelectorAll('input').forEach(i => i.classList.remove('input-error'));
+  }
+
+  function showError(field, msg) {
+    const p = document.getElementById('err-' + field);
+    const input = document.querySelector(`[name="${field}"]`);
+    if (p) { p.textContent = msg; p.style.display = 'block'; }
+    if (input) input.classList.add('input-error');
+  }
+
+  // ── Client-side validation (mirrors server) ────────────────────────────────
+  function validateForm(data) {
+    const errors = {};
+    if (!data.fullName.trim())
+      errors.fullName = 'Full name is required';
+    else if (!/^[a-zA-Z\s.'\-]{2,60}$/.test(data.fullName.trim()))
+      errors.fullName = 'Name must be 2–60 letters only';
+
+    if (!/^\d{10}$/.test(data.phone.trim()))
+      errors.phone = 'Enter a valid 10-digit mobile number';
+
+    if (!data.streetAddress.trim())
+      errors.streetAddress = 'Street address is required';
+    else if (data.streetAddress.trim().length < 5)
+      errors.streetAddress = 'Address must be at least 5 characters';
+
+    if (!data.city.trim())
+      errors.city = 'City is required';
+    else if (!/^[a-zA-Z\s.'\-]{2,50}$/.test(data.city.trim()))
+      errors.city = 'Enter a valid city name';
+
+    if (!data.state.trim())
+      errors.state = 'State is required';
+    else if (!/^[a-zA-Z\s.'\-]{2,50}$/.test(data.state.trim()))
+      errors.state = 'Enter a valid state name';
+
+    if (!/^\d{6}$/.test(data.pincode.trim()))
+      errors.pincode = 'Enter a valid 6-digit pincode';
+
+    return errors;
+  }
+
+  // ── Modal open/close ───────────────────────────────────────────────────────
+  function openAddModal() {
+    const form = document.getElementById('addressForm');
+    form.reset();
+    clearErrors();
+    document.getElementById('editAddressId').value = '';
+    document.getElementById('modalTitle').textContent = 'Add New Address';
+    document.getElementById('saveBtnText').textContent = 'Save Address';
+
+    // Default to Home type
+    const homeRadio = form.querySelector('input[value="Home"]');
+    if (homeRadio) homeRadio.checked = true;
+    syncTypeUI();
+
+    // Uncheck "set as default" — will be auto-set server-side for first address
+    document.getElementById('isDefaultCheck').checked = false;
+
+    document.getElementById('addressModal').classList.add('modal-active');
+  }
+
+  function openEditModal(id) {
+    const addr = ADDRESS_MAP[id];
+    if (!addr) return;
+    const form = document.getElementById('addressForm');
+    clearErrors();
+
+    document.getElementById('editAddressId').value = addr._id;
+    document.getElementById('modalTitle').textContent = 'Edit Address';
+    document.getElementById('saveBtnText').textContent = 'Save Changes';
+
+    form.querySelector('[name="fullName"]').value      = addr.fullName      || '';
+    form.querySelector('[name="phone"]').value         = addr.phone         || '';
+    form.querySelector('[name="streetAddress"]').value = addr.streetAddress || '';
+    form.querySelector('[name="city"]').value          = addr.city          || '';
+    form.querySelector('[name="state"]').value         = addr.state         || '';
+    form.querySelector('[name="pincode"]').value       = addr.pincode       || '';
+
+    form.querySelectorAll('[name="addressType"]').forEach(r => {
+      r.checked = r.value === (addr.addressType || 'Home');
+    });
+    syncTypeUI();
+
+    document.getElementById('isDefaultCheck').checked = !!addr.isDefault;
+
+    document.getElementById('addressModal').classList.add('modal-active');
+  }
+
+  function closeModal() {
+    document.getElementById('addressModal').classList.remove('modal-active');
+  }
+
+  // Close on backdrop click
+  document.getElementById('addressModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+
+  // ── Form submit ────────────────────────────────────────────────────────────
+  document.getElementById('addressForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    clearErrors();
+
+    const formData  = new FormData(this);
+    const data      = Object.fromEntries(formData.entries());
+    const addressId = document.getElementById('editAddressId').value;
+    const isEdit    = !!addressId;
+
+    // Client-side validation
+    const errors = validateForm(data);
+    if (Object.keys(errors).length > 0) {
+      Object.entries(errors).forEach(([k, v]) => showError(k, v));
+      return;
     }
 
-    function toggleModal(mode) {
-        const modal = document.getElementById('addressModal');
-        const form = document.getElementById('addressForm');
-        const methodInput = document.getElementById('formMethod');
+    const url    = isEdit ? `/addresses/${addressId}` : '/addresses';
+    const method = isEdit ? 'PUT' : 'POST';
 
-        clearErrors();
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    document.getElementById('saveBtnText').textContent = 'Saving…';
 
-        if (mode === 'add') {
-            document.getElementById('modalTitle').innerText = "Add New Address";
-            document.getElementById('saveBtn').innerText = "Save Address";
-            methodInput.value = "POST";
-            form.reset();
-            form.action = "/addresses"; 
-            
-            const homeRadio = form.querySelector('input[value="Home"]');
-            if(homeRadio) homeRadio.checked = true;
-            
-            updateRadioUI();
-            modal.classList.add('modal-active');
-        } else if (mode === 'edit') {
-            document.getElementById('modalTitle').innerText = "Edit Address";
-            document.getElementById('saveBtn').innerText = "Save Changes";
-            methodInput.value = "PUT"; 
-            modal.classList.add('modal-active');
+    try {
+      const res    = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(data),
+      });
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        await Swal.fire({
+          icon: 'success',
+          title: 'Done!',
+          text: result.message,
+          background: '#0a0f18',
+          color: '#fff',
+          confirmButtonColor: '#00a3ff',
+          timer: 1800,
+          showConfirmButton: false,
+        });
+        window.location.reload();
+      } else {
+        if (result.errors) {
+          Object.entries(result.errors).forEach(([k, v]) => showError(k, v));
         } else {
-            modal.classList.remove('modal-active');
+          Swal.fire({ icon: 'error', title: 'Error', text: result.message || 'Action failed',
+            background: '#0a0f18', color: '#fff', confirmButtonColor: '#00a3ff' });
         }
+        btn.disabled = false;
+        document.getElementById('saveBtnText').textContent = isEdit ? 'Save Changes' : 'Save Address';
+      }
+    } catch {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Connection error. Please try again.',
+        background: '#0a0f18', color: '#fff', confirmButtonColor: '#00a3ff' });
+      btn.disabled = false;
+      document.getElementById('saveBtnText').textContent = isEdit ? 'Save Changes' : 'Save Address';
     }
+  });
 
-    function clearErrors() {
-        document.querySelectorAll('.error-message').forEach(p => {
-            p.innerText = "";
-            p.style.display = "none";
+  // ── Set default ────────────────────────────────────────────────────────────
+  async function setDefault(id, btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin text-[10px]"></i>';
+
+    try {
+      const res    = await fetch(`/addresses/${id}/default`, { method: 'PATCH' });
+      const result = await res.json();
+
+      if (result.success) {
+        await Swal.fire({
+          icon: 'success', title: 'Default Updated',
+          text: 'This is now your default address.',
+          background: '#0a0f18', color: '#fff',
+          confirmButtonColor: '#00a3ff', timer: 1600, showConfirmButton: false,
         });
-        document.querySelectorAll('input').forEach(input => {
-            input.classList.remove('input-error');
-        });
+        window.location.reload();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: result.message,
+          background: '#0a0f18', color: '#fff', confirmButtonColor: '#00a3ff' });
+        btn.disabled = false;
+        btn.innerHTML = '<i class="far fa-star text-[10px]"></i> Set Default';
+      }
+    } catch {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Something went wrong.',
+        background: '#0a0f18', color: '#fff', confirmButtonColor: '#00a3ff' });
+      btn.disabled = false;
+      btn.innerHTML = '<i class="far fa-star text-[10px]"></i> Set Default';
     }
+  }
 
-    function showFieldError(fieldName, message) {
-        const errP = document.getElementById(`err-${fieldName}`);
-        const input = document.querySelector(`[name="${fieldName}"]`);
-        if (errP) {
-            errP.innerText = message;
-            errP.style.display = "block";
-        }
-        if (input) {
-            input.classList.add('input-error');
-        }
-    }
-
-    function editAddress(jsonAddr) {
-        const addr = JSON.parse(jsonAddr);
-        const form = document.getElementById('addressForm');
-
-        form.querySelector('[name="fullName"]').value = addr.fullName || '';
-        form.querySelector('[name="phone"]').value = addr.phone || '';
-        form.querySelector('[name="streetAddress"]').value = addr.streetAddress || '';
-        form.querySelector('[name="city"]').value = addr.city || '';
-        form.querySelector('[name="state"]').value = addr.state || '';
-        form.querySelector('[name="pincode"]').value = addr.pincode || '';
-
-        const targetType = addr.addressType || 'Home';
-        const radios = form.querySelectorAll('[name="addressType"]');
-        radios.forEach(r => { 
-            r.checked = r.value === targetType;
-        });
-
-        updateRadioUI();
-        form.action = `/addresses/${addr._id}`; 
-        toggleModal('edit');
-    }
-
-    document.getElementById('addressForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        clearErrors();
-
-        const formData = new FormData(this);
-        const data = Object.fromEntries(formData.entries());
-        const method = document.getElementById('formMethod').value;
-
-        // Simple frontend validation before sending
-        let hasErrors = false;
-        if (!data.fullName.trim()) { showFieldError('fullName', 'Name is required'); hasErrors = true; }
-        if (!/^\d{10}$/.test(data.phone)) { showFieldError('phone', 'Valid 10-digit mobile required'); hasErrors = true; }
-        if (!/^\d{6}$/.test(data.pincode)) { showFieldError('pincode', 'Valid 6-digit pincode required'); hasErrors = true; }
-        if (!data.streetAddress.trim()) { showFieldError('streetAddress', 'Address is required'); hasErrors = true; }
-
-        if (hasErrors) return;
-
-        try {
-            const response = await fetch(this.action, {
-                method: method, 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            
-            const result = await response.json();
-            
-            if (response.ok && result.success) {
-                await Swal.fire({ 
-                    icon: 'success', 
-                    title: 'Success!', 
-                    text: result.message, 
-                    background: '#0a0f18', 
-                    color: '#fff', 
-                    confirmButtonColor: '#00a3ff' 
-                });
-                window.location.reload();
-            } else {
-                if (result.errors) {
-                    Object.keys(result.errors).forEach(key => {
-                        showFieldError(key, result.errors[key]);
-                    });
-                } else {
-                    Swal.fire({ 
-                        icon: 'error', 
-                        title: 'Oops...', 
-                        text: result.message || 'Action failed',
-                        background: '#0a0f18',
-                        color: '#fff' 
-                    });
-                }
-            }
-        } catch (err) {
-            Swal.fire({ 
-                icon: 'error', 
-                title: 'Error', 
-                text: 'Connection error. Please try again.',
-                background: '#0a0f18',
-                color: '#fff'
-            });
-        }
+  // ── Delete ─────────────────────────────────────────────────────────────────
+  async function deleteAddress(id) {
+    const confirm = await Swal.fire({
+      title: 'Delete this address?',
+      text: 'This cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#374151',
+      background: '#0a0f18',
+      color: '#fff',
+      confirmButtonText: 'Yes, delete',
+      cancelButtonText: 'Cancel',
     });
 
-    async function deleteAddress(id) {
-        const result = await Swal.fire({
-            title: 'Are you sure?',
-            text: "This address will be removed permanently!",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#3085d6',
-            background: '#0a0f18',
-            color: '#fff',
-            confirmButtonText: 'Yes, delete it!'
-        });
+    if (!confirm.isConfirmed) return;
 
-        if (result.isConfirmed) {
-            try {
-                const response = await fetch(`/addresses/${id}`, { method: 'DELETE' });
-                const data = await response.json();
-                if (data.success) {
-                    window.location.reload();
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: data.message,
-                        background: '#0a0f18',
-                        color: '#fff'
-                    });
-                }
-            } catch (err) {
-                console.error("Delete Error:", err);
-            }
-        }
+    try {
+      const res    = await fetch(`/addresses/${id}`, { method: 'DELETE' });
+      const result = await res.json();
+
+      if (result.success) {
+        await Swal.fire({
+          icon: 'success', title: 'Deleted',
+          text: result.message,
+          background: '#0a0f18', color: '#fff',
+          confirmButtonColor: '#00a3ff', timer: 1400, showConfirmButton: false,
+        });
+        window.location.reload();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: result.message,
+          background: '#0a0f18', color: '#fff', confirmButtonColor: '#00a3ff' });
+      }
+    } catch {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Something went wrong.',
+        background: '#0a0f18', color: '#fff', confirmButtonColor: '#00a3ff' });
     }
-</script>
+  }
+
+  // Fix checkbox visual — Tailwind peer doesn't work with sr-only in all browsers
+  document.getElementById('isDefaultCheck').addEventListener('change', function() {
+    const box = this.closest('label').querySelector('.w-5');
+    const icon = box.querySelector('i');
+    if (this.checked) {
+      box.classList.add('bg-[#00a3ff]', 'border-[#00a3ff]');
+      box.classList.remove('border-gray-700');
+      if (icon) icon.classList.remove('hidden');
+    } else {
+      box.classList.remove('bg-[#00a3ff]', 'border-[#00a3ff]');
+      box.classList.add('border-gray-700');
+      if (icon) icon.classList.add('hidden');
+    }
+  });
+  </script>
 </body>
 </html>

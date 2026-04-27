@@ -13,32 +13,49 @@ import { checkUser } from "./middleware/auth.middleware.js";
 import methodOverride from "method-override";
 import Cart from "./models/cart.model.js";
 
-
 dotenv.config();
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(
-  session({
-    name: "neo_luxe_session",
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 24 * 60 * 60 * 1000,
-    },
-  }),
-);
+// ─── Admin session — only active for /admin routes ───────────────────────────
+const adminSession = session({
+  name: "neo_luxe_admin",
+  secret: process.env.ADMIN_SESSION_SECRET || process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    maxAge: 8 * 60 * 60 * 1000, // 8 hours
+  },
+});
+
+// ─── User session — active for / and /auth routes ────────────────────────────
+const userSession = session({
+  name: "neo_luxe_user",
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    secure: false,
+    sameSite: "lax",
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  },
+});
+
+// Mount each session only on its own prefix
+app.use("/admin", adminSession);
+app.use("/auth",  userSession);
+app.use("/",      userSession);
+
 app.use(passport.initialize());
 app.use(passport.session());
 app.use(checkUser);
@@ -51,7 +68,7 @@ app.use(async (req, res, next) => {
     try {
       const cart = await Cart.findOne({ user: req.session.user.id }).lean();
       if (cart) {
-        res.locals.cartCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
+        res.locals.cartCount = cart.items.length;
       }
     } catch { /* non-fatal — badge just shows 0 */ }
   }
@@ -60,17 +77,43 @@ app.use(async (req, res, next) => {
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// Serve placeholder-watch.jpg requests with the SVG fallback
-app.get("/images/placeholder-watch.jpg", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "images", "placeholder-watch.svg"));
-});
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.use(expressLayouts);
 
-
 app.use("/admin", adminRoutes);
-app.use("/auth", googleAuthRoutes);
-app.use("/", userRoutes);
+app.use("/auth",  googleAuthRoutes);
+app.use("/",      userRoutes);
+
+// ─── Global error handler ─────────────────────────────────────────────────────
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+
+  // Multer / file upload errors
+  if (err.code === "LIMIT_FILE_SIZE") {
+    return res.status(400).json({ success: false, message: "File too large. Maximum size is 2MB per image." });
+  }
+  if (err.message === "Only image files allowed") {
+    return res.status(400).json({ success: false, message: "Only image files (jpg, png, webp) are allowed." });
+  }
+
+  // Cloudinary / network errors during upload
+  if (err.http_code || err.name === "Error" && err.message?.includes("cloudinary")) {
+    return res.status(502).json({ success: false, message: "Image upload failed. Please check your connection and try again." });
+  }
+
+  // Mongoose validation errors
+  if (err.name === "ValidationError") {
+    const messages = Object.values(err.errors).map(e => e.message).join(", ");
+    return res.status(400).json({ success: false, message: messages });
+  }
+
+  // Default
+  const status = err.statusCode || 500;
+  res.status(status).json({
+    success: false,
+    message: err.isOperational ? err.message : "Something went wrong. Please try again.",
+  });
+});
 
 export default app;

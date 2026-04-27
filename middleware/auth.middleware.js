@@ -1,111 +1,91 @@
 import userModel from "../models/user.model.js";
 
+// ─── Inject user into res.locals for every user-facing request ───────────────
 export const checkUser = (req, res, next) => {
-    // 1. Check if the session exists and has a user
-    if (req.session && req.session.user) {
-        res.locals.isLoggedIn = true;
-        res.locals.user = req.session.user;
-        req.user = req.session.user; 
-    } else {
-        res.locals.isLoggedIn = false;
-        res.locals.user = null;
-        req.user = null;
-    }
+  if (req.session && req.session.user) {
+    res.locals.isLoggedIn = true;
+    res.locals.user = req.session.user;
+    req.user = req.session.user;
+  } else {
+    res.locals.isLoggedIn = false;
+    res.locals.user = null;
+    req.user = null;
+  }
 
-    /** * 2. BROWSER CACHE CONTROL (The fix for your back-button issue)
-     * This forces the browser to talk to the server every time the user 
-     * navigates, ensuring the header accurately reflects the logout state.
-     */
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate'); // HTTP 1.1
-    res.setHeader('Pragma', 'no-cache'); // HTTP 1.0
-    res.setHeader('Expires', '0'); // Proxies
+  // Prevent browser from caching authenticated pages
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
 
-    next();
+  next();
 };
 
+// ─── Redirect already-logged-in users away from /login, /signup ──────────────
 export const redirectIfAuthenticated = (req, res, next) => {
-    if (req.session && req.session.user) {
-        // Only redirect if they are NOT already at home
-        // This prevents infinite loops
-        if (req.path === '/') {
-            return next();
-        }
-        return res.redirect("/");
-    }
-    next();
+  if (req.session && req.session.user) {
+    if (req.path === '/') return next();
+    return res.redirect('/');
+  }
+  next();
 };
 
-
-
+// ─── Protect admin routes — requires req.session.admin (admin session) ────────
 export const isAdmin = (req, res, next) => {
   if (req.session && req.session.admin) {
     return next();
   }
 
-  res.set({
-    "Cache-Control": "no-store"
-  });
-
-  return res.redirect("/admin/login");
+  res.set('Cache-Control', 'no-store');
+  return res.redirect('/admin/login');
 };
 
-
-
+// ─── Redirect already-logged-in admins away from /admin/login ────────────────
 export const isLogout = (req, res, next) => {
-    if (req.session.admin) {
-        res.redirect("/admin/dashboard"); 
-    } else {
-        next();
-    }
+  if (req.session && req.session.admin) {
+    return res.redirect('/admin/dashboard');
+  }
+  next();
 };
-export const requireAuth = (req,res,next)=>{
-    if(req.session.user){
-        return next();
-    }else{
-        return res.redirect("/login");
-    }
-}
 
+// ─── Protect user routes — requires req.session.user (user session) ───────────
+export const requireAuth = (req, res, next) => {
+  if (req.session && req.session.user) {
+    return next();
+  }
+  return res.redirect('/login');
+};
 
+// ─── Block-check on every user request ───────────────────────────────────────
+// Runs only on user routes (admin routes carry a separate session with no .user)
 export const checkUserStatus = async (req, res, next) => {
-  if (!req.session.user) return next();
-
-  // IMPORTANT: Skip this check if the logged-in person is an admin
-  // This prevents admins from accidentally blocking themselves out of the panel
-  if (req.session.user.role === 'admin') return next();
+  if (!req.session || !req.session.user) return next();
 
   try {
     const user = await userModel.findById(req.session.user.id);
 
     if (!user || user.isBlocked) {
-      // 1. Specifically delete only the user object from the session
       delete req.session.user;
 
-      // 2. Save the session to commit the deletion to your store (MongoDB/Memory)
       return req.session.save((err) => {
-        if (err) console.error("Session Save Error:", err);
+        if (err) console.error('Session save error:', err);
 
-        const isApiRequest = req.xhr || (req.headers.accept && req.headers.accept.includes('json'));
+        const isApiRequest =
+          req.xhr || (req.headers.accept && req.headers.accept.includes('json'));
 
         if (isApiRequest) {
-          return res.status(403).json({ 
-            success: false, 
-            message: "Account blocked." 
+          return res.status(403).json({
+            success: false,
+            message: 'Your account has been blocked.',
           });
         }
 
-        // Redirect to login now that req.session.user is gone
-              return res.redirect("/admin/customers?error=blocked");
-
+        return res.redirect('/login?error=blocked');
       });
     }
-     
-        
-     
-    
+
     next();
   } catch (error) {
-    console.error("Auth Middleware Error:", error);
+    console.error('checkUserStatus error:', error);
     next();
   }
 };

@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkout | Neo-Luxe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    body { background:#0a0e1a; font-family:'DM Sans',sans-serif; }
+    .addr-card { border:2px solid #1e2640; border-radius:1rem; padding:1rem; cursor:pointer; transition:.15s; }
+    .addr-card:hover { border-color:#00d4ff44; }
+    .addr-card.selected { border-color:#00d4ff; background:#0f1a2e; }
+    .addr-card input[type="radio"] { accent-color:#00d4ff; }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen">
+
+  <div class="max-w-6xl mx-auto px-4 pt-8 pb-24">
+
+    <!-- Breadcrumb -->
+    <p class="text-xs text-slate-500 mb-5 uppercase tracking-widest">
+      <a href="/" class="hover:text-slate-300 transition">Home</a>
+      <span class="mx-1.5">/</span>
+      <a href="/cart" class="hover:text-slate-300 transition">Cart</a>
+      <span class="mx-1.5">/</span>
+      <span class="text-cyan-400 font-semibold">Checkout</span>
+    </p>
+
+    <h1 style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;color:#fff" class="mb-8">
+      Checkout
+    </h1>
+
+    <!-- Stock / availability warnings -->
+    <% if (typeof blockedItems !== 'undefined' && blockedItems.length) { %>
+      <div class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 mb-6 space-y-1">
+        <p class="text-red-400 text-xs font-semibold mb-1">Some items were removed because they are no longer available:</p>
+        <% blockedItems.forEach(reason => { %>
+          <p class="text-red-300 text-xs flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <%= reason %>
+          </p>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <% if (typeof stockErrors !== 'undefined' && stockErrors.length) { %>
+      <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-6 space-y-1">
+        <p class="text-amber-400 text-xs font-semibold mb-1">Quantities adjusted to available stock:</p>
+        <% stockErrors.forEach(e => { %>
+          <p class="text-amber-300 text-xs flex items-center gap-2">
+            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <%= e.name %>: requested <%= e.requested %>, adjusted to <%= e.available %> (available stock)
+          </p>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <div class="flex flex-col lg:flex-row gap-8 items-start">
+
+      <!-- ── Left: Address + Payment ──────────────────────────────── -->
+      <div class="flex-1 space-y-8">
+
+        <!-- Delivery Address -->
+        <section>
+          <h2 class="text-white font-bold text-lg mb-4" style="font-family:'Playfair Display',serif">
+            Delivery Address
+          </h2>
+
+          <% if (!addresses || addresses.length === 0) { %>
+            <div class="bg-[#0f1526] border border-[#1e2640] rounded-xl p-6 text-center">
+              <p class="text-slate-400 text-sm mb-4">You have no saved addresses.</p>
+              <a href="/addresses"
+                 class="inline-block bg-cyan-400 text-[#0a0e1a] font-bold text-sm px-6 py-2.5 rounded-xl hover:bg-cyan-300 transition">
+                Add an Address
+              </a>
+            </div>
+          <% } else { %>
+            <div class="space-y-3" id="addressList">
+              <% addresses.forEach((addr, i) => { %>
+                <label class="addr-card flex items-start gap-3 <%= i === 0 ? 'selected' : '' %>"
+                       id="addrCard-<%= addr._id %>"
+                       onclick="selectAddress('<%= addr._id %>')">
+                  <input type="radio"
+                         name="addressId"
+                         value="<%= addr._id %>"
+                         id="addr-<%= addr._id %>"
+                         class="mt-1 flex-shrink-0"
+                         <%= i === 0 ? 'checked' : '' %> />
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-0.5">
+                      <span class="text-white font-semibold text-sm"><%= addr.fullName %></span>
+                      <span class="text-[10px] bg-[#1e2640] text-slate-400 px-2 py-0.5 rounded-full border border-[#252e47] uppercase">
+                        <%= addr.addressType %>
+                      </span>
+                      <% if (addr.isDefault) { %>
+                        <span class="text-[10px] bg-cyan-400/20 text-cyan-400 px-2 py-0.5 rounded-full border border-cyan-400/30 uppercase">Default</span>
+                      <% } %>
+                    </div>
+                    <p class="text-slate-400 text-xs leading-relaxed">
+                      <%= addr.streetAddress %>, <%= addr.city %>, <%= addr.state %> — <%= addr.pincode %>
+                    </p>
+                    <p class="text-slate-500 text-xs mt-0.5">📞 <%= addr.phone %></p>
+                  </div>
+                </label>
+              <% }) %>
+            </div>
+            <a href="/addresses"
+               class="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 transition mt-3">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Add a new address
+            </a>
+          <% } %>
+        </section>
+
+        <!-- Payment Method -->
+        <section>
+          <h2 class="text-white font-bold text-lg mb-4" style="font-family:'Playfair Display',serif">
+            Payment Method
+          </h2>
+          <div class="space-y-3">
+            <label class="addr-card selected flex items-center gap-3" id="pmCard-cod" onclick="selectPayment('cod')">
+              <input type="radio" name="paymentMethod" value="cod" id="pm-cod" checked class="flex-shrink-0" />
+              <div>
+                <p class="text-white font-semibold text-sm">Cash on Delivery</p>
+                <p class="text-slate-500 text-xs">Pay when your order arrives</p>
+              </div>
+            </label>
+            <label class="addr-card flex items-center gap-3 opacity-50 cursor-not-allowed" title="Coming soon">
+              <input type="radio" name="paymentMethod" value="online" disabled class="flex-shrink-0" />
+              <div>
+                <p class="text-white font-semibold text-sm">Online Payment <span class="text-[10px] text-slate-500 ml-1">(Coming soon)</span></p>
+                <p class="text-slate-500 text-xs">UPI, Cards, Net Banking</p>
+              </div>
+            </label>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ── Right: Order Summary ──────────────────────────────────── -->
+      <div class="w-full lg:w-80 flex-shrink-0">
+        <div class="bg-[#0f1526] border border-[#1e2640] rounded-2xl p-6 sticky top-6">
+          <h2 class="text-white font-bold text-lg mb-5" style="font-family:'Playfair Display',serif">
+            Order Summary
+          </h2>
+
+          <!-- Items list -->
+          <div class="space-y-3 mb-5 max-h-64 overflow-y-auto pr-1">
+            <% checkoutItems.forEach(item => { %>
+              <div class="flex gap-3 items-center">
+                <div class="w-12 h-12 bg-[#161d30] rounded-lg overflow-hidden border border-[#1e2640] flex-shrink-0">
+                  <% if (item.imageUrl) { %>
+                    <img src="<%= item.imageUrl %>" alt="<%= item.productName %>" class="w-full h-full object-cover"/>
+                  <% } else { %>
+                    <div class="w-full h-full flex items-center justify-center text-slate-700">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>
+                    </div>
+                  <% } %>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-white text-xs font-semibold truncate"><%= item.productName %></p>
+                  <p class="text-slate-500 text-[10px]"><%= item.color %> · Qty: <%= item.quantity %></p>
+                  <% if (item.stock <= 5) { %>
+                    <p class="text-amber-400 text-[10px]">Only <%= item.stock %> left in stock</p>
+                  <% } %>
+                </div>
+                <p class="text-cyan-400 text-xs font-bold flex-shrink-0">
+                  ₹<%= item.itemTotal.toLocaleString('en-IN') %>
+                </p>
+              </div>
+            <% }) %>
+          </div>
+
+          <!-- Totals -->
+          <div class="border-t border-[#1e2640] pt-4 space-y-2 mb-4">
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-400">Subtotal</span>
+              <span class="text-white">₹<%= totals.subtotal.toLocaleString('en-IN') %></span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-400">Shipping</span>
+              <span class="<%= totals.shipping === 0 ? 'text-cyan-400' : 'text-white' %> font-semibold">
+                <%= totals.shipping === 0 ? 'Free' : '₹' + totals.shipping %>
+              </span>
+            </div>
+            <div class="flex justify-between text-sm">
+              <span class="text-slate-400">Tax (18% GST)</span>
+              <span class="text-white">₹<%= totals.tax.toLocaleString('en-IN') %></span>
+            </div>
+          </div>
+
+          <div class="border-t border-[#1e2640] pt-4 flex items-end justify-between mb-5">
+            <div>
+              <p class="text-white font-bold">Total</p>
+              <p class="text-slate-500 text-xs">Incl. all taxes</p>
+            </div>
+            <p class="text-cyan-400 font-bold text-2xl">₹<%= totals.total.toLocaleString('en-IN') %></p>
+          </div>
+
+          <button id="placeOrderBtn"
+                  
+                  <%= (!addresses || addresses.length === 0) ? 'disabled' : '' %>
+                  class="w-full py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold text-sm transition
+                         <%= (!addresses || addresses.length === 0)
+                             ? 'bg-slate-700/60 text-slate-400 cursor-not-allowed'
+                             : 'bg-cyan-400 text-[#0a0e1a] hover:bg-cyan-300' %>">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            Place Order
+          </button>
+
+          <p class="text-slate-600 text-[11px] text-center mt-4 flex items-center justify-center gap-1.5">
+            <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+            </svg>
+            Secure SSL · 2-Year Warranty
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="py-8 border-t border-white/5 text-center">
+    <p class="text-slate-700 text-xs">&copy; 2026 Neo-Luxe Premium Horology. All rights reserved.</p>
+  </footer>
+
+  <script>
+    let selectedAddressId = '<%= addresses && addresses.length ? addresses[0]._id : "" %>';
+    let selectedPayment   = 'cod';
+
+    function selectAddress(id) {
+      selectedAddressId = id;
+      document.querySelectorAll('.addr-card[id^="addrCard-"]').forEach(c => c.classList.remove('selected'));
+      const card = document.getElementById('addrCard-' + id);
+      if (card) card.classList.add('selected');
+      document.getElementById('addr-' + id).checked = true;
+    }
+
+    function selectPayment(method) {
+      selectedPayment = method;
+      ['cod'].forEach(m => {
+        const card = document.getElementById('pmCard-' + m);
+        if (card) card.classList.toggle('selected', m === method);
+        const radio = document.getElementById('pm-' + m);
+        if (radio) radio.checked = (m === method);
+      });
+    }
+
+    async function placeOrder() {
+      if (!selectedAddressId) {
+        Swal.fire({
+          title: 'No Address Selected',
+          text: 'Please select a delivery address to continue.',
+          icon: 'warning',
+          confirmButtonColor: '#06b6d4',
+          background: '#0f1526',
+          color: '#e2e8f0',
+        });
+        return;
+      }
+
+      const btn = document.getElementById('placeOrderBtn');
+      btn.disabled = true;
+      btn.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+        </svg>
+        Placing Order…`;
+
+      // try {
+      //   const res  = await fetch('/checkout/place-order', {
+      //     method:  'POST',
+      //     headers: { 'Content-Type': 'application/json' },
+      //     body:    JSON.stringify({
+      //       addressId:     selectedAddressId,
+      //       paymentMethod: selectedPayment,
+      //     }),
+      //   });
+      //   const data = await res.json();
+
+      //   if (data.success) {
+      //     window.location.href = data.redirect;
+      //   } else {
+      //     Swal.fire({
+      //       title: 'Order Failed',
+      //       text:  data.message,
+      //       icon:  'error',
+      //       confirmButtonText: data.redirect ? 'Review Cart' : 'OK',
+      //       confirmButtonColor: '#06b6d4',
+      //       background: '#0f1526',
+      //       color: '#e2e8f0',
+      //     }).then(() => {
+      //       if (data.redirect) window.location.href = data.redirect;
+      //     });
+      //     btn.disabled = false;
+      //     btn.innerHTML = `
+      //       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      //         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      //       </svg>
+      //       Place Order`;
+      //   }
+      // } catch {
+      //   Swal.fire({
+      //     title: 'Error',
+      //     text:  'Something went wrong. Please try again.',
+      //     icon:  'error',
+      //     confirmButtonColor: '#06b6d4',
+      //     background: '#0f1526',
+      //     color: '#e2e8f0',
+      //   });
+      //   btn.disabled = false;
+      //   btn.innerHTML = `
+      //     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      //       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+      //     </svg>
+      //     Place Order`;
+      // }
+    }
+  </script>
+</body>
+</html>
