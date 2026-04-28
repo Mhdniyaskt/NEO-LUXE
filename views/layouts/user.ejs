@@ -14,6 +14,7 @@
   <%- include('../partials/user-footer') %>
 
   <!-- ── Global cart toast ──────────────────────────────────────────── -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <div id="cartToast"
        class="fixed bottom-6 right-6 z-[999] flex items-center gap-3 px-5 py-3.5
               bg-[#0f1526] border rounded-2xl shadow-2xl text-sm
@@ -62,7 +63,18 @@
       // ── 1. Client-side login guard ──────────────────────────────────
       const loggedIn = document.body.dataset.loggedIn === 'true';
       if (!loggedIn) {
-        window.location.href = '/login';
+        Swal.fire({
+          icon:              'info',
+          title:             'Login Required',
+          text:              'Please login to add items to your cart.',
+          showCancelButton:  true,
+          confirmButtonText: 'Login',
+          cancelButtonText:  'Continue Browsing',
+          confirmButtonColor:'#06b6d4',
+          cancelButtonColor: '#1e2640',
+          background:        '#0f1526',
+          color:             '#e2e8f0',
+        }).then(r => { if (r.isConfirmed) window.location.href = '/login'; });
         return;
       }
 
@@ -83,7 +95,20 @@
 
         // ── 3. Not logged in (server-side check) ──────────────────────
         if (res.status === 401) {
-          window.location.href = '/login';
+          Swal.fire({
+            icon:              'info',
+            title:             'Session Expired',
+            text:              'Your session has ended. Please login to continue.',
+            showCancelButton:  true,
+            confirmButtonText: 'Login',
+            cancelButtonText:  'Cancel',
+            confirmButtonColor:'#06b6d4',
+            cancelButtonColor: '#1e2640',
+            background:        '#0f1526',
+            color:             '#e2e8f0',
+          }).then(r => { if (r.isConfirmed) window.location.href = '/login'; });
+          btn.disabled  = false;
+          btn.innerHTML = originalHTML;
           return;
         }
 

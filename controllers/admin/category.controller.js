@@ -10,7 +10,6 @@ export const getCategory = asyncHandler(async (req, res) => {
 
     const filter = { isDeleted: false };
     if (search.trim()) {
-        // Use $text or simple contains — avoid $regex with user input
         filter.name = { $regex: search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' };
     }
 
@@ -43,32 +42,32 @@ export const addCategory = asyncHandler(async (req, res) => {
     const trimmedName = name.trim();
     const trimmedDesc = description.trim();
 
-    // Fetch all non-deleted categories and compare in JS to avoid regex issues
-    const allCategories = await Category.find({}).lean();
-    const existing = allCategories.find(
-        c => c.name.toLowerCase() === trimmedName.toLowerCase()
-    );
+    // Duplicate check — only against active (non-deleted) categories
+    const existing = await Category.findOne({
+        name:      { $regex: `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+        isDeleted: false,
+    }).lean();
 
     if (existing) {
-        if (!existing.isDeleted) {
-            return res.status(409).json({ success: false, message: 'Category already exists' });
-        }
-        // Restore soft-deleted category
-        await Category.findByIdAndUpdate(existing._id, {
-            isDeleted:   false,
-            name:        trimmedName,
-            description: trimmedDesc,
-        });
-        return res.status(200).json({ success: true, message: 'Category restored successfully' });
+        return res.status(409).json({ success: false, message: 'Category already exists' });
     }
 
-    try {
+    // The unique index on `name` still applies to soft-deleted docs in the collection.
+    // If a deleted doc has the same name, reuse its slot instead of inserting a new one.
+    const deletedSlot = await Category.findOne({
+        name:      { $regex: `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+        isDeleted: true,
+    }).lean();
+
+    if (deletedSlot) {
+        await Category.findByIdAndUpdate(deletedSlot._id, {
+            name:        trimmedName,
+            description: trimmedDesc,
+            isDeleted:   false,
+            isListed:    true,
+        });
+    } else {
         await Category.create({ name: trimmedName, description: trimmedDesc });
-    } catch (err) {
-        if (err.code === 11000) {
-            return res.status(409).json({ success: false, message: 'Category already exists' });
-        }
-        throw err;
     }
 
     res.status(201).json({ success: true, message: 'Category added successfully' });
@@ -88,21 +87,35 @@ export const editCategory = asyncHandler(async (req, res) => {
     const trimmedName = name.trim();
     const trimmedDesc = description.trim();
 
-    // Compare in JS — no regex, no special character issues
-    const allCategories = await Category.find({ isDeleted: false }).lean();
-    const duplicate = allCategories.find(
-        c => c._id.toString() !== id &&
-             c.name.toLowerCase() === trimmedName.toLowerCase()
-    );
+    // Duplicate check — only against active (non-deleted) categories, excluding self
+    const duplicate = await Category.findOne({
+        _id:       { $ne: id },
+        name:      { $regex: `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+        isDeleted: false,
+    }).lean();
 
     if (duplicate) {
         return res.status(409).json({ success: false, message: 'Another category with this name already exists' });
     }
 
-    // findById + save() avoids unique-index conflict on the same document
     const category = await Category.findById(id);
     if (!category) {
         return res.status(404).json({ success: false, message: 'Category not found' });
+    }
+
+    // The unique index on `name` applies to ALL documents including soft-deleted ones.
+    // If a deleted doc has the same name, free up the index slot before saving.
+    const deletedConflict = await Category.findOne({
+        _id:       { $ne: id },
+        name:      { $regex: `^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' },
+        isDeleted: true,
+    }).lean();
+
+    if (deletedConflict) {
+        // Neutralise the deleted doc's name so the unique index no longer blocks us
+        await Category.findByIdAndUpdate(deletedConflict._id, {
+            name: `__deleted_${deletedConflict._id}`,
+        });
     }
 
     category.name        = trimmedName;

@@ -36,8 +36,8 @@ router.patch("/toggle-category/:id", categoryCtrl.toggleCategory);
 router.delete("/delete-category/:id", categoryCtrl.softDeleteCategory);
 
 
-// Route for deleting a specific image from a variant
-router.delete('/products/:productId/variants/:variantId/images/:imageName', productController.deleteVariantImage);
+// Route for deleting a specific image from a variant (imageUrl passed in request body)
+router.delete('/products/:productId/variants/:variantId/images', productController.deleteVariantImage);
 // Products
 router.get('/products', noCache, productController.getProductPage);
 router.get('/products/check-name', productController.checkProductName);

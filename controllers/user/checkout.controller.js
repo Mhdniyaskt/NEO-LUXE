@@ -241,10 +241,13 @@ export const placeOrder = asyncHandler(async (req, res) => {
 });
 
 // ─── POST /checkout/buy-now ───────────────────────────────────────────────────
-// Single-item express checkout — validates stock then shows checkout page
+// Single-item express checkout — validates availability then shows checkout page
 export const buyNow = asyncHandler(async (req, res) => {
   const userId = req.session?.user?.id;
-  if (!userId) return res.redirect('/login');
+  if (!userId) {
+    // AJAX request — return JSON so the frontend can redirect to login
+    return res.status(401).json({ success: false, message: 'Please login to continue.', redirect: '/login' });
+  }
 
   const { productId, variantId } = req.body;
 
@@ -252,18 +255,24 @@ export const buyNow = asyncHandler(async (req, res) => {
   const variant  = await Variant.findById(variantId).lean();
   const category = product?.category;
 
-  // Availability checks
-  if (!product || product.isDeleted || !product.isActive) {
-    return res.redirect('/shop');
+  // All failures return JSON — no redirects — so the page stays in place
+  if (!product || product.isDeleted) {
+    return res.status(404).json({ success: false, message: 'This product no longer exists.' });
+  }
+  if (!product.isActive) {
+    return res.status(400).json({ success: false, message: 'This product has been unlisted by the store.' });
   }
   if (!category || !category.isListed) {
-    return res.redirect('/shop');
+    return res.status(400).json({ success: false, message: 'This product\'s category is currently unavailable.' });
   }
-  if (!variant || variant.isDeleted || !variant.isActive) {
-    return res.redirect(`/shop/${productId}`);
+  if (!variant || variant.isDeleted) {
+    return res.status(404).json({ success: false, message: 'This variant no longer exists.' });
+  }
+  if (!variant.isActive) {
+    return res.status(400).json({ success: false, message: 'This variant is currently unavailable.' });
   }
   if (variant.stock === 0) {
-    return res.redirect(`/shop/${productId}?error=out_of_stock`);
+    return res.status(400).json({ success: false, message: 'This item is out of stock.' });
   }
 
   const addresses = await Address.find({ userId }).lean();
@@ -287,14 +296,15 @@ export const buyNow = asyncHandler(async (req, res) => {
   const tax      = Math.round(subtotal * 0.18);
   const totals   = { subtotal, shipping, tax, total: subtotal + tax + shipping };
 
-  res.render('user/checkout', {
-    layout:       'layouts/user',
+  // Render the checkout page directly — success path stays server-rendered
+  return res.render('user/checkout', {
+    layout:          'layouts/user',
     checkoutItems,
-    blockedItems: [],
-    stockErrors:  [],
+    blockedItems:    [],
+    stockErrors:     [],
     addresses,
     totals,
-    isBuyNow:     true,
+    isBuyNow:        true,
     buyNowProductId: productId,
     buyNowVariantId: variantId,
   });

@@ -127,7 +127,7 @@
 
                         <div class="space-y-6">
                             <% variants.forEach((variant, index) => { %>
-                            <div class="card-bg rounded-2xl p-8 relative">
+                            <div class="card-bg rounded-2xl p-8 relative" data-variant-index="<%= index %>">
                                 <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest mb-6">Variant #<%= index + 1 %></h4>
                                 <input type="hidden" name="variants[<%=index%>][_id]" value="<%= variant._id %>">
                                 
@@ -151,14 +151,21 @@
                                 </div>
 
                                 <div>
-                                    <label class="label-style text-cyan-500">Gallery Management</label>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="label-style text-cyan-500 mb-0">Gallery Management</label>
+                                        <span id="existing_count_<%= index %>"
+                                              class="text-[11px] font-semibold <%= variant.images.length >= 3 ? 'text-green-400' : 'text-amber-400' %>">
+                                            <%= variant.images.length %> / 3 images
+                                        </span>
+                                    </div>
                                     <div class="flex flex-wrap gap-3 mb-4" id="existing_container_<%=index%>">
                                         <% variant.images.forEach((img) => { %>
                                             <div class="relative group">
                                                 <input type="hidden" name="existingImages_<%=index%>" value="<%= img.url %>">
                                                 <img src="<%= img.url %>" class="w-20 h-20 rounded-xl object-cover border border-slate-700">
-                                                <button type="button" onclick="deleteExistingImage(this, '<%= product._id %>', '<%= variant._id %>', '<%= img.url %>')" 
-                                                    class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg">
+                                                <button type="button"
+                                                        onclick="deleteExistingImage(this, '<%= product._id %>', '<%= variant._id %>', '<%= img.url %>', <%= index %>)"
+                                                        class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg">
                                                     <i class="fas fa-times"></i>
                                                 </button>
                                             </div>
@@ -294,10 +301,10 @@
 
         <div>
             <label class="label-style text-cyan-500">Gallery Management</label>
-            <label class="label-style">Add Images (Required for new variant)</label>
+            <label class="label-style">Add Images (Minimum 3 required)</label>
             <input type="file" multiple accept="image/*" class="input-field text-xs mb-2" 
                 onchange="initCropProcess(this, '${index}')">
-            
+            <p id="img_count_${index}" class="text-[11px] mt-1 text-slate-500">0 / 3 images added</p>
             <div id="new_preview_${index}" class="flex gap-2 flex-wrap mt-2"></div>
         </div>
     </div>
@@ -387,47 +394,141 @@
             </button>
         `;
         container.appendChild(div);
+        updateImgCount(variantIndex);
+        updateExistingCount(variantIndex); // refresh combined total on existing variant counter
     }
 
     function removeNewImage(variantIndex, imgId) {
         variantImagesData[variantIndex] = variantImagesData[variantIndex].filter(img => img.id !== imgId);
         const el = document.getElementById(`img_container_${imgId}`);
         if (el) el.remove();
+        updateImgCount(variantIndex);
+        updateExistingCount(variantIndex); // refresh combined total on existing variant counter
+    }
+
+    function updateImgCount(variantIndex) {
+        const counter = document.getElementById(`img_count_${variantIndex}`);
+        if (!counter) return;
+        const count = (variantImagesData[variantIndex] || []).length;
+        counter.textContent = `${count} / 3 images added`;
+        counter.className = count >= 3
+            ? 'text-[11px] mt-1 text-green-400'
+            : 'text-[11px] mt-1 text-amber-400';
     }
 
     // 4. Submission Logic
     async function handleEditSubmit(e, productId) {
         e.preventDefault();
 
-        // ── Duplicate name check (exclude current product) ───────────
-        const nameInput  = document.getElementById('productName');
-        const trimmedName = nameInput.value.trim();
-        if (!trimmedName) {
-            return Swal.fire('Required', 'Product name cannot be empty.', 'warning');
+        const form = e.target;
+
+        // ── Helper ────────────────────────────────────────────────────
+        function err(msg) {
+            Swal.fire({ title: 'Validation Error', text: msg, icon: 'warning',
+                background: '#0b1120', color: '#94a3b8', confirmButtonColor: '#06b6d4' });
         }
+
+        // ── 1. Product name ───────────────────────────────────────────
+        const nameInput   = document.getElementById('productName');
+        const trimmedName = nameInput.value.trim();
+        if (!trimmedName)                    return err('Product name is required.');
+        if (trimmedName.length < 3)          return err('Product name must be at least 3 characters.');
+        if (trimmedName.length > 100)        return err('Product name must be under 100 characters.');
+
+        // ── 2. Brand ──────────────────────────────────────────────────
+        const brand = form.querySelector('[name="brand"]').value.trim();
+        if (!brand)             return err('Brand is required.');
+        if (brand.length < 2)   return err('Brand must be at least 2 characters.');
+
+        // ── 3. Description ────────────────────────────────────────────
+        const description = form.querySelector('[name="description"]').value.trim();
+        if (!description)              return err('Description is required.');
+        if (description.length < 10)   return err('Description must be at least 10 characters.');
+
+        // ── 4. Specifications ─────────────────────────────────────────
+        const caseSize    = form.querySelector('[name="caseSize"]').value.trim();
+        const strapType   = form.querySelector('[name="strapType"]').value.trim();
+        const movementType = form.querySelector('[name="movementType"]').value.trim();
+        if (!caseSize)     return err('Case size is required.');
+        if (!strapType)    return err('Strap type is required.');
+        if (!movementType) return err('Movement type is required.');
+
+        // ── 5. Duplicate name check (server) ──────────────────────────
         try {
             const checkRes  = await fetch(`/admin/products/check-name?name=${encodeURIComponent(trimmedName)}&excludeId=${productId}`);
             const checkData = await checkRes.json();
             if (checkData.exists) {
-                return Swal.fire({
-                    title: 'Duplicate Name',
-                    text: `Another product named "${trimmedName}" already exists. Please use a different name.`,
-                    icon: 'error',
-                    background: '#0b1120',
-                    color: '#94a3b8',
-                    confirmButtonColor: '#06b6d4'
-                });
+                return Swal.fire({ title: 'Duplicate Name',
+                    text: `Another product named "${trimmedName}" already exists.`,
+                    icon: 'error', background: '#0b1120', color: '#94a3b8', confirmButtonColor: '#06b6d4' });
             }
         } catch {
-            return Swal.fire('Error', 'Could not verify product name. Please try again.', 'error');
+            return err('Could not verify product name. Please try again.');
         }
 
-        const formData = new FormData(e.target);
+        // ── 6. Existing variant field validation ──────────────────────
+        const existingVariantCards = document.querySelectorAll('[data-variant-index]');
+        const seenColors = [];
+        for (const card of existingVariantCards) {
+            const idx          = card.dataset.variantIndex;
+            const color        = card.querySelector(`[name="variants[${idx}][color]"]`)?.value.trim() || '';
+            const regularPrice = Number(card.querySelector(`[name="variants[${idx}][regularPrice]"]`)?.value);
+            const basePrice    = Number(card.querySelector(`[name="variants[${idx}][basePrice]"]`)?.value);
+            const stock        = Number(card.querySelector(`[name="variants[${idx}][stock]"]`)?.value);
+            const label        = color || `Variant ${parseInt(idx) + 1}`;
 
-        // Append the Blobs from variantImagesData to FormData
+            if (!color)                                  return err(`${label}: Color is required.`);
+            if (seenColors.includes(color.toLowerCase())) return err(`Duplicate color "${color}". Each variant must have a unique color.`);
+            seenColors.push(color.toLowerCase());
+
+            if (isNaN(regularPrice) || regularPrice <= 0) return err(`${label}: Regular price must be greater than 0.`);
+            if (isNaN(basePrice)    || basePrice <= 0)    return err(`${label}: Sale price must be greater than 0.`);
+            if (basePrice > regularPrice)                 return err(`${label}: Sale price cannot exceed regular price.`);
+            if (isNaN(stock) || stock < 0)                return err(`${label}: Stock cannot be negative.`);
+
+            // Image count
+            const container = document.getElementById(`existing_container_${idx}`);
+            const existing  = container ? container.querySelectorAll('input[type="hidden"]').length : 0;
+            const newImgs   = (variantImagesData[idx] || []).length;
+            if (existing + newImgs < 3)
+                return Swal.fire({ title: 'Images Required',
+                    html: `<b>${label}</b> must have at least 3 images (currently ${existing + newImgs}).`,
+                    icon: 'warning', background: '#0b1120', color: '#94a3b8', confirmButtonColor: '#06b6d4' });
+        }
+
+        // ── 7. New variant field validation ───────────────────────────
+        const newVariantCards = document.querySelectorAll('#variantsContainer [id^="variant_card_"]');
+        for (const card of newVariantCards) {
+            const idMatch = card.id.match(/variant_card_(\d+)/);
+            if (!idMatch) continue;
+            const idx          = idMatch[1];
+            const color        = card.querySelector(`[name="variants[${idx}][color]"]`)?.value.trim() || '';
+            const regularPrice = Number(card.querySelector(`[name="variants[${idx}][regularPrice]"]`)?.value);
+            const basePrice    = Number(card.querySelector(`[name="variants[${idx}][basePrice]"]`)?.value);
+            const stock        = Number(card.querySelector(`[name="variants[${idx}][stock]"]`)?.value);
+            const label        = color || `New Variant`;
+
+            if (!color)                                  return err(`New variant: Color is required.`);
+            if (seenColors.includes(color.toLowerCase())) return err(`Duplicate color "${color}". Each variant must have a unique color.`);
+            seenColors.push(color.toLowerCase());
+
+            if (isNaN(regularPrice) || regularPrice <= 0) return err(`${label}: Regular price must be greater than 0.`);
+            if (isNaN(basePrice)    || basePrice <= 0)    return err(`${label}: Sale price must be greater than 0.`);
+            if (basePrice > regularPrice)                 return err(`${label}: Sale price cannot exceed regular price.`);
+            if (isNaN(stock) || stock < 0)                return err(`${label}: Stock cannot be negative.`);
+
+            const count = (variantImagesData[idx] || []).length;
+            if (count < 3)
+                return Swal.fire({ title: 'Images Required',
+                    text: `${label} needs at least 3 images (currently ${count}).`,
+                    icon: 'warning', background: '#0b1120', color: '#94a3b8', confirmButtonColor: '#06b6d4' });
+        }
+
+        // ── 8. Build FormData and submit ──────────────────────────────
+        const formData = new FormData(form);
+
         Object.keys(variantImagesData).forEach(variantIdx => {
             variantImagesData[variantIdx].forEach((imgObj, i) => {
-                // Key name format: variantImages_INDEX
                 formData.append(`variantImages_${variantIdx}`, imgObj.blob, `variant_${variantIdx}_${i}.jpg`);
             });
         });
@@ -442,18 +543,13 @@
 
             const result = await response.json();
             if (result.success) {
-                Swal.fire({
-                    title: 'Updated!',
-                    text: 'Inventory refined successfully',
-                    icon: 'success',
-                    background: '#0b1120',
-                    color: '#fff',
-                    confirmButtonColor: '#06b6d4'
+                Swal.fire({ title: 'Updated!', text: 'Inventory refined successfully', icon: 'success',
+                    background: '#0b1120', color: '#fff', confirmButtonColor: '#06b6d4'
                 }).then(() => window.location.href = '/admin/products');
             } else {
                 Swal.fire('Error', result.message, 'error');
             }
-        } catch (err) {
+        } catch {
             Swal.fire('Error', 'Submission failed', 'error');
         }
     }
@@ -464,6 +560,69 @@
             document.activeElement.blur();
         }
     }, { passive: true });
+
+    // ── Delete existing image ─────────────────────────────────────────────────
+    async function deleteExistingImage(btn, productId, variantId, imageUrl, variantIndex) {
+        const confirmed = await Swal.fire({
+            title:              'Remove image?',
+            text:               'This will permanently delete the image.',
+            icon:               'warning',
+            showCancelButton:   true,
+            confirmButtonText:  'Yes, remove',
+            cancelButtonText:   'Cancel',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor:  '#334155',
+            background:         '#0b1120',
+            color:              '#94a3b8',
+        });
+        if (!confirmed.isConfirmed) return;
+
+        try {
+            const res  = await fetch(`/admin/products/${productId}/variants/${variantId}/images`, {
+                method:  'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ imageUrl }),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                // Remove the image wrapper from the DOM
+                const container = document.getElementById(`existing_container_${variantIndex}`);
+                btn.closest('.relative.group').remove();
+                // Remove the hidden input carrying this URL
+                if (container) {
+                    container.querySelectorAll('input[type="hidden"]').forEach(inp => {
+                        if (inp.value === imageUrl) inp.remove();
+                    });
+                }
+                // Update the live counter
+                updateExistingCount(variantIndex);
+
+                Swal.fire({
+                    toast: true, position: 'top-end', icon: 'success',
+                    title: 'Image removed', showConfirmButton: false, timer: 1800,
+                    background: '#0b1120', color: '#94a3b8',
+                });
+            } else {
+                Swal.fire('Error', data.message || 'Could not remove image', 'error');
+            }
+        } catch {
+            Swal.fire('Error', 'Something went wrong', 'error');
+        }
+    }
+
+    // ── Live counter for existing variant images ──────────────────────────────
+    function updateExistingCount(variantIndex) {
+        const counter   = document.getElementById(`existing_count_${variantIndex}`);
+        if (!counter) return;
+        const container = document.getElementById(`existing_container_${variantIndex}`);
+        const existing  = container ? container.querySelectorAll('input[type="hidden"]').length : 0;
+        const newImgs   = (variantImagesData[variantIndex] || []).length;
+        const total     = existing + newImgs;
+        counter.textContent = `${total} / 3 images`;
+        counter.className   = total >= 3 ? 'text-[11px] font-semibold text-green-400'
+                                         : 'text-[11px] font-semibold text-amber-400';
+    }
 </script>
 </body>
 </html>

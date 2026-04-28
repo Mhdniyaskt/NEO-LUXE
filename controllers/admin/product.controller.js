@@ -233,43 +233,75 @@ export const postEditProduct = asyncHandler(async (req, res) => {
     if (!name || !brand || !category) {
         return res.status(400).json({ success: false, message: "Required fields are missing." });
     }
+    if (name.trim().length < 3) {
+        return res.status(400).json({ success: false, message: "Product name must be at least 3 characters." });
+    }
+    if (!description || !description.trim()) {
+        return res.status(400).json({ success: false, message: "Description is required." });
+    }
+    if (description.trim().length < 10) {
+        return res.status(400).json({ success: false, message: "Description must be at least 10 characters." });
+    }
+    if (!caseSize?.trim() || !strapType?.trim() || !movementType?.trim()) {
+        return res.status(400).json({ success: false, message: "All specifications (case size, strap type, movement) are required." });
+    }
 
     // Convert variants object/array into a workable array of [key, value] pairs
-    // This allows us to access the original 'index' (like the timestamp) for image mapping
     const variantEntries = Object.entries(variants || {});
 
+    if (variantEntries.length === 0) {
+        return res.status(400).json({ success: false, message: "At least one variant is required." });
+    }
+
     // 2. PRE-VALIDATION PASS
+    const seenColors = [];
     for (const [index, v] of variantEntries) {
         const regularPrice = Number(v.regularPrice);
-        const basePrice = Number(v.basePrice);
-        const stock = Number(v.stock);
+        const basePrice    = Number(v.basePrice);
+        const stock        = Number(v.stock);
+        const label        = v.color?.trim() || `Variant ${index}`;
 
-        if (isNaN(regularPrice) || regularPrice <= 0 || isNaN(basePrice) || basePrice <= 0) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `Variant ${v.color || ''}: Prices must be valid numbers greater than 0.` 
-            });
+        if (!v.color || !v.color.trim()) {
+            return res.status(400).json({ success: false, message: `${label}: Color is required.` });
         }
+        if (seenColors.includes(v.color.trim().toLowerCase())) {
+            return res.status(400).json({ success: false, message: `Duplicate color "${v.color}". Each variant must have a unique color.` });
+        }
+        seenColors.push(v.color.trim().toLowerCase());
 
+        if (isNaN(regularPrice) || regularPrice <= 0) {
+            return res.status(400).json({ success: false, message: `${label}: Regular price must be greater than 0.` });
+        }
+        if (isNaN(basePrice) || basePrice <= 0) {
+            return res.status(400).json({ success: false, message: `${label}: Sale price must be greater than 0.` });
+        }
         if (basePrice > regularPrice) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `Variant ${v.color || ''}: Sale price cannot be higher than the Regular price.` 
-            });
+            return res.status(400).json({ success: false, message: `${label}: Sale price cannot exceed regular price.` });
         }
-
         if (isNaN(stock) || stock < 0) {
-            return res.status(400).json({ success: false, message: `Variant ${v.color || ''}: Stock cannot be negative.` });
+            return res.status(400).json({ success: false, message: `${label}: Stock cannot be negative.` });
         }
 
         // IMAGE VALIDATION FOR NEW VARIANTS
         // We use the 'index' from the object key to match 'variantImages_TIMESTAMP'
         if (!v._id || v._id === 'undefined') {
             const newFiles = req.files ? req.files.filter(f => f.fieldname === `variantImages_${index}`) : [];
-            if (newFiles.length === 0) {
+            if (newFiles.length < 3) {
                 return res.status(400).json({ 
                     success: false, 
-                    message: `New variant (${v.color}): At least one image is required.` 
+                    message: `New variant "${v.color || index}": At least 3 images are required.` 
+                });
+            }
+        } else {
+            // Existing variant — check combined total of kept + new images
+            const newFiles = req.files ? req.files.filter(f => f.fieldname === `variantImages_${index}`) : [];
+            let keptImages = req.body[`existingImages_${index}`] || [];
+            if (!Array.isArray(keptImages)) keptImages = [keptImages];
+            const total = keptImages.length + newFiles.length;
+            if (total < 3) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Variant "${v.color || index}": Must have at least 3 images (currently ${total}).`,
                 });
             }
         }
@@ -343,20 +375,17 @@ export const postEditProduct = asyncHandler(async (req, res) => {
 
 
 export const deleteVariantImage = asyncHandler(async (req, res) => {
-    const { productId, variantId, imageName } = req.params;
+    const { productId, variantId } = req.params;
+    const { imageUrl } = req.body;
 
-    // Use $pull to remove the image object that contains the imageName in its URL
-    // We use a regex or 'endsWith' check if the imageName is just a filename 
-    // but the DB stores the full path.
+    if (!imageUrl) {
+        return res.status(400).json({ success: false, message: "Image URL is required" });
+    }
+
+    // Pull the image by exact URL match
     const updatedVariant = await Variant.findByIdAndUpdate(
         variantId,
-        {
-            $pull: {
-                images: { 
-                    url: { $regex: imageName + "$" } 
-                }
-            }
-        },
+        { $pull: { images: { url: imageUrl } } },
         { new: true }
     );
 
@@ -364,7 +393,7 @@ export const deleteVariantImage = asyncHandler(async (req, res) => {
         return res.status(404).json({ success: false, message: "Variant not found" });
     }
 
-    // Optional: If the variant now has no primary image, set the first one as primary
+    // If no primary image remains, promote the first one
     if (updatedVariant.images.length > 0 && !updatedVariant.images.find(img => img.isPrimary)) {
         updatedVariant.images[0].isPrimary = true;
         await updatedVariant.save();

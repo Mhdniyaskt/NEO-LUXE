@@ -202,10 +202,15 @@
                 </svg>
                 Add to Cart
               </button>
-              <form action="/checkout/buy-now" method="POST">
+              <form id="buyNowForm" action="/checkout/buy-now" method="POST">
                 <input type="hidden" name="productId" value="<%= product._id %>" />
                 <input type="hidden" name="variantId" value="<%= defaultVariant._id %>" />
-                <button class="px-5 py-3 rounded-xl bg-[#1e2640] border border-[#252e47] text-slate-200 text-sm font-semibold hover:bg-[#252e47] transition">⚡ Buy Now</button>
+                <button type="button"
+                        id="buyNowBtn"
+                        onclick="handleBuyNow()"
+                        class="px-5 py-3 rounded-xl bg-[#1e2640] border border-[#252e47] text-slate-200 text-sm font-semibold hover:bg-[#252e47] transition">
+                  ⚡ Buy Now
+                </button>
               </form>
             <% } %>
           </div>
@@ -374,6 +379,84 @@
 
     function showToast(msg, ok=true) {
       // kept for any legacy inline calls — real feedback comes from layout toast
+    }
+
+    // ── Buy Now — fetch first, show error toast on failure, submit form on success ──
+    async function handleBuyNow() {
+      const btn  = document.getElementById('buyNowBtn');
+      const form = document.getElementById('buyNowForm');
+
+      const productId = form.querySelector('[name="productId"]').value;
+      const variantId = form.querySelector('[name="variantId"]').value;
+
+      btn.disabled    = true;
+      btn.textContent = '…';
+
+      try {
+        const res  = await fetch('/checkout/buy-now', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ productId, variantId }),
+        });
+
+        if (res.status === 401) {
+          Swal.fire({
+            icon:              'info',
+            title:             'Login Required',
+            text:              'Please login to purchase this item.',
+            showCancelButton:  true,
+            confirmButtonText: 'Login',
+            cancelButtonText:  'Continue Browsing',
+            confirmButtonColor:'#06b6d4',
+            cancelButtonColor: '#1e2640',
+            background:        '#0f1526',
+            color:             '#e2e8f0',
+          }).then(r => { if (r.isConfirmed) window.location.href = '/login'; });
+          return;
+        }
+
+        // Success — server rendered the checkout page; navigate via normal form POST
+        if (res.ok && res.redirected) {
+          window.location.href = res.url;
+          return;
+        }
+
+        // Try to parse JSON (error responses)
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data.success) {
+            // Should not happen (success renders HTML), but handle gracefully
+            window.location.href = data.redirect || '/checkout';
+            return;
+          }
+          // Show error message — stay on page
+          Swal.fire({
+            icon:               'warning',
+            title:              'Cannot Proceed',
+            text:               data.message,
+            confirmButtonColor: '#06b6d4',
+            background:         '#0f1526',
+            color:              '#e2e8f0',
+          });
+        } else {
+          // Server returned HTML (checkout page) — follow via form submit
+          form.submit();
+          return;
+        }
+      } catch {
+        Swal.fire({
+          icon:               'error',
+          title:              'Error',
+          text:               'Something went wrong. Please try again.',
+          confirmButtonColor: '#06b6d4',
+          background:         '#0f1526',
+          color:              '#e2e8f0',
+        });
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = '⚡ Buy Now';
+      }
     }
 
     // ── Flip button to "Go to Cart" after a successful add ────────────
