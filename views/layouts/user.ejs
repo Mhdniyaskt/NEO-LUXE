@@ -1,15 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>User Panel</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Neo-Luxe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #05080d; color: #fff; }
+    .active-nav-item {
+      background: linear-gradient(90deg, rgba(0,163,255,0.1) 0%, rgba(0,163,255,0.02) 100%);
+      border-right: 2px solid #00a3ff;
+      color: #00a3ff;
+    }
+  </style>
 </head>
-<body data-logged-in="<%= locals.isLoggedIn ? 'true' : 'false' %>">
+<body class="bg-[#05080d] text-white min-h-screen flex flex-col" data-logged-in="<%= locals.isLoggedIn ? 'true' : 'false' %>">
 
   <%- include('../partials/user-header') %>
 
-  <main>
-    <%- body %>
-  </main>
+  <%- body %>
 
   <%- include('../partials/user-footer') %>
 
@@ -26,6 +36,87 @@
 
   <!-- ── Shared add-to-cart helper (available on every user page) ───── -->
   <script>
+    // ── Wishlist toggle (available on every user page) ────────────────
+    // Seed initial wishlisted variant IDs from server on page load
+    const _wishlistedIds = new Set();
+
+    (async () => {
+      const loggedIn = document.body.dataset.loggedIn === 'true';
+      if (!loggedIn) return;
+      try {
+        const res  = await fetch('/user/wishlist/ids');
+        const data = await res.json();
+        (data.ids || []).forEach(id => _wishlistedIds.add(id));
+        // Apply filled-heart state to any wishlist buttons already on the page
+        document.querySelectorAll('[data-wishlist-btn]').forEach(btn => {
+          const vid = btn.dataset.variantId;
+          if (_wishlistedIds.has(vid)) _setWishlistActive(btn, true);
+        });
+      } catch { /* non-fatal */ }
+    })();
+
+    function _setWishlistActive(btn, active) {
+      const svg = btn.querySelector('svg');
+      if (!svg) return;
+      if (active) {
+        svg.setAttribute('fill', '#f43f5e');
+        svg.setAttribute('stroke', '#f43f5e');
+        btn.title = 'Remove from wishlist';
+      } else {
+        svg.setAttribute('fill', 'none');
+        svg.setAttribute('stroke', 'currentColor');
+        btn.title = 'Add to wishlist';
+      }
+    }
+
+    async function toggleWishlist(btn, productId, variantId) {
+      const loggedIn = document.body.dataset.loggedIn === 'true';
+      if (!loggedIn) {
+        Swal.fire({
+          icon: 'info', title: 'Login Required',
+          text: 'Please login to save items to your wishlist.',
+          showCancelButton: true, confirmButtonText: 'Login',
+          cancelButtonText: 'Continue Browsing',
+          confirmButtonColor: '#06b6d4', cancelButtonColor: '#1e2640',
+          background: '#0f1526', color: '#e2e8f0',
+        }).then(r => { if (r.isConfirmed) window.location.href = '/login'; });
+        return;
+      }
+
+      btn.disabled = true;
+      try {
+        const res  = await fetch('/user/wishlist/toggle', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ productId, variantId }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          if (data.wishlisted) {
+            _wishlistedIds.add(variantId);
+          } else {
+            _wishlistedIds.delete(variantId);
+          }
+          _setWishlistActive(btn, data.wishlisted);
+
+          // Update header badge
+          document.querySelectorAll('[data-wishlist-count]').forEach(el => {
+            const n = Math.max(0, parseInt(el.textContent || '0') + (data.wishlisted ? 1 : -1));
+            el.textContent = n;
+            el.classList.toggle('hidden', n === 0);
+          });
+
+          _showCartToast(data.message, true);
+        } else {
+          _showCartToast(data.message, false);
+        }
+      } catch {
+        _showCartToast('Something went wrong. Please try again.', false);
+      } finally {
+        btn.disabled = false;
+      }
+    }
     // Show bottom-right toast
     function _showCartToast(msg, ok) {
       const toast   = document.getElementById('cartToast');

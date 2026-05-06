@@ -53,12 +53,14 @@ export const showAddressManagement = asyncHandler(async (req, res) => {
     return res.status(500).send(result.message);
   }
 
+  res.locals.activePage = 'addresses';
   res.render("user/Address", {
     layout:      "layouts/user",
     addresses:   result.addresses,
     currentPage: page,
     totalPages:  result.totalPages,
     path:        "/addresses",
+    user:        res.locals.user,
   });
 });
 

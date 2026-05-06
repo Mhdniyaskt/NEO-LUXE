@@ -67,7 +67,16 @@ const userSchema = new mongoose.Schema(
     isEmailVerified: {
       type: Boolean,
       default: false
-    },passwordChangedAt:{
+    },
+
+    // Wallet balance — credited on return refunds
+    walletBalance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    passwordChangedAt:{
         type:Date
     }
   },

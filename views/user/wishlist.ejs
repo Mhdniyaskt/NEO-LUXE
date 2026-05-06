@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Wishlist | Neo-Luxe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    body { background:#05080d; font-family:'DM Sans',sans-serif; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+    .card-anim { animation:fadeUp .35s ease both; }
+    .card-removing { opacity:0; transform:scale(0.95); transition:.3s ease; }
+  </style>
+</head>
+<body class="text-slate-200 min-h-screen flex flex-col">
+
+
+
+  <main class="flex-grow">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 py-10 pb-24">
+
+    <!-- Breadcrumb -->
+    <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-8">
+      <a href="/" class="hover:text-slate-300 transition-colors">Home</a>
+      <span class="text-slate-700">/</span>
+      <a href="/shop" class="hover:text-slate-300 transition-colors">Shop</a>
+      <span class="text-slate-700">/</span>
+      <span class="text-cyan-400 font-medium">My Wishlist</span>
+    </nav>
+
+    <!-- Page header -->
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+      <div>
+        <h1 style="font-family:'Playfair Display',serif" class="text-3xl font-bold text-white mb-1">
+          My Wishlist
+        </h1>
+        <p class="text-slate-500 text-sm">
+          <% if (items.length > 0) { %>
+            <span id="itemCount"><%= items.length %></span> item<%= items.length !== 1 ? 's' : '' %> saved
+          <% } else { %>
+            No items saved yet
+          <% } %>
+        </p>
+      </div>
+      <a href="/shop"
+         class="flex items-center gap-2 text-sm border border-slate-700 text-slate-300
+                hover:border-cyan-400/60 hover:text-cyan-400 transition-all px-5 py-2.5 rounded-full">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Continue Shopping
+      </a>
+    </div>
+
+    <% if (items.length === 0) { %>
+      <!-- ── Empty state ──────────────────────────────────────────── -->
+      <div class="flex flex-col items-center justify-center py-32 text-center">
+        <div class="w-24 h-24 bg-[#0a0f18] border border-[#1e2640] rounded-3xl flex items-center justify-center mb-6">
+          <svg class="w-11 h-11 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+          </svg>
+        </div>
+        <p class="text-white text-xl font-semibold mb-2">Your wishlist is empty</p>
+        <p class="text-slate-500 text-sm mb-8 max-w-xs">Save items you love and come back to them anytime.</p>
+        <a href="/shop" class="bg-cyan-400 text-[#05080d] font-bold text-sm px-8 py-3 rounded-xl hover:bg-cyan-300 transition shadow-[0_4px_20px_rgba(0,212,255,0.2)]">
+          Browse Collections
+        </a>
+      </div>
+
+    <% } else { %>
+
+      <!-- ── Wishlist cards ───────────────────────────────────────── -->
+      <div id="wishlistRows" class="space-y-4">
+        <% items.forEach((item, idx) => {
+          const product  = item.product;
+          const variant  = item.variant;
+          const img      = variant.images?.[0]?.url || '';
+          const isOOS    = variant.stock === 0 || !variant.isActive || !product.isActive;
+          const price    = variant.basePrice;
+          const regPrice = variant.regularPrice;
+          const discPct  = (regPrice > price && regPrice > 0)
+                             ? Math.round((regPrice - price) / regPrice * 100) : 0;
+          const saving   = discPct > 0 ? (regPrice - price) : 0;
+        %>
+        <div id="wrow-<%= variant._id %>"
+             class="card-anim bg-[#0a0f18] border border-gray-800/70 rounded-2xl overflow-hidden
+                    hover:border-gray-700/80 transition-all duration-200"
+             style="animation-delay:<%= (idx * 0.06).toFixed(2) %>s">
+
+          <div class="flex gap-0">
+
+            <!-- Product image -->
+            <a href="/shop/<%= product._id %>?variantId=<%= variant._id %>"
+               class="w-32 sm:w-40 flex-shrink-0 bg-[#0d1220] relative overflow-hidden group">
+              <% if (img) { %>
+                <img src="<%= img %>" alt="<%= product.name %>"
+                     class="w-full h-full object-cover aspect-square transition-transform duration-500 group-hover:scale-105
+                            <%= isOOS ? 'opacity-50 grayscale' : '' %>"/>
+              <% } else { %>
+                <div class="w-full aspect-square flex items-center justify-center text-slate-700">
+                  <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke-width="1.5"/>
+                  </svg>
+                </div>
+              <% } %>
+              <% if (discPct > 0 && !isOOS) { %>
+                <div class="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow">
+                  −<%= discPct %>%
+                </div>
+              <% } %>
+              <% if (isOOS) { %>
+                <div class="absolute inset-0 flex items-center justify-center bg-black/40">
+                  <span class="bg-red-500/90 text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    Out of Stock
+                  </span>
+                </div>
+              <% } %>
+            </a>
+
+            <!-- Content -->
+            <div class="flex-1 flex flex-col sm:flex-row sm:items-center gap-4 p-5">
+
+              <!-- Product info -->
+              <div class="flex-1 min-w-0">
+                <a href="/shop/<%= product._id %>?variantId=<%= variant._id %>"
+                   class="text-white font-semibold text-base hover:text-cyan-400 transition-colors line-clamp-2 leading-snug block mb-1">
+                  <%= product.name %>
+                </a>
+                <p class="text-slate-500 text-xs mb-2">
+                  <%= product.category?.name || '' %><% if (variant.color) { %> · <span class="capitalize"><%= variant.color %></span><% } %>
+                </p>
+
+                <!-- Stock status -->
+                <% if (isOOS) { %>
+                  <span class="inline-flex items-center gap-1 text-[10px] bg-red-500/15 text-red-400 border border-red-500/25 px-2.5 py-1 rounded-full font-semibold">
+                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"/></svg>
+                    Out of Stock
+                  </span>
+                <% } else if (variant.stock <= 5) { %>
+                  <span class="inline-flex items-center gap-1 text-[10px] bg-amber-500/15 text-amber-400 border border-amber-500/25 px-2.5 py-1 rounded-full font-semibold">
+                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"/></svg>
+                    Only <%= variant.stock %> left
+                  </span>
+                <% } else { %>
+                  <span class="inline-flex items-center gap-1 text-[10px] bg-green-500/15 text-green-400 border border-green-500/25 px-2.5 py-1 rounded-full font-semibold">
+                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"/></svg>
+                    In Stock
+                  </span>
+                <% } %>
+              </div>
+
+              <!-- Price -->
+              <div class="sm:text-right flex-shrink-0 sm:min-w-[100px]">
+                <p class="text-white font-bold text-lg leading-none mb-1">
+                  ₹<%= price.toLocaleString('en-IN') %>
+                </p>
+                <% if (discPct > 0) { %>
+                  <p class="text-slate-500 text-xs line-through mb-0.5">₹<%= regPrice.toLocaleString('en-IN') %></p>
+                  <p class="text-green-400 text-xs font-semibold">Save ₹<%= saving.toLocaleString('en-IN') %></p>
+                <% } %>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex sm:flex-col gap-2 flex-shrink-0">
+                <!-- Move to cart -->
+                <button onclick="moveToCart('<%= product._id %>', '<%= variant._id %>', this)"
+                        <%= isOOS ? 'disabled' : '' %>
+                        class="flex items-center justify-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl transition-all
+                               <%= isOOS
+                                 ? 'bg-slate-800 text-slate-600 cursor-not-allowed border border-slate-800'
+                                 : 'bg-cyan-400 hover:bg-cyan-300 text-[#05080d] shadow-[0_2px_12px_rgba(0,212,255,0.2)]' %>">
+                  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>
+                  </svg>
+                  <span class="whitespace-nowrap">Add to Cart</span>
+                </button>
+
+                <!-- Remove -->
+                <button onclick="removeItem('<%= variant._id %>', this)"
+                        class="flex items-center justify-center gap-2 text-xs font-semibold px-4 py-2.5 rounded-xl
+                               bg-transparent border border-gray-700 text-slate-400
+                               hover:border-red-400/50 hover:text-red-400 hover:bg-red-400/5 transition-all">
+                  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                  <span>Remove</span>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+
+      <!-- ── Bottom CTA ──────────────────────────────────────────── -->
+      <div class="mt-8 flex flex-wrap items-center justify-between gap-4 pt-6 border-t border-gray-800/50">
+        <p class="text-slate-500 text-sm">
+          <span id="itemCount2"><%= items.length %></span> item<%= items.length !== 1 ? 's' : '' %> in your wishlist
+        </p>
+        <a href="/shop"
+           class="flex items-center gap-2 bg-[#0a0f18] border border-gray-700 hover:border-cyan-400/50
+                  text-slate-300 hover:text-cyan-400 text-sm font-semibold px-6 py-2.5 rounded-xl transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+          </svg>
+          Browse More Watches
+        </a>
+      </div>
+
+    <% } %>
+  </div>
+  </main>
+
+  
+
+  <script>
+    function updateCount(delta) {
+      ['itemCount','itemCount2'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const n = Math.max(0, parseInt(el.textContent) + delta);
+        el.textContent = n;
+      });
+    }
+
+    function updateWishlistBadge(delta) {
+      document.querySelectorAll('[data-wishlist-count]').forEach(el => {
+        const n = Math.max(0, parseInt(el.textContent || '0') + delta);
+        el.textContent = n;
+        el.classList.toggle('hidden', n === 0);
+      });
+    }
+
+    function updateCartBadge(count) {
+      document.querySelectorAll('[data-cart-count]').forEach(el => {
+        el.textContent = count;
+        el.classList.toggle('hidden', count === 0);
+      });
+    }
+
+    async function removeItem(variantId, btn) {
+      btn.disabled = true;
+      try {
+        const res  = await fetch(`/user/wishlist/${variantId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          const row = document.getElementById('wrow-' + variantId);
+          row.classList.add('card-removing');
+          setTimeout(() => {
+            row.remove();
+            updateCount(-1);
+            updateWishlistBadge(-1);
+            if (!document.querySelector('[id^="wrow-"]')) location.reload();
+          }, 300);
+        } else {
+          Swal.fire({ toast:true, position:'top-end', icon:'error', title: data.message,
+            showConfirmButton:false, timer:2500, background:'#0a0f18', color:'#e2e8f0' });
+          btn.disabled = false;
+        }
+      } catch {
+        Swal.fire({ toast:true, position:'top-end', icon:'error', title:'Something went wrong',
+          showConfirmButton:false, timer:2500, background:'#0a0f18', color:'#e2e8f0' });
+        btn.disabled = false;
+      }
+    }
+
+    async function moveToCart(productId, variantId, btn) {
+      btn.disabled = true;
+      const orig = btn.innerHTML;
+      btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+        <span>Adding…</span>`;
+
+      try {
+        const res  = await fetch('/user/wishlist/move-to-cart', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ productId, variantId }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          updateCartBadge(data.cartCount);
+          const row = document.getElementById('wrow-' + variantId);
+          row.classList.add('card-removing');
+          setTimeout(() => {
+            row.remove();
+            updateCount(-1);
+            updateWishlistBadge(-1);
+            if (!document.querySelector('[id^="wrow-"]')) location.reload();
+          }, 300);
+          Swal.fire({ toast:true, position:'top-end', icon:'success', title:'Moved to cart!',
+            showConfirmButton:false, timer:2000, background:'#0a0f18', color:'#e2e8f0' });
+        } else {
+          btn.disabled = false;
+          btn.innerHTML = orig;
+          Swal.fire({ toast:true, position:'top-end', icon:'warning', title: data.message,
+            showConfirmButton:false, timer:2500, background:'#0a0f18', color:'#e2e8f0' });
+        }
+      } catch {
+        btn.disabled = false;
+        btn.innerHTML = orig;
+        Swal.fire({ toast:true, position:'top-end', icon:'error', title:'Something went wrong',
+          showConfirmButton:false, timer:2500, background:'#0a0f18', color:'#e2e8f0' });
+      }
+    }
+  </script>
+</body>
+</html>

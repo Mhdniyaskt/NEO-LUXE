@@ -12,6 +12,7 @@ import dotenv from "dotenv";
 import { checkUser } from "./middleware/auth.middleware.js";
 import methodOverride from "method-override";
 import Cart from "./models/cart.model.js";
+import Wishlist from "./models/wishlist.model.js";
 
 dotenv.config();
 
@@ -61,16 +62,19 @@ app.use(passport.session());
 app.use(checkUser);
 app.use(methodOverride("_method"));
 
-// Inject cart item count into every response for logged-in users
+// Inject cart + wishlist counts into every response for logged-in users
 app.use(async (req, res, next) => {
-  res.locals.cartCount = 0;
+  res.locals.cartCount     = 0;
+  res.locals.wishlistCount = 0;
   if (req.session?.user?.id) {
     try {
-      const cart = await Cart.findOne({ user: req.session.user.id }).lean();
-      if (cart) {
-        res.locals.cartCount = cart.items.length;
-      }
-    } catch { /* non-fatal — badge just shows 0 */ }
+      const [cart, wishlist] = await Promise.all([
+        Cart.findOne({ user: req.session.user.id }).lean(),
+        Wishlist.findOne({ user: req.session.user.id }).lean(),
+      ]);
+      if (cart)     res.locals.cartCount     = cart.items.length;
+      if (wishlist) res.locals.wishlistCount = wishlist.items.length;
+    } catch { /* non-fatal */ }
   }
   next();
 });
@@ -87,7 +91,7 @@ app.use("/",      userRoutes);
 
 // ─── Global error handler ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
+  console.error("Unhandled error:", err.message, "| URL:", req.url);
 
   // Multer / file upload errors
   if (err.code === "LIMIT_FILE_SIZE") {

@@ -1,43 +1,33 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Cart | Neo-Luxe</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
-  <style>
-    body { background:#0a0e1a; font-family:'DM Sans',sans-serif; }
-    @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
-    .cart-row  { animation:fadeUp .3s ease both; }
-    .row-oos   { border-color:#ef4444 !important; background:#1a0a0a !important; }
-    .qty-btn   { width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
-                 background:#1e2640;border:1px solid #252e47;color:#94a3b8;font-size:1.1rem;
-                 cursor:pointer;transition:.15s;user-select:none;flex-shrink:0; }
-    .qty-btn:hover:not(:disabled) { border-color:#00d4ff;color:#00d4ff; }
-    .qty-btn:disabled { opacity:.3;cursor:not-allowed; }
-    .item-removing { opacity:0;transform:translateX(50px);transition:.3s ease; }
-    .summary-row   { display:flex;justify-content:space-between;align-items:center;padding:.6rem 0; }
-    .summary-row + .summary-row { border-top:1px solid #1e2640; }
-  </style>
-</head>
-<body class="text-slate-200 min-h-screen">
+<style>
+  @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+  .cart-row  { animation:fadeUp .35s ease both; }
+  .row-oos   { border-color:#ef4444 !important; background:rgba(239,68,68,0.04) !important; }
+  .item-removing { opacity:0; transform:translateX(40px); transition:.3s ease; }
+  .qty-btn {
+    width:34px; height:34px; border-radius:10px; display:flex; align-items:center;
+    justify-content:center; background:#111827; border:1px solid #1f2937;
+    color:#94a3b8; font-size:1.15rem; cursor:pointer; transition:.15s; user-select:none; flex-shrink:0;
+  }
+  .qty-btn:hover:not(:disabled) { border-color:#00d4ff; color:#00d4ff; background:#0a1628; }
+  .qty-btn:disabled { opacity:.3; cursor:not-allowed; }
+</style>
 
-  <div class="max-w-6xl mx-auto px-4 pt-8 pb-24">
+<div class="min-h-screen bg-[#05080d]">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-10 pb-24">
 
-    <!-- Breadcrumb -->
-    <p class="text-xs text-slate-500 mb-5 uppercase tracking-widest">
-      <a href="/" class="hover:text-slate-300 transition">Home</a>
-      <span class="mx-1.5">/</span>
-      <a href="/shop" class="hover:text-slate-300 transition">Shop</a>
-      <span class="mx-1.5">/</span>
-      <span class="text-cyan-400 font-semibold">Cart</span>
-    </p>
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-8">
+    <a href="/" class="hover:text-slate-300 transition-colors">Home</a>
+    <span class="text-slate-700">/</span>
+    <a href="/shop" class="hover:text-slate-300 transition-colors">Shop</a>
+    <span class="text-slate-700">/</span>
+    <span class="text-cyan-400 font-medium">Cart</span>
+  </nav>
 
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-8">
-      <h1 style="font-family:'Playfair Display',serif;font-size:2rem;font-weight:700;color:#fff">
+  <!-- Page header -->
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+    <div>
+      <h1 class="text-3xl font-bold text-white tracking-tight">
         Your Cart
         <% if (cart && cart.items.length) { %>
           <span class="text-slate-500 text-base font-normal ml-2">
@@ -45,428 +35,403 @@
           </span>
         <% } %>
       </h1>
-      <a href="/shop"
-         class="flex items-center gap-2 text-sm border border-[#1e2640] text-slate-300
-                hover:border-cyan-400 hover:text-cyan-400 transition px-4 py-2 rounded-full">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>
-        Continue Shopping
-      </a>
     </div>
+    <a href="/shop"
+       class="flex items-center gap-2 text-sm border border-slate-700 text-slate-400
+              hover:border-cyan-400/50 hover:text-cyan-400 transition-all px-5 py-2.5 rounded-full">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Continue Shopping
+    </a>
+  </div>
 
-    <!-- Cart issues banner -->
-    <% if (typeof cartIssues !== 'undefined' && cartIssues.length) { %>
-      <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 mb-6 space-y-1">
-        <% cartIssues.forEach(issue => { %>
-          <p class="text-amber-400 text-xs flex items-center gap-2">
-            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-            </svg>
-            <%= issue %>
-          </p>
-        <% }) %>
-      </div>
-    <% } %>
+  <!-- Cart issues banner -->
+  <% if (typeof cartIssues !== 'undefined' && cartIssues.length) { %>
+    <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl px-5 py-4 mb-6 space-y-1.5">
+      <p class="text-amber-400 text-xs font-bold uppercase tracking-widest mb-2">Attention Required</p>
+      <% cartIssues.forEach(issue => { %>
+        <p class="text-amber-300 text-sm flex items-start gap-2">
+          <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          <%= issue %>
+        </p>
+      <% }) %>
+    </div>
+  <% } %>
 
-    <!-- Empty state -->
-    <% if (!cart || !cart.items || cart.items.length === 0) { %>
-      <div class="flex flex-col items-center justify-center py-32 text-center">
-        <div class="w-24 h-24 bg-[#0f1526] border border-[#1e2640] rounded-3xl flex items-center justify-center mb-6">
-          <svg class="w-12 h-12 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 7H4l1-7z"/>
+  <!-- ── Empty state ──────────────────────────────────────────────────── -->
+  <% if (!cart || !cart.items || cart.items.length === 0) { %>
+    <div class="flex flex-col items-center justify-center py-24 text-center">
+      <!-- Illustration -->
+      <div class="relative mb-8">
+        <div class="w-28 h-28 bg-[#0a0f18] border border-gray-800 rounded-3xl flex items-center justify-center shadow-[0_0_60px_rgba(0,212,255,0.05)]">
+          <svg class="w-14 h-14 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.2"
+                  d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
           </svg>
         </div>
-        <p class="text-white text-xl font-semibold mb-2">Your cart is empty</p>
-        <p class="text-slate-500 text-sm mb-8">Looks like you haven't added anything yet.</p>
-        <a href="/shop" class="bg-cyan-400 text-[#0a0e1a] font-bold text-sm px-8 py-3 rounded-xl hover:bg-cyan-300 transition">
-          Browse Collections
-        </a>
+        <!-- Floating dot accents -->
+        <div class="absolute -top-2 -right-2 w-4 h-4 bg-cyan-400/20 rounded-full border border-cyan-400/30"></div>
+        <div class="absolute -bottom-1 -left-3 w-3 h-3 bg-slate-700 rounded-full"></div>
       </div>
 
-    <% } else { %>
+      <h2 class="text-2xl font-bold text-white mb-2">Your cart is empty</h2>
+      <p class="text-slate-500 text-sm mb-8 max-w-xs leading-relaxed">
+        Looks like you haven't added any watches yet. Browse our collection to find your perfect timepiece.
+      </p>
 
-      <div class="flex flex-col lg:flex-row gap-8 items-start">
+      <div class="flex flex-col sm:flex-row gap-3">
+        <a href="/shop"
+           class="bg-cyan-400 text-[#05080d] font-bold text-sm px-8 py-3 rounded-xl
+                  hover:bg-cyan-300 transition shadow-[0_4px_20px_rgba(0,212,255,0.2)]
+                  flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+          </svg>
+          Browse Collections
+        </a>
+        <a href="/user/wishlist"
+           class="bg-transparent border border-gray-700 text-slate-300 font-semibold text-sm px-8 py-3 rounded-xl
+                  hover:border-cyan-400/50 hover:text-cyan-400 transition flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+          </svg>
+          View Wishlist
+        </a>
+      </div>
+    </div>
 
-        <!-- ── Cart items ──────────────────────────────────────────── -->
-        <div id="cartItemsList" class="flex-1 space-y-4 min-w-0">
-          <% cart.items.forEach((item, idx) => {
-            const product    = item.product;
-            const variant    = item.variant;
-            const img        = variant.images && variant.images.length ? variant.images[0].url : '';
-            const blockReason = item.blockReason || null;
-            const outOfStock = variant.stock === 0;
-            const isBlocked  = !!blockReason;
-            const lowStock   = !isBlocked && variant.stock > 0 && variant.stock <= 5;
-            const atMax      = item.quantity >= 10 || item.quantity >= variant.stock;
-            const atMin      = item.quantity <= 1;
-            const salePrice  = variant.basePrice;
-            const regPrice   = variant.regularPrice;
-            const discPct    = (regPrice > salePrice && regPrice > 0)
-                                 ? Math.round((regPrice - salePrice) / regPrice * 100) : 0;
-          %>
-          <div id="row-<%= variant._id %>"
-               data-blocked="<%= isBlocked %>"
-               data-product-name="<%= product.name %>"
-               data-block-reason="<%= blockReason || '' %>"
-               class="cart-row border rounded-2xl p-5 transition-all
-                      <%= isBlocked ? 'row-oos' : 'bg-[#0f1526] border-[#1e2640]' %>"
-               style="animation-delay:<%= idx * 0.06 %>s">
+  <% } else { %>
 
-            <div class="flex gap-4">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-              <!-- Image -->
-              <div class="relative flex-shrink-0">
-                <div class="w-24 h-24 bg-[#161d30] rounded-xl overflow-hidden border
-                            <%= isBlocked ? 'border-red-500/40' : 'border-[#1e2640]' %>">
-                  <% if (img) { %>
-                    <img src="<%= img %>" alt="<%= product.name %>"
-                         class="w-full h-full object-cover <%= isBlocked ? 'opacity-40' : '' %>"/>
-                  <% } else { %>
-                    <div class="w-full h-full flex items-center justify-center text-slate-700">
-                      <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10"/>
-                      </svg>
-                    </div>
-                  <% } %>
+      <!-- ── Cart items (8 cols) ──────────────────────────────────────── -->
+      <div id="cartItemsList" class="lg:col-span-8 space-y-4">
+        <% cart.items.forEach((item, idx) => {
+          const product     = item.product;
+          const variant     = item.variant;
+          const img         = variant.images && variant.images.length ? variant.images[0].url : '';
+          const blockReason = item.blockReason || null;
+          const isBlocked   = !!blockReason;
+          const lowStock    = !isBlocked && variant.stock > 0 && variant.stock <= 5;
+          const atMax       = item.quantity >= 10 || item.quantity >= variant.stock;
+          const atMin       = item.quantity <= 1;
+          const salePrice   = variant.basePrice;
+          const regPrice    = variant.regularPrice;
+          const discPct     = (regPrice > salePrice && regPrice > 0)
+                                ? Math.round((regPrice - salePrice) / regPrice * 100) : 0;
+        %>
+        <div id="row-<%= variant._id %>"
+             data-blocked="<%= isBlocked %>"
+             data-product-name="<%= product.name %>"
+             data-block-reason="<%= blockReason || '' %>"
+             class="cart-row bg-[#0a0f18] border rounded-2xl overflow-hidden transition-all
+                    <%= isBlocked ? 'row-oos' : 'border-gray-800/70 hover:border-gray-700' %>"
+             style="animation-delay:<%= idx * 0.06 %>s">
+
+          <div class="flex">
+            <!-- Product image -->
+            <div class="relative flex-shrink-0 w-28 sm:w-36 bg-[#0d1220]">
+              <% if (img) { %>
+                <img src="<%= img %>" alt="<%= product.name %>"
+                     class="w-full h-full object-cover aspect-square <%= isBlocked ? 'opacity-40 grayscale' : '' %>"/>
+              <% } else { %>
+                <div class="w-full aspect-square flex items-center justify-center text-slate-700">
+                  <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke-width="1.5"/>
+                  </svg>
                 </div>
-                <% if (isBlocked) { %>
-                  <div class="absolute inset-0 flex items-center justify-center rounded-xl">
-                    <span class="bg-red-500/90 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                      Unavailable
-                    </span>
-                  </div>
-                <% } %>
-                <% if (discPct > 0 && !isBlocked) { %>
-                  <div class="absolute -top-2 -right-2 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-lg">
-                    −<%= discPct %>%
-                  </div>
+              <% } %>
+              <% if (isBlocked) { %>
+                <div class="absolute inset-0 flex items-center justify-center bg-black/40">
+                  <span class="bg-red-500/90 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                    Unavailable
+                  </span>
+                </div>
+              <% } %>
+              <% if (discPct > 0 && !isBlocked) { %>
+                <div class="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow">
+                  −<%= discPct %>%
+                </div>
+              <% } %>
+            </div>
+
+            <!-- Details -->
+            <div class="flex-1 p-4 sm:p-5 flex flex-col gap-3">
+              <!-- Top row: name + remove -->
+              <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <h3 class="font-bold text-sm sm:text-base <%= isBlocked ? 'text-red-300' : 'text-white' %> leading-snug">
+                    <%= product.name %>
+                  </h3>
+                  <p class="text-slate-500 text-[11px] uppercase tracking-wider mt-0.5">
+                    <%= product.brand %><% if (product.category) { %> · <%= product.category.name %><% } %>
+                  </p>
+                </div>
+                <button onclick="removeItem('<%= variant._id %>')"
+                        class="text-slate-600 hover:text-red-400 transition p-1.5 rounded-lg hover:bg-red-500/10 flex-shrink-0"
+                        title="Remove">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Variant pills -->
+              <div class="flex flex-wrap gap-1.5">
+                <span class="text-[10px] bg-[#111827] text-slate-400 px-2.5 py-1 rounded-full border border-gray-800/80 capitalize">
+                  <%= variant.color %>
+                </span>
+                <% if (product.specifications?.strapType) { %>
+                  <span class="text-[10px] bg-[#111827] text-slate-400 px-2.5 py-1 rounded-full border border-gray-800/80">
+                    <%= product.specifications.strapType %>
+                  </span>
                 <% } %>
               </div>
 
-              <!-- Details -->
-              <div class="flex-1 min-w-0">
-                <div class="flex items-start justify-between gap-2 mb-1">
-                  <div>
-                    <h3 class="font-bold text-sm <%= isBlocked ? 'text-red-300' : 'text-white' %> truncate">
-                      <%= product.name %>
-                    </h3>
-                    <p class="text-slate-500 text-[11px] uppercase tracking-wider mt-0.5">
-                      <%= product.brand %>
-                      <% if (product.category) { %> · <%= product.category.name %><% } %>
+              <!-- Price + qty -->
+              <div class="flex flex-wrap items-center justify-between gap-3 mt-auto">
+                <!-- Price -->
+                <div class="flex items-baseline gap-2">
+                  <span class="text-white font-bold text-base sm:text-lg">
+                    ₹<%= salePrice.toLocaleString('en-IN') %>
+                  </span>
+                  <% if (regPrice > salePrice) { %>
+                    <span class="text-slate-600 text-xs line-through">
+                      ₹<%= regPrice.toLocaleString('en-IN') %>
+                    </span>
+                  <% } %>
+                </div>
+
+                <!-- Qty stepper + subtotal -->
+                <div class="flex items-center gap-3">
+                  <% if (!isBlocked) { %>
+                    <div class="flex items-center gap-2 bg-[#111827] border border-gray-800 rounded-xl px-2 py-1">
+                      <button class="qty-btn" id="minus-<%= variant._id %>"
+                              onclick="updateQty('<%= variant._id %>', -1)"
+                              <%= atMin ? 'disabled' : '' %>>−</button>
+                      <span id="qty-<%= variant._id %>"
+                            class="text-white text-sm font-bold w-6 text-center select-none">
+                        <%= item.quantity %>
+                      </span>
+                      <button class="qty-btn" id="plus-<%= variant._id %>"
+                              onclick="updateQty('<%= variant._id %>', 1)"
+                              <%= atMax ? 'disabled' : '' %>>+</button>
+                    </div>
+                  <% } %>
+                  <div class="text-right">
+                    <p class="text-[10px] text-slate-500 uppercase tracking-wider">Subtotal</p>
+                    <p id="itemSub-<%= variant._id %>"
+                       class="font-bold text-sm <%= isBlocked ? 'text-red-400' : 'text-cyan-400' %>">
+                      ₹<%= (salePrice * item.quantity).toLocaleString('en-IN') %>
                     </p>
                   </div>
-                  <!-- Remove button -->
-                  <button onclick="removeItem('<%= variant._id %>')"
-                          class="text-slate-600 hover:text-red-400 transition p-1 flex-shrink-0 mt-0.5"
-                          title="Remove">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                    </svg>
-                  </button>
                 </div>
-
-                <!-- Variant info pills -->
-                <div class="flex flex-wrap gap-1.5 mb-3">
-                  <span class="text-[10px] bg-[#1e2640] text-slate-400 px-2 py-0.5 rounded-full border border-[#252e47]">
-                    Color: <%= variant.color %>
-                  </span>
-                  <% if (product.specifications?.strapType) { %>
-                    <span class="text-[10px] bg-[#1e2640] text-slate-400 px-2 py-0.5 rounded-full border border-[#252e47]">
-                      Strap: <%= product.specifications.strapType %>
-                    </span>
-                  <% } %>
-                  <% if (product.specifications?.movementType) { %>
-                    <span class="text-[10px] bg-[#1e2640] text-slate-400 px-2 py-0.5 rounded-full border border-[#252e47]">
-                      <%= product.specifications.movementType %>
-                    </span>
-                  <% } %>
-                </div>
-
-                <!-- Price + qty row -->
-                <div class="flex items-center justify-between flex-wrap gap-3">
-
-                  <!-- Price -->
-                  <div class="flex items-baseline gap-2">
-                    <span class="text-white font-bold text-base">
-                      ₹<%= salePrice.toLocaleString('en-IN') %>
-                    </span>
-                    <% if (regPrice > salePrice) { %>
-                      <span class="text-slate-600 text-xs line-through">
-                        ₹<%= regPrice.toLocaleString('en-IN') %>
-                      </span>
-                    <% } %>
-                  </div>
-
-                  <!-- Qty stepper + subtotal -->
-                  <div class="flex items-center gap-3">
-                    <% if (!isBlocked) { %>
-                      <div class="flex items-center gap-1.5">
-                        <button class="qty-btn" id="minus-<%= variant._id %>"
-                                onclick="updateQty('<%= variant._id %>', -1)"
-                                <%= atMin ? 'disabled' : '' %>>−</button>
-                        <span id="qty-<%= variant._id %>"
-                              class="text-white text-sm font-bold w-7 text-center">
-                          <%= item.quantity %>
-                        </span>
-                        <button class="qty-btn" id="plus-<%= variant._id %>"
-                                onclick="updateQty('<%= variant._id %>', 1)"
-                                <%= atMax ? 'disabled' : '' %>>+</button>
-                      </div>
-                    <% } %>
-
-                    <div class="text-right">
-                      <p class="text-[10px] text-slate-500 uppercase tracking-wider">Subtotal</p>
-                      <p id="itemSub-<%= variant._id %>"
-                         class="font-bold text-sm <%= isBlocked ? 'text-red-400' : 'text-cyan-400' %>">
-                        ₹<%= (salePrice * item.quantity).toLocaleString('en-IN') %>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Block reason / stock warnings -->
-                <% if (isBlocked) { %>
-                  <p class="text-red-400 text-[11px] mt-2 flex items-center gap-1.5 font-semibold">
-                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                    </svg>
-                    <%= blockReason %> — remove this item to proceed to checkout
-                  </p>
-                <% } else if (lowStock) { %>
-                  <p class="text-amber-400 text-[11px] mt-2 flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-                    </svg>
-                    Only <%= variant.stock %> left in stock — order soon
-                  </p>
-                <% } %>
               </div>
+
+              <!-- Warnings -->
+              <% if (isBlocked) { %>
+                <p class="text-red-400 text-xs flex items-start gap-1.5 font-medium">
+                  <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                  </svg>
+                  <%= blockReason %> — remove this item to proceed
+                </p>
+              <% } else if (lowStock) { %>
+                <p class="text-amber-400 text-xs flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                  </svg>
+                  Only <%= variant.stock %> left — order soon
+                </p>
+              <% } %>
             </div>
           </div>
-          <% }) %>
         </div>
+        <% }) %>
+      </div>
 
-        <!-- ── Order summary ───────────────────────────────────────── -->
-        <div class="w-full lg:w-80 flex-shrink-0">
-          <div class="bg-[#0f1526] border border-[#1e2640] rounded-2xl p-6 sticky top-6">
-            <h2 class="text-white font-bold text-lg mb-5"
-                style="font-family:'Playfair Display',serif">Order Summary</h2>
+      <!-- ── Order Summary (4 cols) ──────────────────────────────────── -->
+      <div class="lg:col-span-4">
+        <div class="bg-[#0a0f18] border border-gray-800/70 rounded-2xl p-5 sticky top-6">
+          <h2 class="text-white font-bold text-base mb-5">Order Summary</h2>
 
-            <div class="space-y-0 mb-4">
-              <div class="summary-row">
-                <span class="text-slate-400 text-sm">Subtotal</span>
-                <span class="text-white font-medium text-sm" id="summSubtotal">
-                  ₹<%= summary.subtotal.toLocaleString('en-IN') %>
-                </span>
-              </div>
-              <div class="summary-row">
-                <span class="text-slate-400 text-sm">Shipping</span>
-                <span id="summShipping"
-                      class="font-semibold text-sm <%= summary.shipping === 0 ? 'text-cyan-400' : 'text-white' %>">
-                  <%= summary.shipping === 0 ? 'Free' : '₹' + summary.shipping %>
-                </span>
-              </div>
-              <div class="summary-row">
-                <span class="text-slate-400 text-sm">Tax (18% GST)</span>
-                <span class="text-white text-sm" id="summTax">
-                  ₹<%= summary.tax.toLocaleString('en-IN') %>
-                </span>
-              </div>
+          <div class="space-y-3 mb-5">
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400 text-sm">Subtotal</span>
+              <span class="text-white font-medium text-sm" id="summSubtotal">
+                ₹<%= summary.subtotal.toLocaleString('en-IN') %>
+              </span>
             </div>
-
-            <div class="border-t border-[#1e2640] pt-4 flex items-end justify-between mb-5">
-              <div>
-                <p class="text-white font-bold">Total</p>
-                <p class="text-slate-500 text-xs">Incl. all taxes</p>
-              </div>
-              <p id="summTotal" class="text-cyan-400 font-bold text-2xl">
-                ₹<%= summary.total.toLocaleString('en-IN') %>
-              </p>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400 text-sm">Shipping</span>
+              <span id="summShipping"
+                    class="font-semibold text-sm <%= summary.shipping === 0 ? 'text-cyan-400' : 'text-white' %>">
+                <%= summary.shipping === 0 ? 'Free' : '₹' + summary.shipping %>
+              </span>
             </div>
+            <div class="flex justify-between items-center">
+              <span class="text-slate-400 text-sm">Tax (18% GST)</span>
+              <span class="text-white text-sm" id="summTax">
+                ₹<%= summary.tax.toLocaleString('en-IN') %>
+              </span>
+            </div>
+          </div>
 
-            <%
-              const hasBlocked  = cart.items.some(i => i.blockReason);
-              const blockedItems = cart.items
-                .filter(i => i.blockReason)
-                .map(i => ({ name: i.product.name, reason: i.blockReason }));
-            %>
+          <div class="border-t border-gray-800/60 pt-4 flex items-center justify-between mb-5">
+            <div>
+              <p class="text-white font-bold text-sm">Total</p>
+              <p class="text-slate-500 text-[10px]">Incl. all taxes</p>
+            </div>
+            <p id="summTotal" class="text-cyan-400 font-bold text-2xl">
+              ₹<%= summary.total.toLocaleString('en-IN') %>
+            </p>
+          </div>
 
-            <!-- Checkout button -->
-            <button id="checkoutBtn"
-                    onclick="handleCheckout(<%= hasBlocked %>, <%= JSON.stringify(blockedItems) %>)"
-                    class="w-full py-3.5 rounded-xl flex items-center justify-center gap-2
-                           font-bold text-sm transition
-                           <%= hasBlocked
-                               ? 'bg-slate-700/60 text-slate-400 cursor-not-allowed'
-                               : 'bg-cyan-400 text-[#0a0e1a] hover:bg-cyan-300' %>">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M14 5l7 7m0 0l-7 7m7-7H3"/>
-              </svg>
-              Proceed to Checkout
-            </button>
+          <%
+            const hasBlocked   = cart.items.some(i => i.blockReason);
+            const blockedItems = cart.items
+              .filter(i => i.blockReason)
+              .map(i => ({ name: i.product.name, reason: i.blockReason }));
+          %>
 
-            <% if (hasBlocked) { %>
-              <p class="text-red-400 text-[11px] text-center mt-3 leading-relaxed">
-                Resolve the issues above before checkout
-              </p>
-            <% } %>
+          <button id="checkoutBtn"
+                  onclick="handleCheckout(<%= hasBlocked %>, <%= JSON.stringify(blockedItems) %>)"
+                  class="w-full py-3.5 rounded-xl flex items-center justify-center gap-2
+                         font-bold text-sm transition-all duration-200
+                         <%= hasBlocked
+                             ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-gray-800'
+                             : 'bg-cyan-400 text-[#05080d] hover:bg-cyan-300 shadow-[0_4px_20px_rgba(0,212,255,0.15)]' %>">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+            Proceed to Checkout
+          </button>
 
-            <p class="text-slate-600 text-[11px] text-center mt-4 flex items-center justify-center gap-1.5">
+          <% if (hasBlocked) { %>
+            <p class="text-red-400 text-[11px] text-center mt-3 leading-relaxed">
+              Resolve the issues above before checkout
+            </p>
+          <% } %>
+
+          <!-- Trust badges -->
+          <div class="mt-5 pt-4 border-t border-gray-800/60 flex items-center justify-center gap-3 text-slate-600 text-[10px]">
+            <span class="flex items-center gap-1">
               <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
               </svg>
-              Secure SSL · 2-Year Warranty
-            </p>
+              Secure SSL
+            </span>
+            <span class="w-px h-3 bg-gray-800"></span>
+            <span>2-Year Warranty</span>
+            <span class="w-px h-3 bg-gray-800"></span>
+            <span>Free Returns</span>
           </div>
         </div>
-
       </div>
-    <% } %>
-  </div>
 
-  <footer class="py-8 border-t border-white/5 text-center">
-    <p class="text-slate-700 text-xs">&copy; 2026 Neo-Luxe Premium Horology. All rights reserved.</p>
-  </footer>
+    </div>
+  <% } %>
 
-  <script>
-    /* ── Helpers ─────────────────────────────────────────────────────── */
-    function fmt(n) {
-      return '₹' + Number(n).toLocaleString('en-IN');
+</div>
+</div>
+
+<script>
+  function fmt(n) { return '₹' + Number(n).toLocaleString('en-IN'); }
+
+  function updateSummary(s) {
+    document.getElementById('summSubtotal').textContent = fmt(s.subtotal);
+    const shipEl = document.getElementById('summShipping');
+    shipEl.textContent = s.shipping === 0 ? 'Free' : fmt(s.shipping);
+    shipEl.className   = 'font-semibold text-sm ' + (s.shipping === 0 ? 'text-cyan-400' : 'text-white');
+    document.getElementById('summTax').textContent   = fmt(s.tax);
+    document.getElementById('summTotal').textContent = fmt(s.total);
+  }
+
+  function handleCheckout(hasBlocked, blockedItems) {
+    if (hasBlocked) {
+      const list = blockedItems.map(item => `
+        <li class="flex items-start gap-2 py-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0 mt-1.5"></span>
+          <span>
+            <span class="font-semibold text-white">${item.name}</span>
+            <span class="text-slate-400"> — ${item.reason}</span>
+          </span>
+        </li>`).join('');
+      Swal.fire({
+        title: 'Cannot Proceed',
+        html: `<p class="text-slate-400 text-sm mb-4">Remove these items first:</p>
+               <ul class="text-left text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">${list}</ul>`,
+        icon: 'error', confirmButtonText: 'Got it', confirmButtonColor: '#06b6d4',
+        background: '#0a0f18', color: '#e2e8f0', customClass: { popup: 'rounded-2xl' }
+      });
+      return;
     }
+    window.location.href = '/checkout';
+  }
 
-    function updateSummary(s) {
-      document.getElementById('summSubtotal').textContent = fmt(s.subtotal);
-      const shipEl = document.getElementById('summShipping');
-      shipEl.textContent  = s.shipping === 0 ? 'Free' : fmt(s.shipping);
-      shipEl.className    = 'font-semibold text-sm ' + (s.shipping === 0 ? 'text-cyan-400' : 'text-white');
-      document.getElementById('summTax').textContent   = fmt(s.tax);
-      document.getElementById('summTotal').textContent = fmt(s.total);
-    }
-
-    /* ── Checkout validation pop-up ──────────────────────────────────── */
-    function handleCheckout(hasBlocked, blockedItems) {
-      if (hasBlocked) {
-        const list = blockedItems.map(item => `
-          <li class="flex items-start gap-2 py-1">
-            <span class="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0 mt-1.5"></span>
-            <span>
-              <span class="font-semibold text-white">${item.name}</span>
-              <span class="text-slate-400"> — ${item.reason}</span>
-            </span>
-          </li>`).join('');
-
-        Swal.fire({
-          title: 'Cannot Proceed to Checkout',
-          html: `
-            <p class="text-slate-400 text-sm mb-4">
-              The following item${blockedItems.length > 1 ? 's have' : ' has'} an issue that must be resolved first:
-            </p>
-            <ul class="text-left text-sm space-y-0.5 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
-              ${list}
-            </ul>
-            <p class="text-slate-500 text-xs mt-4">Remove the affected items to continue.</p>`,
-          icon: 'error',
-          confirmButtonText: 'Got it',
-          confirmButtonColor: '#06b6d4',
-          background: '#0f1526',
-          color: '#e2e8f0',
-          customClass: { popup: 'rounded-2xl' }
-        });
-        return;
-      }
-      window.location.href = '/checkout';
-    }
-
-    /* ── Remove item ─────────────────────────────────────────────────── */
-    async function removeItem(variantId) {
-      const row = document.getElementById('row-' + variantId);
-      try {
-        const res  = await fetch('/cart/remove/' + variantId, { method: 'DELETE' });
-        const data = await res.json();
-        if (data.success) {
-          row.classList.add('item-removing');
-          setTimeout(() => {
-            row.remove();
-            updateSummary(data.summary);
-            const remaining = document.querySelectorAll('[id^="row-"]').length;
-            if (remaining === 0) {
-              location.reload();
-            } else {
-              // Update header count
-              const h1 = document.querySelector('h1');
-              h1.innerHTML = `Your Cart <span class="text-slate-500 text-base font-normal ml-2">(${remaining} item${remaining !== 1 ? 's' : ''})</span>`;
-              // Re-check if any OOS items remain and update checkout button
-              refreshCheckoutBtn();
-            }
-          }, 300);
-        } else {
-          Swal.fire({ title:'Error', text: data.message, icon:'error', background:'#0f1526', color:'#e2e8f0', confirmButtonColor:'#06b6d4' });
-        }
-      } catch {
-        Swal.fire({ title:'Error', text:'Something went wrong', icon:'error', background:'#0f1526', color:'#e2e8f0', confirmButtonColor:'#06b6d4' });
-      }
-    }
-
-    /* ── Update quantity ─────────────────────────────────────────────── */
-    async function updateQty(variantId, change) {
-      const qtyEl   = document.getElementById('qty-'   + variantId);
-      const subEl   = document.getElementById('itemSub-' + variantId);
-      const plusEl  = document.getElementById('plus-'  + variantId);
-      const minusEl = document.getElementById('minus-' + variantId);
-
-      try {
-        const res  = await fetch('/cart/update-qty', {
-          method:  'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ variantId, change }),
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          qtyEl.textContent = data.quantity;
-          subEl.textContent = fmt(data.itemSubtotal);
-          updateSummary(data);
-
-          // Keep − disabled at 1, + disabled at stock/max limit
-          if (minusEl) minusEl.disabled = data.quantity <= 1;
-          if (plusEl)  plusEl.disabled  = data.quantity >= 10 || data.quantity >= data.stock;
-        } else {
-          Swal.fire({
-            toast: true, position: 'top-end', icon: 'warning',
-            title: data.message, showConfirmButton: false, timer: 2500,
-            background: '#0f1526', color: '#e2e8f0'
-          });
-        }
-      } catch {
-        Swal.fire({ title:'Error', text:'Something went wrong', icon:'error', background:'#0f1526', color:'#e2e8f0', confirmButtonColor:'#06b6d4' });
-      }
-    }
-
-    /* ── Re-evaluate checkout button after a remove ──────────────────── */
-    function refreshCheckoutBtn() {
-      const rows        = document.querySelectorAll('[data-blocked="true"]');
-      const btn         = document.getElementById('checkoutBtn');
-      const hasBlocked  = rows.length > 0;
-      const blockedItems = Array.from(rows).map(r => ({
-        name:   r.dataset.productName,
-        reason: r.dataset.blockReason,
-      }));
-
-      btn.onclick = () => handleCheckout(hasBlocked, blockedItems);
-
-      if (hasBlocked) {
-        btn.className = btn.className
-          .replace(/bg-cyan-400/g, '').replace(/text-\[#0a0e1a\]/g, '').replace(/hover:bg-cyan-300/g, '')
-          .trim() + ' bg-slate-700/60 text-slate-400 cursor-not-allowed';
+  async function removeItem(variantId) {
+    const row = document.getElementById('row-' + variantId);
+    try {
+      const res  = await fetch('/cart/remove/' + variantId, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        row.classList.add('item-removing');
+        setTimeout(() => {
+          row.remove();
+          updateSummary(data.summary);
+          const remaining = document.querySelectorAll('[id^="row-"]').length;
+          if (remaining === 0) { location.reload(); }
+          else { refreshCheckoutBtn(); }
+        }, 300);
       } else {
-        btn.className = btn.className
-          .replace(/bg-slate-700\/60/g, '').replace(/text-slate-400/g, '').replace(/cursor-not-allowed/g, '')
-          .trim() + ' bg-cyan-400 text-[#0a0e1a] hover:bg-cyan-300';
+        Swal.fire({ title:'Error', text: data.message, icon:'error', background:'#0a0f18', color:'#e2e8f0', confirmButtonColor:'#06b6d4' });
       }
+    } catch {
+      Swal.fire({ title:'Error', text:'Something went wrong', icon:'error', background:'#0a0f18', color:'#e2e8f0', confirmButtonColor:'#06b6d4' });
     }
-  </script>
-</body>
-</html>
+  }
+
+  async function updateQty(variantId, change) {
+    const qtyEl   = document.getElementById('qty-'     + variantId);
+    const subEl   = document.getElementById('itemSub-' + variantId);
+    const plusEl  = document.getElementById('plus-'    + variantId);
+    const minusEl = document.getElementById('minus-'   + variantId);
+    try {
+      const res  = await fetch('/cart/update-qty', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variantId, change }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        qtyEl.textContent = data.quantity;
+        subEl.textContent = fmt(data.itemSubtotal);
+        updateSummary(data);
+        if (minusEl) minusEl.disabled = data.quantity <= 1;
+        if (plusEl)  plusEl.disabled  = data.quantity >= 10 || data.quantity >= data.stock;
+      } else {
+        Swal.fire({ toast:true, position:'top-end', icon:'warning', title:data.message,
+          showConfirmButton:false, timer:2500, background:'#0a0f18', color:'#e2e8f0' });
+      }
+    } catch {
+      Swal.fire({ title:'Error', text:'Something went wrong', icon:'error', background:'#0a0f18', color:'#e2e8f0', confirmButtonColor:'#06b6d4' });
+    }
+  }
+
+  function refreshCheckoutBtn() {
+    const rows       = document.querySelectorAll('[data-blocked="true"]');
+    const btn        = document.getElementById('checkoutBtn');
+    const hasBlocked = rows.length > 0;
+    const blockedItems = Array.from(rows).map(r => ({ name: r.dataset.productName, reason: r.dataset.blockReason }));
+    btn.onclick = () => handleCheckout(hasBlocked, blockedItems);
+    if (hasBlocked) {
+      btn.className = 'w-full py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold text-sm transition-all duration-200 bg-slate-800 text-slate-500 cursor-not-allowed border border-gray-800';
+    } else {
+      btn.className = 'w-full py-3.5 rounded-xl flex items-center justify-center gap-2 font-bold text-sm transition-all duration-200 bg-cyan-400 text-[#05080d] hover:bg-cyan-300 shadow-[0_4px_20px_rgba(0,212,255,0.15)]';
+    }
+  }
+</script>

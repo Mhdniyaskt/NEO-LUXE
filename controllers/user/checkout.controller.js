@@ -6,6 +6,7 @@ import Product from '../../models/product.model.js';
 import Category from '../../models/category.model.js';
 import Address from '../../models/address.model.js';
 import Order from '../../models/order.model.js';
+import PDFDocument from 'pdfkit';
 
 const MAX_QTY = 10;
 
@@ -325,7 +326,7 @@ export const getOrderConfirmation = asyncHandler(async (req, res) => {
   }
 
   res.render('user/order-confirmation', {
-    layout: 'layouts/user',
+    layout: false,
     order,
   });
 });
@@ -333,13 +334,368 @@ export const getOrderConfirmation = asyncHandler(async (req, res) => {
 // ─── GET /orders ──────────────────────────────────────────────────────────────
 export const getOrders = asyncHandler(async (req, res) => {
   const userId = req.session.user.id;
+  const LIMIT  = 3;
+  const page   = Math.max(1, parseInt(req.query.page) || 1);
+  const skip   = (page - 1) * LIMIT;
 
-  const orders = await Order.find({ user: userId })
-    .sort({ createdAt: -1 })
-    .lean();
+  const [orders, total] = await Promise.all([
+    Order.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(LIMIT)
+      .lean(),
+    Order.countDocuments({ user: userId }),
+  ]);
+
+  const totalPages = Math.ceil(total / LIMIT);
+
+  res.locals.activePage = 'orders';
 
   res.render('user/orders', {
     layout: 'layouts/user',
     orders,
+    user:        res.locals.user,
+    currentPage: page,
+    totalPages,
+    total,
   });
 });
+
+// ─── GET /orders/:orderId/details ─────────────────────────────────────────────
+export const getOrderDetails = asyncHandler(async (req, res) => {
+  const userId  = req.session.user.id;
+  const { orderId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return res.redirect('/orders');
+  }
+
+  const order = await Order.findOne({ _id: orderId, user: userId }).lean();
+  if (!order) {
+    return res.redirect('/orders');
+  }
+
+  // Ensure items array exists (fallback for data integrity)
+  if (!order.items) {
+    order.items = [];
+  }
+
+  res.locals.activePage = 'orders';
+  res.render('user/order-details', {
+    layout: false,
+    order,
+  });
+});
+
+// ─── POST /orders/:orderId/cancel ─────────────────────────────────────────────
+// Cancel entire order — restores stock for all items
+export const cancelOrder = asyncHandler(async (req, res) => {
+  const userId  = req.session.user.id;
+  const { orderId } = req.params;
+  const { reason = '' } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return res.status(400).json({ success: false, message: 'Invalid order ID.' });
+  }
+
+  const order = await Order.findOne({ _id: orderId, user: userId });
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'Order not found.' });
+  }
+
+  const cancellableStatuses = ['pending', 'confirmed', 'processing'];
+  if (!cancellableStatuses.includes(order.status)) {
+    return res.status(400).json({
+      success: false,
+      message: `Order cannot be cancelled at this stage (current status: ${order.status}).`,
+    });
+  }
+
+  // Restore stock for every item
+  for (const item of order.items) {
+    await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
+  }
+
+  order.status       = 'cancelled';
+  order.cancelReason = reason.trim();
+  // COD orders cancelled before shipment — no money was collected, mark as cancelled
+  // (not 'refunded' since nothing was paid)
+  order.paymentStatus = 'cancelled';
+  await order.save();
+
+  return res.json({ success: true, message: 'Order cancelled successfully.' });
+});
+
+// ─── POST /orders/:orderId/return ─────────────────────────────────────────────
+// Request return for a delivered order (reason is mandatory)
+export const returnOrder = asyncHandler(async (req, res) => {
+  const userId  = req.session.user.id;
+  const { orderId } = req.params;
+  const { reason = '' } = req.body;
+
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return res.status(400).json({ success: false, message: 'Invalid order ID.' });
+  }
+
+  if (!reason.trim()) {
+    return res.status(400).json({ success: false, message: 'A reason is required to request a return.' });
+  }
+
+  const order = await Order.findOne({ _id: orderId, user: userId });
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'Order not found.' });
+  }
+
+  if (order.status !== 'delivered') {
+    return res.status(400).json({
+      success: false,
+      message: 'Only delivered orders can be returned.',
+    });
+  }
+
+  // Mark all active (non-cancelled) items as return requested
+  order.items.forEach((item, i) => {
+    if (item.status !== 'cancelled' && item.returnStatus === 'none') {
+      order.items[i].returnStatus = 'requested';
+      order.items[i].returnReason = reason.trim();
+    }
+  });
+
+  order.status       = 'returned';
+  order.cancelReason = reason.trim();
+  await order.save();
+
+  return res.json({ success: true, message: 'Return request submitted successfully.' });
+});
+
+// ─── POST /orders/:orderId/items/:itemIndex/return ────────────────────────────
+// Request return for a single delivered item (reason is mandatory)
+export const returnOrderItem = asyncHandler(async (req, res) => {
+  const userId  = req.session.user.id;
+  const { orderId, itemIndex } = req.params;
+  const { reason = '' } = req.body;
+  const idx = parseInt(itemIndex, 10);
+
+  if (!mongoose.Types.ObjectId.isValid(orderId) || isNaN(idx)) {
+    return res.status(400).json({ success: false, message: 'Invalid request.' });
+  }
+
+  if (!reason.trim()) {
+    return res.status(400).json({ success: false, message: 'A reason is required to request a return.' });
+  }
+
+  const order = await Order.findOne({ _id: orderId, user: userId });
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'Order not found.' });
+  }
+
+  if (order.status !== 'delivered') {
+    return res.status(400).json({ success: false, message: 'Only delivered orders can be returned.' });
+  }
+
+  if (idx < 0 || idx >= order.items.length) {
+    return res.status(400).json({ success: false, message: 'Item not found in order.' });
+  }
+
+  const item = order.items[idx];
+
+  if (item.status === 'cancelled') {
+    return res.status(400).json({ success: false, message: 'Cancelled items cannot be returned.' });
+  }
+  if (item.returnStatus !== 'none') {
+    return res.status(400).json({ success: false, message: 'A return has already been requested for this item.' });
+  }
+
+  order.items[idx].returnStatus = 'requested';
+  order.items[idx].returnReason = reason.trim();
+
+  // If all active items now have a return request, mark whole order as returned
+  const activeItems = order.items.filter(i => i.status !== 'cancelled');
+  const allRequested = activeItems.every(i => i.returnStatus !== 'none');
+  if (allRequested) {
+    order.status       = 'returned';
+    order.cancelReason = reason.trim();
+  }
+
+  await order.save();
+  return res.json({ success: true, message: 'Return request submitted for this item.' });
+});
+
+// ─── POST /orders/:orderId/items/:itemIndex/cancel ────────────────────────────
+// Cancel a single item within an order — restores that item's stock
+export const cancelOrderItem = asyncHandler(async (req, res) => {
+  const userId    = req.session.user.id;
+  const { orderId, itemIndex } = req.params;
+  const idx = parseInt(itemIndex, 10);
+
+  if (!mongoose.Types.ObjectId.isValid(orderId) || isNaN(idx)) {
+    return res.status(400).json({ success: false, message: 'Invalid request.' });
+  }
+
+  const order = await Order.findOne({ _id: orderId, user: userId });
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'Order not found.' });
+  }
+
+  const cancellableStatuses = ['pending', 'confirmed', 'processing'];
+  if (!cancellableStatuses.includes(order.status)) {
+    return res.status(400).json({
+      success: false,
+      message: `Items cannot be cancelled at this stage (current status: ${order.status}).`,
+    });
+  }
+
+  if (idx < 0 || idx >= order.items.length) {
+    return res.status(400).json({ success: false, message: 'Item not found in order.' });
+  }
+
+  const item = order.items[idx];
+
+  if (item.status === 'cancelled') {
+    return res.status(400).json({ success: false, message: 'Item is already cancelled.' });
+  }
+
+  // Restore stock for this item
+  await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
+
+  // Mark item as cancelled — DO NOT remove it so it stays visible in order history
+  order.items[idx].status = 'cancelled';
+
+  // Check if all items are now cancelled
+  const activeItems = order.items.filter(i => i.status !== 'cancelled');
+
+  if (activeItems.length === 0) {
+    // All items cancelled — cancel the whole order
+    order.status        = 'cancelled';
+    order.cancelReason  = 'All items cancelled by customer';
+    // COD: no money collected before shipment, mark payment as cancelled
+    order.paymentStatus = 'cancelled';
+  } else {
+    // Recalculate totals based on active items only
+    const subtotal  = activeItems.reduce((sum, i) => sum + i.itemTotal, 0);
+    const shipping  = subtotal >= 5000 ? 0 : 50;
+    const tax       = Math.round(subtotal * 0.18);
+    order.subtotal  = subtotal;
+    order.shipping  = shipping;
+    order.tax       = tax;
+    order.total     = subtotal + shipping + tax;
+  }
+
+  await order.save();
+
+  return res.json({ success: true, message: 'Item cancelled successfully.' });
+});
+
+// ─── GET /payment-failed ──────────────────────────────────────────────────────
+export const getPaymentFailed = asyncHandler(async (req, res) => {
+  const { orderId, amount, paymentMethod } = req.query;
+  res.render('user/payment-failed', {
+    layout: false,
+    orderId:       orderId || null,
+    amount:        amount  || null,
+    paymentMethod: paymentMethod || null,
+  });
+});
+// Generate and stream a PDF invoice for the order
+export const downloadInvoice = asyncHandler(async (req, res) => {
+  const userId  = req.session.user.id;
+  const { orderId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(orderId)) {
+    return res.status(400).json({ success: false, message: 'Invalid order ID.' });
+  }
+
+  const order = await Order.findOne({ _id: orderId, user: userId }).lean();
+  if (!order) {
+    return res.status(404).json({ success: false, message: 'Order not found.' });
+  }
+
+  const doc = new PDFDocument({ margin: 50, size: 'A4' });
+  const filename = `invoice-${order._id}.pdf`;
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  doc.pipe(res);
+
+  // ── Header ──────────────────────────────────────────────────────────
+  doc.fontSize(22).font('Helvetica-Bold').text('NEO-LUXE', 50, 50);
+  doc.fontSize(10).font('Helvetica').fillColor('#666').text('Premium Timepieces', 50, 76);
+
+  doc.fillColor('#000').fontSize(18).font('Helvetica-Bold').text('INVOICE', 400, 50, { align: 'right' });
+  doc.fontSize(10).font('Helvetica').fillColor('#666')
+    .text(`Order #${order.orderId || order._id.toString().slice(-8).toUpperCase()}`, 400, 76, { align: 'right' })
+    .text(`Date: ${new Date(order.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' })}`, 400, 90, { align: 'right' });
+
+  // ── Divider ──────────────────────────────────────────────────────────
+  doc.moveTo(50, 115).lineTo(545, 115).strokeColor('#e5e7eb').stroke();
+
+  // ── Billing / Shipping ───────────────────────────────────────────────
+  doc.fillColor('#000').fontSize(11).font('Helvetica-Bold').text('SHIP TO', 50, 130);
+  doc.fontSize(10).font('Helvetica').fillColor('#333')
+    .text(order.shippingAddress.fullName || '', 50, 148)
+    .text(order.shippingAddress.addressLine1 || '', 50, 162)
+    .text(`${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.pincode}`, 50, 176)
+    .text(`Phone: ${order.shippingAddress.phone}`, 50, 190);
+
+  doc.fillColor('#000').fontSize(11).font('Helvetica-Bold').text('PAYMENT', 350, 130);
+  doc.fontSize(10).font('Helvetica').fillColor('#333')
+    .text(`Method: ${order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online'}`, 350, 148)
+    .text(`Status: ${order.paymentStatus}`, 350, 162);
+
+  // ── Items table ──────────────────────────────────────────────────────
+  let y = 230;
+  doc.moveTo(50, y - 10).lineTo(545, y - 10).strokeColor('#e5e7eb').stroke();
+
+  doc.fillColor('#000').fontSize(10).font('Helvetica-Bold')
+    .text('ITEM', 50, y)
+    .text('COLOR', 280, y)
+    .text('QTY', 360, y)
+    .text('UNIT PRICE', 410, y)
+    .text('TOTAL', 490, y);
+
+  y += 18;
+  doc.moveTo(50, y).lineTo(545, y).strokeColor('#e5e7eb').stroke();
+  y += 10;
+
+  doc.font('Helvetica').fillColor('#333').fontSize(10);
+  for (const item of order.items) {
+    doc.text(item.productName, 50, y, { width: 220 })
+       .text(item.variantColor || '—', 280, y)
+       .text(String(item.quantity), 360, y)
+       .text(`Rs.${item.basePrice.toLocaleString('en-IN')}`, 410, y)
+       .text(`Rs.${item.itemTotal.toLocaleString('en-IN')}`, 490, y);
+    y += 22;
+    if (y > 700) { doc.addPage(); y = 50; }
+  }
+
+  // ── Totals ───────────────────────────────────────────────────────────
+  y += 10;
+  doc.moveTo(350, y).lineTo(545, y).strokeColor('#e5e7eb').stroke();
+  y += 12;
+
+  const totalsRows = [
+    ['Subtotal',  `Rs.${order.subtotal.toLocaleString('en-IN')}`],
+    ['Shipping',  order.shipping === 0 ? 'Free' : `Rs.${order.shipping.toLocaleString('en-IN')}`],
+    ['Tax (GST)', `Rs.${order.tax.toLocaleString('en-IN')}`],
+  ];
+  for (const [label, value] of totalsRows) {
+    doc.font('Helvetica').fillColor('#555').fontSize(10)
+       .text(label, 350, y)
+       .text(value, 490, y);
+    y += 18;
+  }
+
+  y += 4;
+  doc.moveTo(350, y).lineTo(545, y).strokeColor('#000').lineWidth(1).stroke();
+  y += 10;
+  doc.font('Helvetica-Bold').fillColor('#000').fontSize(12)
+     .text('TOTAL', 350, y)
+     .text(`Rs.${order.total.toLocaleString('en-IN')}`, 490, y);
+
+  // ── Footer ───────────────────────────────────────────────────────────
+  doc.fontSize(9).font('Helvetica').fillColor('#999')
+     .text('Thank you for shopping with Neo-Luxe. For support, contact support@neoluxe.com', 50, 760, { align: 'center', width: 495 });
+
+  doc.end();
+});
+

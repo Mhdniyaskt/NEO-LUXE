@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Management | Neo-Luxe Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <style>
+    body { background-color:#05070A; color:#E2E8F0; font-family:'Inter',sans-serif; }
+    .card-bg { background-color:#0B1120; border:1px solid #1E293B; }
+    ::-webkit-scrollbar { width:5px; height:5px; }
+    ::-webkit-scrollbar-track { background:#05070A; }
+    ::-webkit-scrollbar-thumb { background:#1E293B; border-radius:10px; }
+    ::-webkit-scrollbar-thumb:hover { background:#22D3EE; }
+    input[type=number]::-webkit-inner-spin-button { opacity:1; }
+  </style>
+</head>
+<body class="antialiased overflow-hidden">
+
+<div class="flex h-screen w-full">
+
+  <%- include('../partials/admin-sidebar', { path: 'stock' }) %>
+
+  <main class="flex-1 overflow-y-auto bg-[#05070A]">
+    <div class="max-w-7xl mx-auto p-6 md:p-8">
+
+      <!-- Breadcrumb -->
+      <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-5">
+        <a href="/admin/dashboard" class="hover:text-slate-300 transition-colors"><i class="fas fa-home"></i></a>
+        <span class="text-slate-700">/</span>
+        <span class="text-slate-300">Stock Management</span>
+      </nav>
+
+      <!-- Header -->
+      <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-white tracking-tight">Stock Management</h1>
+          <p class="text-slate-500 text-sm mt-1">Monitor and update inventory levels for all watch variants.</p>
+        </div>
+        <button onclick="toggleSidebar()" class="lg:hidden bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-white">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="card-bg rounded-xl p-4">
+          <p class="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Total Products</p>
+          <p class="text-white font-bold text-xl"><%= summaryTotal %></p>
+        </div>
+        <div class="card-bg rounded-xl p-4">
+          <p class="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Out of Stock</p>
+          <p class="text-red-400 font-bold text-xl"><%= summaryOutOfStock %></p>
+        </div>
+        <div class="card-bg rounded-xl p-4">
+          <p class="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Low Stock (≤10)</p>
+          <p class="text-amber-400 font-bold text-xl"><%= summaryLowStock %></p>
+        </div>
+        <div class="card-bg rounded-xl p-4">
+          <p class="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">In Stock</p>
+          <p class="text-green-400 font-bold text-xl"><%= summaryInStock %></p>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="card-bg rounded-2xl p-5 mb-6">
+        <form action="/admin/stock" method="GET">
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+            <div>
+              <label class="block text-[10px] uppercase font-bold text-slate-500 mb-2 tracking-widest">Search</label>
+              <div class="relative">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 text-xs"></i>
+                <input type="text" name="search" value="<%= search %>" placeholder="Watch name…"
+                  class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-2.5 pl-9 pr-3 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition"/>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[10px] uppercase font-bold text-slate-500 mb-2 tracking-widest">Brand</label>
+              <select name="brand" class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/50 appearance-none">
+                <option value="">All Brands</option>
+                <% brands.forEach(b => { %>
+                  <option value="<%= b %>" <%= brand === b ? 'selected' : '' %>><%= b %></option>
+                <% }) %>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-[10px] uppercase font-bold text-slate-500 mb-2 tracking-widest">Stock Level</label>
+              <select name="stockFilter" class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/50 appearance-none">
+                <option value="">All Levels</option>
+                <option value="out"  <%= stockFilter === 'out'  ? 'selected' : '' %>>Out of Stock (0)</option>
+                <option value="low"  <%= stockFilter === 'low'  ? 'selected' : '' %>>Low Stock (1–10)</option>
+                <option value="ok"   <%= stockFilter === 'ok'   ? 'selected' : '' %>>In Stock (>10)</option>
+              </select>
+            </div>
+
+            <div class="flex items-end gap-2">
+              <button type="submit" class="flex-1 bg-cyan-400 hover:bg-cyan-300 text-[#05070A] font-bold py-2.5 rounded-xl text-xs transition">
+                <i class="fas fa-search mr-1"></i> Filter
+              </button>
+              <a href="/admin/stock" class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white px-4 py-2.5 rounded-xl text-xs transition flex items-center gap-1" title="Clear">
+                <i class="fas fa-times"></i> Clear
+              </a>
+            </div>
+
+          </div>
+        </form>
+      </div>
+
+      <!-- Stock table -->
+      <div class="card-bg rounded-2xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm min-w-[800px]">
+            <thead class="bg-slate-900/40 text-[10px] uppercase tracking-widest text-slate-500 border-b border-slate-800">
+              <tr>
+                <th class="px-6 py-4 font-bold">Product</th>
+                <th class="px-6 py-4 font-bold">Brand</th>
+                <th class="px-6 py-4 font-bold">Category</th>
+                <th class="px-6 py-4 font-bold">Variant / Color</th>
+                <th class="px-6 py-4 font-bold">Current Stock</th>
+                <th class="px-6 py-4 font-bold">Status</th>
+                <th class="px-6 py-4 font-bold text-right">Update Stock</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/50">
+              <% if (products && products.length > 0) { %>
+                <% products.forEach(product => { %>
+                  <% if (product.variants && product.variants.length > 0) { %>
+                    <% product.variants.forEach((variant, vi) => { %>
+                      <tr class="hover:bg-slate-800/20 transition-colors">
+                        <!-- Product (only show on first variant row) -->
+                        <td class="px-6 py-4">
+                          <% if (vi === 0) { %>
+                            <div class="flex items-center gap-3">
+                              <div class="w-10 h-10 bg-slate-800 rounded-lg overflow-hidden border border-slate-700 flex-shrink-0">
+                                <% if (variant.images && variant.images.length > 0) { %>
+                                  <img src="<%= variant.images[0].url %>" alt="" class="w-full h-full object-cover"/>
+                                <% } else { %>
+                                  <div class="w-full h-full flex items-center justify-center text-slate-600">
+                                    <i class="fas fa-clock text-xs"></i>
+                                  </div>
+                                <% } %>
+                              </div>
+                              <div>
+                                <p class="text-white font-semibold text-xs"><%= product.name %></p>
+                                <p class="text-slate-600 text-[10px]">ID: <%= product._id.toString().slice(-6).toUpperCase() %></p>
+                              </div>
+                            </div>
+                          <% } %>
+                        </td>
+                        <td class="px-6 py-4 text-slate-400 text-xs"><% if (vi === 0) { %><%= product.brand %><% } %></td>
+                        <td class="px-6 py-4 text-slate-400 text-xs"><% if (vi === 0) { %><%= product.category ? product.category.name : '—' %><% } %></td>
+
+                        <!-- Variant color -->
+                        <td class="px-6 py-4">
+                          <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full border border-slate-600 flex-shrink-0"
+                                  style="background-color:<%= variant.color.toLowerCase() %>"></span>
+                            <span class="text-slate-300 text-xs capitalize"><%= variant.color %></span>
+                          </div>
+                        </td>
+
+                        <!-- Current stock -->
+                        <td class="px-6 py-4">
+                          <span id="stock-display-<%= variant._id %>" class="text-white font-bold text-sm">
+                            <%= variant.stock %>
+                          </span>
+                        </td>
+
+                        <!-- Status badge -->
+                        <td class="px-6 py-4">
+                          <% if (variant.stock === 0) { %>
+                            <span class="px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider border bg-red-500/10 text-red-400 border-red-500/20">Out of Stock</span>
+                          <% } else if (variant.stock <= 10) { %>
+                            <span class="px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider border bg-amber-500/10 text-amber-400 border-amber-500/20">Low Stock</span>
+                          <% } else { %>
+                            <span class="px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider border bg-green-500/10 text-green-400 border-green-500/20">In Stock</span>
+                          <% } %>
+                        </td>
+
+                        <!-- Update stock -->
+                        <td class="px-6 py-4">
+                          <div class="flex items-center justify-end gap-2">
+                            <input type="number" min="0" value="<%= variant.stock %>"
+                                   id="stock-input-<%= variant._id %>"
+                                   class="w-20 bg-[#05070A] border border-slate-800 rounded-lg py-1.5 px-2 text-sm text-white text-center focus:outline-none focus:border-cyan-500/50 transition"/>
+                            <button onclick="updateStock('<%= variant._id %>')"
+                                    class="bg-cyan-400 hover:bg-cyan-300 text-[#05070A] font-bold text-[10px] px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                              Update
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  <% } else { %>
+                    <tr class="hover:bg-slate-800/20 transition-colors">
+                      <td class="px-6 py-4">
+                        <p class="text-white font-semibold text-xs"><%= product.name %></p>
+                      </td>
+                      <td class="px-6 py-4 text-slate-400 text-xs"><%= product.brand %></td>
+                      <td colspan="5" class="px-6 py-4 text-slate-600 text-xs italic">No variants</td>
+                    </tr>
+                  <% } %>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="7" class="px-6 py-20 text-center">
+                    <i class="fas fa-boxes text-4xl text-slate-800 mb-4 block"></i>
+                    <p class="text-slate-500 text-sm">No products found.</p>
+                  </td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="px-6 py-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-[11px] text-slate-500">
+            Showing <span class="text-white font-semibold"><%= products.length %></span> of
+            <span class="text-white font-semibold"><%= total %></span> products
+          </p>
+          <% if (totalPages > 1) { %>
+            <div class="flex items-center gap-1">
+              <% if (currentPage > 1) { %>
+                <a href="?page=<%= currentPage-1 %>&search=<%= encodeURIComponent(search) %>&brand=<%= encodeURIComponent(brand) %>&stockFilter=<%= stockFilter %>"
+                   class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition text-xs">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              <% } %>
+              <% for (let i = Math.max(1, currentPage-2); i <= Math.min(totalPages, currentPage+2); i++) { %>
+                <a href="?page=<%= i %>&search=<%= encodeURIComponent(search) %>&brand=<%= encodeURIComponent(brand) %>&stockFilter=<%= stockFilter %>"
+                   class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition
+                          <%= i === currentPage ? 'bg-cyan-400 border-cyan-400 text-[#05070A]' : 'border-slate-800 text-slate-400 hover:border-slate-600 hover:text-white' %>">
+                  <%= i %>
+                </a>
+              <% } %>
+              <% if (currentPage < totalPages) { %>
+                <a href="?page=<%= currentPage+1 %>&search=<%= encodeURIComponent(search) %>&brand=<%= encodeURIComponent(brand) %>&stockFilter=<%= stockFilter %>"
+                   class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition text-xs">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              <% } %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+
+      <footer class="text-center py-8">
+        <p class="text-[9px] text-slate-700 uppercase tracking-widest">© 2026 Neo-Luxe Admin Panel</p>
+      </footer>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('-translate-x-full');
+  }
+
+  async function updateStock(variantId) {
+    const input = document.getElementById('stock-input-' + variantId);
+    const qty   = parseInt(input.value, 10);
+
+    if (isNaN(qty) || qty < 0) {
+      input.classList.add('border-red-500');
+      setTimeout(() => input.classList.remove('border-red-500'), 1500);
+      return;
+    }
+
+    try {
+      const res  = await fetch(`/admin/stock/${variantId}`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ stock: qty }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        // Update display
+        const display = document.getElementById('stock-display-' + variantId);
+        if (display) display.textContent = data.stock;
+
+        // Flash green
+        input.classList.add('border-green-500');
+        setTimeout(() => input.classList.remove('border-green-500'), 1500);
+
+        // Toast
+        const toast = document.createElement('div');
+        toast.className = 'fixed top-4 right-4 z-50 bg-[#0B1120] border border-green-500/30 text-green-400 text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2';
+        toast.innerHTML = '<i class="fas fa-check-circle"></i> Stock updated to ' + data.stock;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2500);
+      } else {
+        Swal.fire({ icon:'error', title:'Error', text: data.message, background:'#0B1120', color:'#E2E8F0' });
+      }
+    } catch {
+      Swal.fire({ icon:'error', title:'Error', text:'Something went wrong.', background:'#0B1120', color:'#E2E8F0' });
+    }
+  }
+
+  // Allow Enter key to trigger update
+  document.querySelectorAll('input[id^="stock-input-"]').forEach(input => {
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const variantId = input.id.replace('stock-input-', '');
+        updateStock(variantId);
+      }
+    });
+  });
+</script>
+</body>
+</html>

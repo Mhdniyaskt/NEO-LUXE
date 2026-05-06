@@ -9,10 +9,11 @@ export const showProfile = (req, res) => {
         return res.redirect("/login");
     }
     console.log(user);
+    res.locals.activePage = 'profile';
     return res.render("user/profile-page", { 
         layout: "layouts/user",
         user: user,
-        path: '/profile'
+        path: '/profile',
     });
 };
 
@@ -23,9 +24,9 @@ export const showEditProfile = (req, res) => {
         return res.redirect("/login");
     }
 
-    // Pass the layout path and the user data
+    res.locals.activePage = 'profile';
     return res.render("user/edit-profile", { 
-        layout: "layouts/user", // This uses your main user wrapper
+        layout: "layouts/user",
         user: user,
         title: "Edit Profile | NEO-LUXE",
         path: '/profile'

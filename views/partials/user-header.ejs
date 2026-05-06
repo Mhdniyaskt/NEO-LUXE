@@ -23,10 +23,15 @@
     <div class="flex items-center gap-4">
  <% if(isLoggedIn) { %>
   <div class="flex items-center gap-4 text-gray-300">
-    <a href="/user/wishlist" class="hover:text-white transition-colors">
+    <a href="/user/wishlist" class="relative hover:text-white transition-colors">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
       </svg>
+      <span data-wishlist-count
+            class="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-bold px-1.5 rounded-full
+                   <%= (locals.wishlistCount && locals.wishlistCount > 0) ? '' : 'hidden' %>">
+        <%= locals.wishlistCount || 0 %>
+      </span>
     </a>
     
     <a href="/cart" class="relative hover:text-white transition-colors">

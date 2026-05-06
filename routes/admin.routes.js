@@ -5,9 +5,10 @@ import * as dashboardController from "../controllers/admin/dasboard.controller.j
 import * as customersController from "../controllers/admin/customers.controller.js";
 import * as categoryCtrl from "../controllers/admin/category.controller.js";
 import { isAdmin, isLogout } from "../middleware/auth.middleware.js";
-
 import { upload2 } from '../middleware/upload.middleware.js';
 import * as productController from '../controllers/admin/product.controller.js';
+import * as orderController from '../controllers/admin/order.controller.js';
+import * as stockController from '../controllers/admin/stock.controller.js';
 
 const router = express.Router();
 
@@ -54,5 +55,15 @@ router
 
 router.patch('/products/delete/:id', productController.softDeleteProduct);
 router.patch('/products/toggle/:id', productController.toggleProductStatus);
+
+// Orders
+router.get('/orders',                    noCache, orderController.getOrders);
+router.get('/orders/:id',                noCache, orderController.getOrderDetail);
+router.patch('/orders/:id/status',       orderController.updateOrderStatus);
+router.patch('/orders/:id/return',       orderController.handleReturn);
+
+// Stock / Inventory
+router.get('/stock',                     noCache, stockController.getStockPage);
+router.patch('/stock/:variantId',        stockController.updateStock);
 
 export default router;

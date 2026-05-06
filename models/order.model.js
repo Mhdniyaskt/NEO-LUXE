@@ -20,6 +20,19 @@ const orderItemSchema = new mongoose.Schema(
     regularPrice:  { type: Number, required: true },
     quantity:      { type: Number, required: true, min: 1 },
     itemTotal:     { type: Number, required: true },
+    // Per-item status — set when item is individually cancelled
+    status: {
+      type: String,
+      enum: ['active', 'cancelled'],
+      default: 'active',
+    },
+    // Per-item return tracking
+    returnStatus: {
+      type: String,
+      enum: ['none', 'requested', 'approved', 'rejected'],
+      default: 'none',
+    },
+    returnReason: { type: String, default: '' },
   },
   { _id: false }
 );
@@ -57,7 +70,7 @@ const orderSchema = new mongoose.Schema(
     },
     paymentStatus: {
       type: String,
-      enum: ['pending', 'paid', 'failed', 'refunded'],
+      enum: ['pending', 'paid', 'failed', 'refunded', 'cancelled'],
       default: 'pending',
     },
 

@@ -24,7 +24,21 @@ import {
   buyNow,
   getOrderConfirmation,
   getOrders,
+  getOrderDetails,
+  cancelOrder,
+  returnOrder,
+  cancelOrderItem,
+  returnOrderItem,
+  downloadInvoice,
+  getPaymentFailed,
 } from "../controllers/user/checkout.controller.js";
+import {
+  getWishlist,
+  toggleWishlist,
+  removeFromWishlist,
+  moveToCart,
+  getWishlistIds,
+} from "../controllers/user/wishlist.controller.js";
 
 const router = express.Router();
 
@@ -131,10 +145,24 @@ router.delete('/cart/remove/:variantId',     requireAuth, removeFromCart);
 router.patch('/cart/update-qty',             requireAuth, updateQty);
 
 // Checkout & Orders
-router.get('/checkout',                      requireAuth, noCache, getCheckout);
-router.post('/checkout/place-order',         requireAuth, placeOrder);
-router.post('/checkout/buy-now',             requireAuth, buyNow);
-router.get('/orders',                        requireAuth, noCache, getOrders);
-router.get('/orders/:orderId',               requireAuth, noCache, getOrderConfirmation);
+router.get('/checkout',                                    requireAuth, noCache, getCheckout);
+router.post('/checkout/place-order',                       requireAuth, placeOrder);
+router.post('/checkout/buy-now',                           requireAuth, buyNow);
+router.get('/payment-failed',                              requireAuth, noCache, getPaymentFailed);
+router.get('/orders',                                      requireAuth, noCache, getOrders);
+router.get('/orders/:orderId',                             requireAuth, noCache, getOrderConfirmation);
+router.get('/orders/:orderId/details',                     requireAuth, noCache, getOrderDetails);
+router.post('/orders/:orderId/cancel',                     requireAuth, cancelOrder);
+router.post('/orders/:orderId/return',                     requireAuth, returnOrder);
+router.post('/orders/:orderId/items/:itemIndex/cancel',    requireAuth, cancelOrderItem);
+router.post('/orders/:orderId/items/:itemIndex/return',    requireAuth, returnOrderItem);
+router.get('/orders/:orderId/invoice',                     requireAuth, downloadInvoice);
+
+// Wishlist
+router.get('/user/wishlist',                 requireAuth, noCache, getWishlist);
+router.get('/user/wishlist/ids',             getWishlistIds);
+router.post('/user/wishlist/toggle',         toggleWishlist);
+router.post('/user/wishlist/move-to-cart',   requireAuth, moveToCart);
+router.delete('/user/wishlist/:variantId',   requireAuth, removeFromWishlist);
 
 export default router;
