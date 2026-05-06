@@ -21,17 +21,20 @@ import { addToCart, getCart, removeFromCart, updateQty } from "../controllers/us
 import {
   getCheckout,
   placeOrder,
-  buyNow,
+  getBuyNow,
+  placeBuyNowOrder,
   getOrderConfirmation,
+  downloadInvoice,
+} from "../controllers/user/checkout.controller.js";
+import {
   getOrders,
   getOrderDetails,
   cancelOrder,
   returnOrder,
   cancelOrderItem,
   returnOrderItem,
-  downloadInvoice,
   getPaymentFailed,
-} from "../controllers/user/checkout.controller.js";
+} from "../controllers/user/order.controller.js";
 import {
   getWishlist,
   toggleWishlist,
@@ -147,7 +150,8 @@ router.patch('/cart/update-qty',             requireAuth, updateQty);
 // Checkout & Orders
 router.get('/checkout',                                    requireAuth, noCache, getCheckout);
 router.post('/checkout/place-order',                       requireAuth, placeOrder);
-router.post('/checkout/buy-now',                           requireAuth, buyNow);
+router.get('/buy-now/:productId/:variantId',               requireAuth, noCache, getBuyNow);
+router.post('/buy-now/place-order',                       requireAuth, placeBuyNowOrder);
 router.get('/payment-failed',                              requireAuth, noCache, getPaymentFailed);
 router.get('/orders',                                      requireAuth, noCache, getOrders);
 router.get('/orders/:orderId',                             requireAuth, noCache, getOrderConfirmation);
