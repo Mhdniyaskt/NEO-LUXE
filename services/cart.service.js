@@ -1,7 +1,7 @@
 import Cart from '../models/cart.model.js';
 import Variant from '../models/variant.model.js';
 import Product from '../models/product.model.js';
-import Category from '../models/category.model.js';
+import { MESSAGES } from '../constants/messages.constant.js';
 
 const MAX_QTY = 10;   // max quantity per variant line
 const MAX_ITEMS = 5;  // max distinct products in cart
@@ -9,24 +9,13 @@ const MAX_ITEMS = 5;  // max distinct products in cart
 // ─── Helper: recalculate cart totals from a populated cart ───────────────────
 function calcSummary(items) {
   let subtotal = 0;
-
   for (const item of items) {
-    // Using basePrice directly as offers are removed
-    const price = item.variant.basePrice;
-    subtotal += price * item.quantity;
+    subtotal += item.variant.basePrice * item.quantity;
   }
-
   const shipping = subtotal >= 5000 ? 0 : 50;
   const tax = Math.round(subtotal * 0.18);
   const total = subtotal + tax + shipping;
-
-  return { 
-    subtotal, 
-    tax, 
-    shipping, 
-    discount: 0, // Set to 0 since offers are removed
-    total 
-  };
+  return { subtotal, tax, shipping, discount: 0, total };
 }
 
 // ─── Validate cart items against live stock/availability ─────────────────────
@@ -38,59 +27,30 @@ async function validateCartItems(cartItems) {
     const { product, variant } = item;
     const category = product?.category;
 
-    // Check if product/variant/category exists and is active
     if (!product || product.isDeleted || !product.isActive) {
-      cartIssues.push({
-        productId: item.product._id,
-        variantId: item.variant._id,
-        issue: 'Product is no longer available'
-      });
+      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: MESSAGES.PRODUCT.NOT_AVAILABLE });
       continue;
     }
-
     if (!variant || variant.isDeleted || !variant.isActive) {
-      cartIssues.push({
-        productId: item.product._id,
-        variantId: item.variant._id,
-        issue: 'This variant is no longer available'
-      });
+      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: MESSAGES.PRODUCT.VARIANT_UNAVAILABLE });
       continue;
     }
-
     if (!category || !category.isListed) {
-      cartIssues.push({
-        productId: item.product._id,
-        variantId: item.variant._id,
-        issue: 'Product category is not available'
-      });
+      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE });
       continue;
     }
-
-    // Check stock availability
     if (variant.stock === 0) {
-      cartIssues.push({
-        productId: item.product._id,
-        variantId: item.variant._id,
-        issue: 'Out of stock'
-      });
+      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: MESSAGES.PRODUCT.OUT_OF_STOCK });
       continue;
     }
 
-    // Adjust quantity if exceeds stock
     let adjustedQty = item.quantity;
     if (item.quantity > variant.stock) {
       adjustedQty = variant.stock;
-      cartIssues.push({
-        productId: item.product._id,
-        variantId: item.variant._id,
-        issue: `Quantity reduced to ${variant.stock} (available stock)`
-      });
+      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: `Quantity reduced to ${variant.stock} (available stock)` });
     }
 
-    validItems.push({
-      ...item.toObject(),
-      quantity: adjustedQty
-    });
+    validItems.push({ ...item.toObject(), quantity: adjustedQty });
   }
 
   return { validItems, cartIssues };
@@ -112,72 +72,61 @@ export const getCartService = async (userId) => {
     }
 
     const { validItems, cartIssues } = await validateCartItems(cart.items);
-    
-    // Update cart with valid items only
+
     if (cartIssues.length > 0) {
       cart.items = validItems;
       await cart.save();
     }
 
     const summary = calcSummary(validItems);
-
-    return {
-      success: true,
-      cart: { items: validItems, summary },
-      cartIssues
-    };
+    return { success: true, cart: { items: validItems, summary }, cartIssues };
   } catch (error) {
     console.error('Cart service error:', error);
-    return { success: false, message: 'Failed to fetch cart' };
+    return { success: false, message: MESSAGES.CART.FETCH_FAILED };
   }
 };
 
 // ─── Add item to cart ─────────────────────────────────────────────────────────
 export const addToCartService = async (userId, productId, variantId, quantity = 1) => {
   try {
-    // Validate inputs
     if (!productId || !variantId) {
-      return { success: false, message: 'Product and variant are required' };
+      return { success: false, message: MESSAGES.CART.PRODUCT_VARIANT_REQUIRED };
     }
 
     quantity = Math.max(1, Math.min(MAX_QTY, parseInt(quantity) || 1));
 
-    // Check product and variant availability
     const product = await Product.findById(productId).populate('category');
     if (!product || product.isDeleted || !product.isActive) {
-      return { success: false, message: 'Product is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.NOT_AVAILABLE };
     }
 
     const variant = await Variant.findById(variantId);
     if (!variant || variant.isDeleted || !variant.isActive) {
-      return { success: false, message: 'Selected variant is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.VARIANT_UNAVAILABLE };
     }
 
     if (!product.category || !product.category.isListed) {
-      return { success: false, message: 'Product category is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE };
     }
 
     if (variant.stock === 0) {
-      return { success: false, message: 'Product is out of stock' };
+      return { success: false, message: MESSAGES.PRODUCT.OUT_OF_STOCK };
     }
 
     if (quantity > variant.stock) {
       return { success: false, message: `Only ${variant.stock} items available` };
     }
 
-    // Get or create cart
     let cart = await Cart.findOne({ user: userId });
     if (!cart) {
       cart = new Cart({ user: userId, items: [] });
     }
 
-    // Check if item already exists in cart
     const existingItemIndex = cart.items.findIndex(
       item => item.product.toString() === productId && item.variant.toString() === variantId
     );
 
     if (existingItemIndex >= 0) {
-      // Update existing item
       const newQty = cart.items[existingItemIndex].quantity + quantity;
       if (newQty > variant.stock) {
         return { success: false, message: `Cannot add more. Only ${variant.stock} items available` };
@@ -187,7 +136,6 @@ export const addToCartService = async (userId, productId, variantId, quantity = 
       }
       cart.items[existingItemIndex].quantity = newQty;
     } else {
-      // Add new item
       if (cart.items.length >= MAX_ITEMS) {
         return { success: false, message: `Maximum ${MAX_ITEMS} different products allowed in cart` };
       }
@@ -195,10 +143,10 @@ export const addToCartService = async (userId, productId, variantId, quantity = 
     }
 
     await cart.save();
-    return { success: true, message: 'Item added to cart successfully' };
+    return { success: true, message: MESSAGES.CART.ITEM_ADDED };
   } catch (error) {
     console.error('Add to cart service error:', error);
-    return { success: false, message: 'Failed to add item to cart' };
+    return { success: false, message: MESSAGES.CART.ITEM_ADD_FAILED };
   }
 };
 
@@ -207,7 +155,7 @@ export const removeFromCartService = async (userId, productId, variantId) => {
   try {
     const cart = await Cart.findOne({ user: userId });
     if (!cart) {
-      return { success: false, message: 'Cart not found' };
+      return { success: false, message: MESSAGES.CART.NOT_FOUND };
     }
 
     const itemIndex = cart.items.findIndex(
@@ -215,16 +163,15 @@ export const removeFromCartService = async (userId, productId, variantId) => {
     );
 
     if (itemIndex === -1) {
-      return { success: false, message: 'Item not found in cart' };
+      return { success: false, message: MESSAGES.CART.ITEM_NOT_FOUND };
     }
 
     cart.items.splice(itemIndex, 1);
     await cart.save();
-
-    return { success: true, message: 'Item removed from cart' };
+    return { success: true, message: MESSAGES.CART.ITEM_REMOVED };
   } catch (error) {
     console.error('Remove from cart service error:', error);
-    return { success: false, message: 'Failed to remove item from cart' };
+    return { success: false, message: MESSAGES.CART.ITEM_REMOVE_FAILED };
   }
 };
 
@@ -235,7 +182,7 @@ export const updateCartQuantityService = async (userId, productId, variantId, qu
 
     const cart = await Cart.findOne({ user: userId });
     if (!cart) {
-      return { success: false, message: 'Cart not found' };
+      return { success: false, message: MESSAGES.CART.NOT_FOUND };
     }
 
     const itemIndex = cart.items.findIndex(
@@ -243,10 +190,9 @@ export const updateCartQuantityService = async (userId, productId, variantId, qu
     );
 
     if (itemIndex === -1) {
-      return { success: false, message: 'Item not found in cart' };
+      return { success: false, message: MESSAGES.CART.ITEM_NOT_FOUND };
     }
 
-    // Check stock availability
     const variant = await Variant.findById(variantId);
     if (!variant || variant.stock < quantity) {
       return { success: false, message: `Only ${variant?.stock || 0} items available` };
@@ -254,11 +200,10 @@ export const updateCartQuantityService = async (userId, productId, variantId, qu
 
     cart.items[itemIndex].quantity = quantity;
     await cart.save();
-
-    return { success: true, message: 'Cart updated successfully' };
+    return { success: true, message: MESSAGES.CART.UPDATED };
   } catch (error) {
     console.error('Update cart quantity service error:', error);
-    return { success: false, message: 'Failed to update cart' };
+    return { success: false, message: MESSAGES.CART.UPDATE_FAILED };
   }
 };
 
@@ -270,9 +215,9 @@ export const clearCartService = async (userId) => {
       { $set: { items: [] } },
       { upsert: true }
     );
-    return { success: true, message: 'Cart cleared successfully' };
+    return { success: true, message: MESSAGES.CART.CLEARED };
   } catch (error) {
     console.error('Clear cart service error:', error);
-    return { success: false, message: 'Failed to clear cart' };
+    return { success: false, message: MESSAGES.CART.CLEAR_FAILED };
   }
 };

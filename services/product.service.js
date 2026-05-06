@@ -2,6 +2,7 @@ import Product from '../models/product.model.js';
 import Variant from '../models/variant.model.js';
 import Category from '../models/category.model.js';
 import { v2 as cloudinary } from 'cloudinary';
+import { MESSAGES } from '../constants/messages.constant.js';
 
 // ─── Get products with filtering, pagination and search ──────────────────────
 export const getProductsService = async (filters = {}) => {
@@ -135,7 +136,7 @@ export const getProductsService = async (filters = {}) => {
     };
   } catch (error) {
     console.error('Get products service error:', error);
-    return { success: false, message: 'Failed to fetch products' };
+    return { success: false, message: MESSAGES.PRODUCT.FETCH_FAILED };
   }
 };
 
@@ -153,12 +154,12 @@ export const getProductByIdService = async (productId, isAdmin = false) => {
       .lean();
 
     if (!product) {
-      return { success: false, message: 'Product not found' };
+      return { success: false, message: MESSAGES.PRODUCT.NOT_FOUND };
     }
 
     // Check if category is listed (for non-admin)
     if (!isAdmin && (!product.category || !product.category.isListed)) {
-      return { success: false, message: 'Product not available' };
+      return { success: false, message: MESSAGES.PRODUCT.NOT_AVAILABLE };
     }
 
     // Get variants
@@ -198,7 +199,7 @@ export const getProductByIdService = async (productId, isAdmin = false) => {
     };
   } catch (error) {
     console.error('Get product by ID service error:', error);
-    return { success: false, message: 'Failed to fetch product' };
+    return { success: false, message: MESSAGES.PRODUCT.FETCH_ONE_FAILED };
   }
 };
 
@@ -219,21 +220,21 @@ export const createProductService = async (productData) => {
 
     // Validation
     if (!name || !brand || !category) {
-      return { success: false, message: 'Name, brand and category are required' };
+      return { success: false, message: MESSAGES.PRODUCT.NAME_REQUIRED };
     }
 
     if (!description || !description.trim()) {
-      return { success: false, message: 'Product description is required' };
+      return { success: false, message: MESSAGES.PRODUCT.DESC_REQUIRED };
     }
 
     if (!caseSize?.trim() || !strapType?.trim() || !movementType?.trim()) {
-      return { success: false, message: 'All technical specifications are required' };
+      return { success: false, message: MESSAGES.PRODUCT.SPECS_REQUIRED };
     }
 
     // Check if category exists
     const categoryExists = await Category.findById(category);
     if (!categoryExists) {
-      return { success: false, message: 'Invalid category selected' };
+      return { success: false, message: MESSAGES.PRODUCT.CATEGORY_INVALID };
     }
 
     // Check if product name already exists
@@ -242,12 +243,12 @@ export const createProductService = async (productData) => {
       isDeleted: false 
     });
     if (existingProduct) {
-      return { success: false, message: 'Product with this name already exists' };
+      return { success: false, message: MESSAGES.PRODUCT.ALREADY_EXISTS };
     }
 
     // Validate variants
     if (!Array.isArray(variants) || variants.length === 0) {
-      return { success: false, message: 'At least one variant is required' };
+      return { success: false, message: MESSAGES.PRODUCT.VARIANT_REQUIRED };
     }
 
     for (let i = 0; i < variants.length; i++) {
@@ -299,7 +300,7 @@ export const createProductService = async (productData) => {
     };
   } catch (error) {
     console.error('Create product service error:', error);
-    return { success: false, message: 'Failed to create product' };
+    return { success: false, message: MESSAGES.PRODUCT.CREATE_FAILED };
   }
 };
 
@@ -308,7 +309,7 @@ export const updateProductService = async (productId, updateData) => {
   try {
     const product = await Product.findById(productId);
     if (!product || product.isDeleted) {
-      return { success: false, message: 'Product not found' };
+      return { success: false, message: MESSAGES.PRODUCT.NOT_FOUND };
     }
 
     // Update product fields
@@ -325,10 +326,10 @@ export const updateProductService = async (productId, updateData) => {
       await Product.findByIdAndUpdate(productId, updates);
     }
 
-    return { success: true, message: 'Product updated successfully' };
+    return { success: true, message: MESSAGES.PRODUCT.UPDATE_SUCCESS };
   } catch (error) {
     console.error('Update product service error:', error);
-    return { success: false, message: 'Failed to update product' };
+    return { success: false, message: MESSAGES.PRODUCT.UPDATE_FAILED };
   }
 };
 
@@ -337,17 +338,17 @@ export const deleteProductService = async (productId) => {
   try {
     const product = await Product.findById(productId);
     if (!product || product.isDeleted) {
-      return { success: false, message: 'Product not found' };
+      return { success: false, message: MESSAGES.PRODUCT.NOT_FOUND };
     }
 
     // Soft delete product and its variants
     await Product.findByIdAndUpdate(productId, { isDeleted: true, isActive: false });
     await Variant.updateMany({ product: productId }, { isDeleted: true, isActive: false });
 
-    return { success: true, message: 'Product deleted successfully' };
+    return { success: true, message: MESSAGES.PRODUCT.DELETE_SUCCESS };
   } catch (error) {
     console.error('Delete product service error:', error);
-    return { success: false, message: 'Failed to delete product' };
+    return { success: false, message: MESSAGES.PRODUCT.DELETE_FAILED };
   }
 };
 
@@ -356,7 +357,7 @@ export const toggleProductStatusService = async (productId) => {
   try {
     const product = await Product.findById(productId);
     if (!product || product.isDeleted) {
-      return { success: false, message: 'Product not found' };
+      return { success: false, message: MESSAGES.PRODUCT.NOT_FOUND };
     }
 
     const newStatus = !product.isActive;
@@ -369,7 +370,7 @@ export const toggleProductStatusService = async (productId) => {
     };
   } catch (error) {
     console.error('Toggle product status service error:', error);
-    return { success: false, message: 'Failed to update product status' };
+    return { success: false, message: MESSAGES.PRODUCT.STATUS_FAILED };
   }
 };
 
@@ -386,7 +387,7 @@ export const getProductVariantsService = async (productId, isAdmin = false) => {
     return { success: true, variants };
   } catch (error) {
     console.error('Get product variants service error:', error);
-    return { success: false, message: 'Failed to fetch variants' };
+    return { success: false, message: MESSAGES.PRODUCT.VARIANTS_FAILED };
   }
 };
 
@@ -436,6 +437,6 @@ export const checkProductAvailabilityService = async (productId, variantId = nul
     return { success: true, available: true, variantCount: availableVariants.length };
   } catch (error) {
     console.error('Check product availability service error:', error);
-    return { success: false, message: 'Failed to check availability' };
+    return { success: false, message: MESSAGES.PRODUCT.AVAILABILITY_FAILED };
   }
 };

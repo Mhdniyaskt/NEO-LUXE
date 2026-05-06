@@ -13,6 +13,8 @@ import { checkUser } from "./middleware/auth.middleware.js";
 import methodOverride from "method-override";
 import Cart from "./models/cart.model.js";
 import Wishlist from "./models/wishlist.model.js";
+import { HTTP_STATUS } from "./constants/http-status.constant.js";
+import { MESSAGES } from "./constants/messages.constant.js";
 
 dotenv.config();
 
@@ -95,28 +97,28 @@ app.use((err, req, res, next) => {
 
   // Multer / file upload errors
   if (err.code === "LIMIT_FILE_SIZE") {
-    return res.status(400).json({ success: false, message: "File too large. Maximum size is 2MB per image." });
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: MESSAGES.UPLOAD.FILE_TOO_LARGE });
   }
   if (err.message === "Only image files allowed") {
-    return res.status(400).json({ success: false, message: "Only image files (jpg, png, webp) are allowed." });
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: MESSAGES.UPLOAD.ONLY_IMAGES });
   }
 
   // Cloudinary / network errors during upload
-  if (err.http_code || err.name === "Error" && err.message?.includes("cloudinary")) {
-    return res.status(502).json({ success: false, message: "Image upload failed. Please check your connection and try again." });
+  if (err.http_code || (err.name === "Error" && err.message?.includes("cloudinary"))) {
+    return res.status(HTTP_STATUS.BAD_GATEWAY).json({ success: false, message: MESSAGES.UPLOAD.CLOUDINARY_FAILED });
   }
 
   // Mongoose validation errors
   if (err.name === "ValidationError") {
     const messages = Object.values(err.errors).map(e => e.message).join(", ");
-    return res.status(400).json({ success: false, message: messages });
+    return res.status(HTTP_STATUS.BAD_REQUEST).json({ success: false, message: messages });
   }
 
   // Default
-  const status = err.statusCode || 500;
+  const status = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR;
   res.status(status).json({
     success: false,
-    message: err.isOperational ? err.message : "Something went wrong. Please try again.",
+    message: err.isOperational ? err.message : MESSAGES.GENERIC.SOMETHING_WENT_WRONG,
   });
 });
 

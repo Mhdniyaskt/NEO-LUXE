@@ -1,5 +1,6 @@
 import Category from '../models/category.model.js';
 import Product from '../models/product.model.js';
+import { MESSAGES } from '../constants/messages.constant.js';
 
 // ─── Get all categories with filtering ───────────────────────────────────────
 export const getCategoriesService = async (filters = {}) => {
@@ -63,7 +64,7 @@ export const getCategoriesService = async (filters = {}) => {
     };
   } catch (error) {
     console.error('Get categories service error:', error);
-    return { success: false, message: 'Failed to fetch categories' };
+    return { success: false, message: MESSAGES.CATEGORY.FETCH_FAILED };
   }
 };
 
@@ -73,11 +74,11 @@ export const getCategoryByIdService = async (categoryId, isAdmin = false) => {
     const category = await Category.findById(categoryId).lean();
     
     if (!category) {
-      return { success: false, message: 'Category not found' };
+      return { success: false, message: MESSAGES.CATEGORY.NOT_FOUND };
     }
 
     if (!isAdmin && !category.isListed) {
-      return { success: false, message: 'Category not available' };
+      return { success: false, message: MESSAGES.CATEGORY.NOT_AVAILABLE };
     }
 
     // Get product count
@@ -92,7 +93,7 @@ export const getCategoryByIdService = async (categoryId, isAdmin = false) => {
     return { success: true, category };
   } catch (error) {
     console.error('Get category by ID service error:', error);
-    return { success: false, message: 'Failed to fetch category' };
+    return { success: false, message: MESSAGES.CATEGORY.FETCH_ONE_FAILED };
   }
 };
 
@@ -103,7 +104,7 @@ export const createCategoryService = async (categoryData) => {
 
     // Validation
     if (!name || !name.trim()) {
-      return { success: false, message: 'Category name is required' };
+      return { success: false, message: MESSAGES.CATEGORY.NAME_REQUIRED };
     }
 
     // Check if category name already exists
@@ -112,7 +113,7 @@ export const createCategoryService = async (categoryData) => {
     });
 
     if (existingCategory) {
-      return { success: false, message: 'Category with this name already exists' };
+      return { success: false, message: MESSAGES.CATEGORY.ALREADY_EXISTS };
     }
 
     // Create category
@@ -131,7 +132,7 @@ export const createCategoryService = async (categoryData) => {
     };
   } catch (error) {
     console.error('Create category service error:', error);
-    return { success: false, message: 'Failed to create category' };
+    return { success: false, message: MESSAGES.CATEGORY.CREATE_FAILED };
   }
 };
 
@@ -140,7 +141,7 @@ export const updateCategoryService = async (categoryId, updateData) => {
   try {
     const category = await Category.findById(categoryId);
     if (!category) {
-      return { success: false, message: 'Category not found' };
+      return { success: false, message: MESSAGES.CATEGORY.NOT_FOUND };
     }
 
     const { name, description, isListed } = updateData;
@@ -148,7 +149,7 @@ export const updateCategoryService = async (categoryId, updateData) => {
     // Validate name if provided
     if (name !== undefined) {
       if (!name || !name.trim()) {
-        return { success: false, message: 'Category name cannot be empty' };
+        return { success: false, message: MESSAGES.CATEGORY.NAME_EMPTY };
       }
 
       // Check if name already exists (excluding current category)
@@ -158,7 +159,7 @@ export const updateCategoryService = async (categoryId, updateData) => {
       });
 
       if (existingCategory) {
-        return { success: false, message: 'Category with this name already exists' };
+        return { success: false, message: MESSAGES.CATEGORY.ALREADY_EXISTS };
       }
     }
 
@@ -181,7 +182,7 @@ export const updateCategoryService = async (categoryId, updateData) => {
     };
   } catch (error) {
     console.error('Update category service error:', error);
-    return { success: false, message: 'Failed to update category' };
+    return { success: false, message: MESSAGES.CATEGORY.UPDATE_FAILED };
   }
 };
 
@@ -190,7 +191,7 @@ export const deleteCategoryService = async (categoryId) => {
   try {
     const category = await Category.findById(categoryId);
     if (!category) {
-      return { success: false, message: 'Category not found' };
+      return { success: false, message: MESSAGES.CATEGORY.NOT_FOUND };
     }
 
     // Check if category has products
@@ -208,10 +209,10 @@ export const deleteCategoryService = async (categoryId) => {
 
     await Category.findByIdAndDelete(categoryId);
 
-    return { success: true, message: 'Category deleted successfully' };
+    return { success: true, message: MESSAGES.CATEGORY.DELETE_SUCCESS };
   } catch (error) {
     console.error('Delete category service error:', error);
-    return { success: false, message: 'Failed to delete category' };
+    return { success: false, message: MESSAGES.CATEGORY.DELETE_FAILED };
   }
 };
 
@@ -220,7 +221,7 @@ export const toggleCategoryStatusService = async (categoryId) => {
   try {
     const category = await Category.findById(categoryId);
     if (!category) {
-      return { success: false, message: 'Category not found' };
+      return { success: false, message: MESSAGES.CATEGORY.NOT_FOUND };
     }
 
     const newStatus = !category.isListed;
@@ -243,7 +244,7 @@ export const toggleCategoryStatusService = async (categoryId) => {
     };
   } catch (error) {
     console.error('Toggle category status service error:', error);
-    return { success: false, message: 'Failed to update category status' };
+    return { success: false, message: MESSAGES.CATEGORY.STATUS_FAILED };
   }
 };
 
@@ -305,7 +306,7 @@ export const getCategoryStatsService = async () => {
     };
   } catch (error) {
     console.error('Get category stats service error:', error);
-    return { success: false, message: 'Failed to fetch category statistics' };
+    return { success: false, message: MESSAGES.CATEGORY.STATS_FAILED };
   }
 };
 
@@ -322,6 +323,6 @@ export const getCategoriesForSelectService = async (isAdmin = false) => {
     return { success: true, categories };
   } catch (error) {
     console.error('Get categories for select service error:', error);
-    return { success: false, message: 'Failed to fetch categories' };
+    return { success: false, message: MESSAGES.CATEGORY.FETCH_FAILED };
   }
 };

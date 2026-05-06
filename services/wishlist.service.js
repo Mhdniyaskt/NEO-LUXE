@@ -2,6 +2,7 @@ import Wishlist from '../models/wishlist.model.js';
 import Product from '../models/product.model.js';
 import Variant from '../models/variant.model.js';
 import Cart from '../models/cart.model.js';
+import { MESSAGES } from '../constants/messages.constant.js';
 
 // ─── Get user wishlist with product details ──────────────────────────────────
 export const getWishlistService = async (userId, page = 1, limit = 12) => {
@@ -89,7 +90,7 @@ export const getWishlistService = async (userId, page = 1, limit = 12) => {
     };
   } catch (error) {
     console.error('Get wishlist service error:', error);
-    return { success: false, message: 'Failed to fetch wishlist' };
+    return { success: false, message: MESSAGES.WISHLIST.FETCH_FAILED };
   }
 };
 
@@ -99,16 +100,16 @@ export const addToWishlistService = async (userId, productId, variantId) => {
     // Validate product and variant
     const product = await Product.findById(productId).populate('category');
     if (!product || product.isDeleted || !product.isActive) {
-      return { success: false, message: 'Product is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.NOT_AVAILABLE };
     }
 
     const variant = await Variant.findById(variantId);
     if (!variant || variant.isDeleted || !variant.isActive) {
-      return { success: false, message: 'Selected variant is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.VARIANT_UNAVAILABLE };
     }
 
     if (!product.category || !product.category.isListed) {
-      return { success: false, message: 'Product category is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE };
     }
 
     // Get or create wishlist
@@ -123,7 +124,7 @@ export const addToWishlistService = async (userId, productId, variantId) => {
     );
 
     if (existingItem) {
-      return { success: false, message: 'Item already in wishlist' };
+      return { success: false, message: MESSAGES.WISHLIST.ALREADY_EXISTS };
     }
 
     // Add item to wishlist
@@ -135,10 +136,10 @@ export const addToWishlistService = async (userId, productId, variantId) => {
 
     await wishlist.save();
 
-    return { success: true, message: 'Item added to wishlist' };
+    return { success: true, message: MESSAGES.WISHLIST.ITEM_ADDED };
   } catch (error) {
     console.error('Add to wishlist service error:', error);
-    return { success: false, message: 'Failed to add item to wishlist' };
+    return { success: false, message: MESSAGES.WISHLIST.ITEM_ADD_FAILED };
   }
 };
 
@@ -147,7 +148,7 @@ export const removeFromWishlistService = async (userId, productId, variantId) =>
   try {
     const wishlist = await Wishlist.findOne({ user: userId });
     if (!wishlist) {
-      return { success: false, message: 'Wishlist not found' };
+      return { success: false, message: MESSAGES.WISHLIST.NOT_FOUND };
     }
 
     const itemIndex = wishlist.items.findIndex(item => 
@@ -155,16 +156,16 @@ export const removeFromWishlistService = async (userId, productId, variantId) =>
     );
 
     if (itemIndex === -1) {
-      return { success: false, message: 'Item not found in wishlist' };
+      return { success: false, message: MESSAGES.WISHLIST.ITEM_NOT_FOUND };
     }
 
     wishlist.items.splice(itemIndex, 1);
     await wishlist.save();
 
-    return { success: true, message: 'Item removed from wishlist' };
+    return { success: true, message: MESSAGES.WISHLIST.ITEM_REMOVED };
   } catch (error) {
     console.error('Remove from wishlist service error:', error);
-    return { success: false, message: 'Failed to remove item from wishlist' };
+    return { success: false, message: MESSAGES.WISHLIST.ITEM_REMOVE_FAILED };
   }
 };
 
@@ -186,18 +187,18 @@ export const toggleWishlistService = async (userId, productId, variantId) => {
       // Remove from wishlist
       wishlist.items.splice(itemIndex, 1);
       await wishlist.save();
-      return { success: true, message: 'Item removed from wishlist', action: 'removed' };
+      return { success: true, message: MESSAGES.WISHLIST.ITEM_REMOVED, action: 'removed' };
     } else {
       // Add to wishlist
       const result = await addToWishlistService(userId, productId, variantId);
       if (result.success) {
-        return { success: true, message: 'Item added to wishlist', action: 'added' };
+        return { success: true, message: MESSAGES.WISHLIST.ITEM_ADDED, action: 'added' };
       }
       return result;
     }
   } catch (error) {
     console.error('Toggle wishlist service error:', error);
-    return { success: false, message: 'Failed to update wishlist' };
+    return { success: false, message: MESSAGES.WISHLIST.UPDATE_FAILED };
   }
 };
 
@@ -207,20 +208,20 @@ export const moveToCartService = async (userId, productId, variantId, quantity =
     // Validate product and variant availability
     const product = await Product.findById(productId).populate('category');
     if (!product || product.isDeleted || !product.isActive) {
-      return { success: false, message: 'Product is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.NOT_AVAILABLE };
     }
 
     const variant = await Variant.findById(variantId);
     if (!variant || variant.isDeleted || !variant.isActive) {
-      return { success: false, message: 'Selected variant is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.VARIANT_UNAVAILABLE };
     }
 
     if (!product.category || !product.category.isListed) {
-      return { success: false, message: 'Product category is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE };
     }
 
     if (variant.stock === 0) {
-      return { success: false, message: 'Product is out of stock' };
+      return { success: false, message: MESSAGES.PRODUCT.OUT_OF_STOCK };
     }
 
     if (quantity > variant.stock) {
@@ -269,10 +270,10 @@ export const moveToCartService = async (userId, productId, variantId, quantity =
       }
     }
 
-    return { success: true, message: 'Item moved to cart successfully' };
+    return { success: true, message: MESSAGES.WISHLIST.MOVED_TO_CART };
   } catch (error) {
     console.error('Move to cart service error:', error);
-    return { success: false, message: 'Failed to move item to cart' };
+    return { success: false, message: MESSAGES.WISHLIST.MOVE_FAILED };
   }
 };
 
@@ -291,7 +292,7 @@ export const checkWishlistService = async (userId, productId, variantId) => {
     return { success: true, inWishlist: isInWishlist };
   } catch (error) {
     console.error('Check wishlist service error:', error);
-    return { success: false, message: 'Failed to check wishlist status' };
+    return { success: false, message: MESSAGES.WISHLIST.CHECK_FAILED };
   }
 };
 
@@ -304,10 +305,10 @@ export const clearWishlistService = async (userId) => {
       { upsert: true }
     );
 
-    return { success: true, message: 'Wishlist cleared successfully' };
+    return { success: true, message: MESSAGES.WISHLIST.CLEARED };
   } catch (error) {
     console.error('Clear wishlist service error:', error);
-    return { success: false, message: 'Failed to clear wishlist' };
+    return { success: false, message: MESSAGES.WISHLIST.CLEAR_FAILED };
   }
 };
 
@@ -320,6 +321,6 @@ export const getWishlistCountService = async (userId) => {
     return { success: true, count };
   } catch (error) {
     console.error('Get wishlist count service error:', error);
-    return { success: false, message: 'Failed to get wishlist count' };
+    return { success: false, message: MESSAGES.WISHLIST.COUNT_FAILED };
   }
 };

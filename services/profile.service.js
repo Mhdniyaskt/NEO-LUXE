@@ -1,6 +1,7 @@
 import User from '../models/user.model.js';
 import bcrypt from 'bcrypt';
 import { v2 as cloudinary } from 'cloudinary';
+import { MESSAGES } from '../constants/messages.constant.js';
 
 // ─── Get user profile ─────────────────────────────────────────────────────────
 export const getUserProfileService = async (userId) => {
@@ -10,13 +11,13 @@ export const getUserProfileService = async (userId) => {
       .lean();
 
     if (!user) {
-      return { success: false, message: 'User not found' };
+      return { success: false, message: MESSAGES.USER.NOT_FOUND };
     }
 
     return { success: true, user };
   } catch (error) {
     console.error('Get user profile service error:', error);
-    return { success: false, message: 'Failed to fetch user profile' };
+    return { success: false, message: MESSAGES.USER.FETCH_FAILED };
   }
 };
 
@@ -30,24 +31,24 @@ export const updateUserProfileService = async (userId, updateData) => {
 
     if (name !== undefined) {
       if (!name || !name.trim()) {
-        return { success: false, message: 'Name cannot be empty' };
+        return { success: false, message: MESSAGES.VALIDATION.NAME_REQUIRED };
       }
       if (!/^[A-Za-z ]+$/.test(name.trim())) {
-        return { success: false, message: 'Name can only contain letters and spaces' };
+        return { success: false, message: MESSAGES.VALIDATION.NAME_LETTERS_SPACES };
       }
       if (name.trim().length < 2 || name.trim().length > 50) {
-        return { success: false, message: 'Name must be between 2 and 50 characters' };
+        return { success: false, message: MESSAGES.VALIDATION.NAME_LENGTH_PROFILE };
       }
       updates.name = name.trim();
     }
 
     if (phoneNumber !== undefined) {
       if (!phoneNumber || !phoneNumber.trim()) {
-        return { success: false, message: 'Phone number cannot be empty' };
+        return { success: false, message: MESSAGES.VALIDATION.PHONE_REQUIRED };
       }
       const phoneRegex = /^[6-9]\d{9}$/;
       if (!phoneRegex.test(phoneNumber.trim())) {
-        return { success: false, message: 'Please enter a valid 10-digit phone number' };
+        return { success: false, message: MESSAGES.VALIDATION.PHONE_INVALID_10 };
       }
       
       // Check if phone number already exists (excluding current user)
@@ -56,7 +57,7 @@ export const updateUserProfileService = async (userId, updateData) => {
         _id: { $ne: userId }
       });
       if (existingUser) {
-        return { success: false, message: 'Phone number already registered with another account' };
+        return { success: false, message: MESSAGES.VALIDATION.PHONE_ALREADY_EXISTS };
       }
       
       updates.phoneNumber = phoneNumber.trim();
@@ -66,7 +67,7 @@ export const updateUserProfileService = async (userId, updateData) => {
       if (dateOfBirth) {
         const dob = new Date(dateOfBirth);
         if (isNaN(dob.getTime())) {
-          return { success: false, message: 'Invalid date of birth' };
+          return { success: false, message: MESSAGES.VALIDATION.DOB_INVALID };
         }
         
         // Check if user is at least 13 years old
@@ -78,7 +79,7 @@ export const updateUserProfileService = async (userId, updateData) => {
         }
         
         if (age < 13) {
-          return { success: false, message: 'You must be at least 13 years old' };
+          return { success: false, message: MESSAGES.VALIDATION.AGE_MINIMUM };
         }
         
         updates.dateOfBirth = dob;
@@ -89,13 +90,13 @@ export const updateUserProfileService = async (userId, updateData) => {
 
     if (gender !== undefined) {
       if (gender && !['male', 'female', 'other'].includes(gender.toLowerCase())) {
-        return { success: false, message: 'Invalid gender selection' };
+        return { success: false, message: MESSAGES.VALIDATION.GENDER_INVALID };
       }
       updates.gender = gender ? gender.toLowerCase() : null;
     }
 
     if (Object.keys(updates).length === 0) {
-      return { success: false, message: 'No valid fields to update' };
+      return { success: false, message: MESSAGES.GENERIC.NO_FIELDS_TO_UPDATE };
     }
 
     const updatedUser = await User.findByIdAndUpdate(
@@ -105,7 +106,7 @@ export const updateUserProfileService = async (userId, updateData) => {
     ).select('-password -refreshToken');
 
     if (!updatedUser) {
-      return { success: false, message: 'User not found' };
+      return { success: false, message: MESSAGES.USER.NOT_FOUND };
     }
 
     return {
@@ -115,7 +116,7 @@ export const updateUserProfileService = async (userId, updateData) => {
     };
   } catch (error) {
     console.error('Update user profile service error:', error);
-    return { success: false, message: 'Failed to update profile' };
+    return { success: false, message: MESSAGES.USER.PROFILE_UPDATE_FAILED };
   }
 };
 
@@ -123,13 +124,13 @@ export const updateUserProfileService = async (userId, updateData) => {
 export const uploadProfilePhotoService = async (userId, imageFile) => {
   try {
     if (!imageFile) {
-      return { success: false, message: 'No image file provided' };
+      return { success: false, message: MESSAGES.USER.PHOTO_REQUIRED };
     }
 
     // Get current user to check for existing profile photo
     const user = await User.findById(userId);
     if (!user) {
-      return { success: false, message: 'User not found' };
+      return { success: false, message: MESSAGES.USER.NOT_FOUND };
     }
 
     // Delete old profile photo from Cloudinary if exists
@@ -169,7 +170,7 @@ export const uploadProfilePhotoService = async (userId, imageFile) => {
     };
   } catch (error) {
     console.error('Upload profile photo service error:', error);
-    return { success: false, message: 'Failed to upload profile photo' };
+    return { success: false, message: MESSAGES.USER.PHOTO_UPLOAD_FAILED };
   }
 };
 
@@ -178,7 +179,7 @@ export const removeProfilePhotoService = async (userId) => {
   try {
     const user = await User.findById(userId);
     if (!user) {
-      return { success: false, message: 'User not found' };
+      return { success: false, message: MESSAGES.USER.NOT_FOUND };
     }
 
     // Delete photo from Cloudinary if exists
@@ -196,10 +197,10 @@ export const removeProfilePhotoService = async (userId) => {
       { $unset: { profilePhoto: 1 } }
     );
 
-    return { success: true, message: 'Profile photo removed successfully' };
+    return { success: true, message: MESSAGES.USER.PHOTO_REMOVED };
   } catch (error) {
     console.error('Remove profile photo service error:', error);
-    return { success: false, message: 'Failed to remove profile photo' };
+    return { success: false, message: MESSAGES.USER.PHOTO_REMOVE_FAILED };
   }
 };
 
@@ -210,15 +211,15 @@ export const changePasswordService = async (userId, passwordData) => {
 
     // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
-      return { success: false, message: 'All password fields are required' };
+      return { success: false, message: MESSAGES.GENERIC.ALL_FIELDS_REQUIRED };
     }
 
     if (newPassword !== confirmPassword) {
-      return { success: false, message: 'New passwords do not match' };
+      return { success: false, message: MESSAGES.AUTH.PASSWORD_MISMATCH };
     }
 
     if (newPassword.length < 8) {
-      return { success: false, message: 'New password must be at least 8 characters long' };
+      return { success: false, message: MESSAGES.AUTH.PASSWORD_MIN_LENGTH_LONG };
     }
 
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/;
@@ -236,13 +237,13 @@ export const changePasswordService = async (userId, passwordData) => {
     // Get user with password
     const user = await User.findById(userId);
     if (!user) {
-      return { success: false, message: 'User not found' };
+      return { success: false, message: MESSAGES.USER.NOT_FOUND };
     }
 
     // Verify current password
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
     if (!isCurrentPasswordValid) {
-      return { success: false, message: 'Current password is incorrect' };
+      return { success: false, message: MESSAGES.USER.CURRENT_PASSWORD_WRONG };
     }
 
     // Hash new password
@@ -252,10 +253,10 @@ export const changePasswordService = async (userId, passwordData) => {
     // Update password
     await User.findByIdAndUpdate(userId, { password: hashedNewPassword });
 
-    return { success: true, message: 'Password changed successfully' };
+    return { success: true, message: MESSAGES.USER.PASSWORD_CHANGED };
   } catch (error) {
     console.error('Change password service error:', error);
-    return { success: false, message: 'Failed to change password' };
+    return { success: false, message: MESSAGES.USER.PASSWORD_CHANGE_FAILED };
   }
 };
 
@@ -280,17 +281,17 @@ export const initiateEmailChangeService = async (userId, newEmail) => {
       _id: { $ne: userId }
     });
     if (existingUser) {
-      return { success: false, message: 'Email already registered with another account' };
+      return { success: false, message: MESSAGES.USER.EMAIL_ALREADY_EXISTS };
     }
 
     // Get current user
     const user = await User.findById(userId);
     if (!user) {
-      return { success: false, message: 'User not found' };
+      return { success: false, message: MESSAGES.USER.NOT_FOUND };
     }
 
     if (user.email === email) {
-      return { success: false, message: 'New email must be different from current email' };
+      return { success: false, message: MESSAGES.USER.EMAIL_SAME_AS_CURRENT };
     }
 
     // Store pending email change (you might want to implement OTP verification here)
@@ -306,7 +307,7 @@ export const initiateEmailChangeService = async (userId, newEmail) => {
     };
   } catch (error) {
     console.error('Initiate email change service error:', error);
-    return { success: false, message: 'Failed to initiate email change' };
+    return { success: false, message: MESSAGES.USER.EMAIL_CHANGE_FAILED };
   }
 };
 
@@ -316,11 +317,11 @@ export const confirmEmailChangeService = async (userId, verificationCode) => {
     // This is a placeholder - implement actual OTP verification logic
     const user = await User.findById(userId);
     if (!user) {
-      return { success: false, message: 'User not found' };
+      return { success: false, message: MESSAGES.USER.NOT_FOUND };
     }
 
     if (!user.pendingEmailChange) {
-      return { success: false, message: 'No pending email change request' };
+      return { success: false, message: MESSAGES.USER.EMAIL_NO_PENDING };
     }
 
     // Verify code (implement your OTP verification logic here)
@@ -346,7 +347,7 @@ export const confirmEmailChangeService = async (userId, verificationCode) => {
     };
   } catch (error) {
     console.error('Confirm email change service error:', error);
-    return { success: false, message: 'Failed to confirm email change' };
+    return { success: false, message: MESSAGES.USER.EMAIL_CHANGE_CONFIRM_FAILED };
   }
 };
 
@@ -360,7 +361,7 @@ export const getUserStatsService = async (userId) => {
       .lean();
 
     if (!user) {
-      return { success: false, message: 'User not found' };
+      return { success: false, message: MESSAGES.USER.NOT_FOUND };
     }
 
     // You can add more statistics here like:
@@ -379,6 +380,6 @@ export const getUserStatsService = async (userId) => {
     };
   } catch (error) {
     console.error('Get user stats service error:', error);
-    return { success: false, message: 'Failed to fetch user statistics' };
+    return { success: false, message: MESSAGES.USER.STATS_FAILED };
   }
 };

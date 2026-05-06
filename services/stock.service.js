@@ -1,6 +1,7 @@
 import Product from '../models/product.model.js';
 import Variant from '../models/variant.model.js';
 import mongoose from 'mongoose';
+import { MESSAGES } from '../constants/messages.constant.js';
 
 // ─── Get stock overview with filtering ───────────────────────────────────────
 export const getStockOverviewService = async (filters = {}) => {
@@ -133,7 +134,7 @@ export const getStockOverviewService = async (filters = {}) => {
     };
   } catch (error) {
     console.error('Get stock overview service error:', error);
-    return { success: false, message: 'Failed to fetch stock overview' };
+    return { success: false, message: MESSAGES.STOCK.FETCH_FAILED };
   }
 };
 
@@ -141,12 +142,12 @@ export const getStockOverviewService = async (filters = {}) => {
 export const updateVariantStockService = async (variantId, newStock, reason = '') => {
   try {
     if (newStock < 0) {
-      return { success: false, message: 'Stock cannot be negative' };
+      return { success: false, message: MESSAGES.STOCK.NEGATIVE };
     }
 
     const variant = await Variant.findById(variantId);
     if (!variant || variant.isDeleted) {
-      return { success: false, message: 'Variant not found' };
+      return { success: false, message: MESSAGES.STOCK.VARIANT_NOT_FOUND };
     }
 
     const oldStock = variant.stock;
@@ -175,7 +176,7 @@ export const updateVariantStockService = async (variantId, newStock, reason = ''
     };
   } catch (error) {
     console.error('Update variant stock service error:', error);
-    return { success: false, message: 'Failed to update stock' };
+    return { success: false, message: MESSAGES.STOCK.UPDATE_FAILED };
   }
 };
 
@@ -186,7 +187,7 @@ export const bulkUpdateStockService = async (updates) => {
 
   try {
     if (!Array.isArray(updates) || updates.length === 0) {
-      throw new Error('Updates array is required');
+      throw new Error(MESSAGES.STOCK.UPDATES_REQUIRED);
     }
 
     const results = [];
@@ -198,7 +199,7 @@ export const bulkUpdateStockService = async (updates) => {
         results.push({
           variantId,
           success: false,
-          message: 'Variant ID and stock are required'
+          message: MESSAGES.STOCK.VARIANT_ID_REQUIRED
         });
         continue;
       }
@@ -207,7 +208,7 @@ export const bulkUpdateStockService = async (updates) => {
         results.push({
           variantId,
           success: false,
-          message: 'Stock cannot be negative'
+          message: MESSAGES.STOCK.NEGATIVE
         });
         continue;
       }
@@ -217,7 +218,7 @@ export const bulkUpdateStockService = async (updates) => {
         results.push({
           variantId,
           success: false,
-          message: 'Variant not found'
+          message: MESSAGES.STOCK.VARIANT_NOT_FOUND
         });
         continue;
       }
@@ -249,7 +250,7 @@ export const bulkUpdateStockService = async (updates) => {
   } catch (error) {
     await session.abortTransaction();
     console.error('Bulk update stock service error:', error);
-    return { success: false, message: error.message || 'Failed to bulk update stock' };
+    return { success: false, message: error.message || MESSAGES.STOCK.BULK_UPDATE_FAILED };
   } finally {
     session.endSession();
   }
@@ -291,7 +292,7 @@ export const getLowStockAlertsService = async (threshold = 5) => {
     };
   } catch (error) {
     console.error('Get low stock alerts service error:', error);
-    return { success: false, message: 'Failed to fetch low stock alerts' };
+    return { success: false, message: MESSAGES.STOCK.ALERTS_FAILED };
   }
 };
 
@@ -328,7 +329,7 @@ export const getOutOfStockService = async () => {
     };
   } catch (error) {
     console.error('Get out of stock service error:', error);
-    return { success: false, message: 'Failed to fetch out of stock items' };
+    return { success: false, message: MESSAGES.STOCK.OUT_OF_STOCK_FAILED };
   }
 };
 
@@ -424,6 +425,6 @@ export const getStockStatsService = async () => {
     };
   } catch (error) {
     console.error('Get stock stats service error:', error);
-    return { success: false, message: 'Failed to fetch stock statistics' };
+    return { success: false, message: MESSAGES.STOCK.STATS_FAILED };
   }
 };

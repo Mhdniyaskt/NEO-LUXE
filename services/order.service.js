@@ -4,6 +4,7 @@ import User from '../models/user.model.js';
 import Variant from '../models/variant.model.js';
 import Product from '../models/product.model.js';
 import Cart from '../models/cart.model.js';
+import { MESSAGES } from '../constants/messages.constant.js';
 
 // ─── Helper: Calculate order totals ──────────────────────────────────────────
 function calculateOrderTotals(items) {
@@ -93,17 +94,16 @@ export const createOrderService = async (orderData) => {
     // Validate user
     const user = await User.findById(userId);
     if (!user) {
-      throw new Error('User not found');
+      throw new Error(MESSAGES.ORDER.USER_NOT_FOUND);
     }
 
-    // Validate and prepare order items
     const { validItems, errors } = await validateOrderItems(items);
     if (errors.length > 0) {
-      throw new Error(`Order validation failed: ${errors.join(', ')}`);
+      throw new Error(`${MESSAGES.ORDER.VALIDATION_FAILED}: ${errors.join(', ')}`);
     }
 
     if (validItems.length === 0) {
-      throw new Error('No valid items in order');
+      throw new Error(MESSAGES.ORDER.NO_VALID_ITEMS);
     }
 
     // Calculate totals
@@ -157,7 +157,7 @@ export const createOrderService = async (orderData) => {
 
     return {
       success: true,
-      message: 'Order created successfully',
+      message: MESSAGES.ORDER.CREATE_SUCCESS,
       order: {
         _id: order._id,
         orderNumber: order._id.toString().slice(-8).toUpperCase(),
@@ -169,7 +169,7 @@ export const createOrderService = async (orderData) => {
   } catch (error) {
     await session.abortTransaction();
     console.error('Create order service error:', error);
-    return { success: false, message: error.message || 'Failed to create order' };
+    return { success: false, message: error.message || MESSAGES.ORDER.CREATE_FAILED };
   } finally {
     session.endSession();
   }
@@ -282,7 +282,7 @@ export const getOrdersService = async (filters = {}) => {
     };
   } catch (error) {
     console.error('Get orders service error:', error);
-    return { success: false, message: 'Failed to fetch orders' };
+    return { success: false, message: MESSAGES.ORDER.FETCH_FAILED };
   }
 };
 
@@ -308,16 +308,14 @@ export const getOrderByIdService = async (orderId, userId = null, isAdmin = fals
       .lean();
 
     if (!order) {
-      return { success: false, message: 'Order not found' };
+      return { success: false, message: MESSAGES.ORDER.NOT_FOUND };
     }
 
-    // Add order number
     order.orderNumber = order._id.toString().slice(-8).toUpperCase();
-
     return { success: true, order };
   } catch (error) {
     console.error('Get order by ID service error:', error);
-    return { success: false, message: 'Failed to fetch order' };
+    return { success: false, message: MESSAGES.ORDER.FETCH_ONE_FAILED };
   }
 };
 
@@ -325,23 +323,22 @@ export const getOrderByIdService = async (orderId, userId = null, isAdmin = fals
 export const updateOrderStatusService = async (orderId, newStatus, isAdmin = false) => {
   try {
     if (!isAdmin) {
-      return { success: false, message: 'Unauthorized to update order status' };
+      return { success: false, message: MESSAGES.ORDER.UNAUTHORIZED_STATUS };
     }
 
     const validStatuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled', 'returned'];
     if (!validStatuses.includes(newStatus)) {
-      return { success: false, message: 'Invalid order status' };
+      return { success: false, message: MESSAGES.ORDER.STATUS_INVALID };
     }
 
     const order = await Order.findById(orderId);
     if (!order) {
-      return { success: false, message: 'Order not found' };
+      return { success: false, message: MESSAGES.ORDER.NOT_FOUND };
     }
 
-    // Check if status transition is valid
     const terminalStatuses = ['delivered', 'cancelled', 'returned'];
     if (terminalStatuses.includes(order.status) && order.status !== newStatus) {
-      return { success: false, message: `Cannot change status from ${order.status}` };
+      return { success: false, message: `${MESSAGES.ORDER.STATUS_TERMINAL} ${order.status}` };
     }
 
     order.status = newStatus;
@@ -357,18 +354,14 @@ export const updateOrderStatusService = async (orderId, newStatus, isAdmin = fal
 
     await order.save();
 
-    return { 
-      success: true, 
-      message: `Order status updated to ${newStatus}`,
-      order: {
-        _id: order._id,
-        status: order.status,
-        updatedAt: order.updatedAt
-      }
+    return {
+      success: true,
+      message: `${MESSAGES.ORDER.STATUS_UPDATED} to ${newStatus}`,
+      order: { _id: order._id, status: order.status, updatedAt: order.updatedAt }
     };
   } catch (error) {
     console.error('Update order status service error:', error);
-    return { success: false, message: 'Failed to update order status' };
+    return { success: false, message: MESSAGES.ORDER.STATUS_UPDATE_FAILED };
   }
 };
 
@@ -385,12 +378,11 @@ export const cancelOrderService = async (orderId, userId = null, reason = '', is
 
     const order = await Order.findOne(filter).session(session);
     if (!order) {
-      throw new Error('Order not found');
+      throw new Error(MESSAGES.ORDER.NOT_FOUND);
     }
 
-    // Check if order can be cancelled
     if (['delivered', 'cancelled', 'returned'].includes(order.status)) {
-      throw new Error(`Cannot cancel order with status: ${order.status}`);
+      throw new Error(`${MESSAGES.ORDER.CANCEL_FORBIDDEN}: ${order.status}`);
     }
 
     // Restore stock for all items
@@ -409,20 +401,15 @@ export const cancelOrderService = async (orderId, userId = null, reason = '', is
     await order.save({ session });
 
     await session.commitTransaction();
-
-    return { 
-      success: true, 
-      message: 'Order cancelled successfully',
-      order: {
-        _id: order._id,
-        status: order.status,
-        cancelledAt: order.cancelledAt
-      }
+    return {
+      success: true,
+      message: MESSAGES.ORDER.CANCEL_SUCCESS,
+      order: { _id: order._id, status: order.status, cancelledAt: order.cancelledAt }
     };
   } catch (error) {
     await session.abortTransaction();
     console.error('Cancel order service error:', error);
-    return { success: false, message: error.message || 'Failed to cancel order' };
+    return { success: false, message: error.message || MESSAGES.ORDER.CANCEL_FAILED };
   } finally {
     session.endSession();
   }
@@ -435,18 +422,18 @@ export const processReturnService = async (orderId, returnData, isAdmin = false)
 
   try {
     if (!isAdmin) {
-      throw new Error('Unauthorized to process returns');
+      throw new Error(MESSAGES.ORDER.UNAUTHORIZED_RETURN);
     }
 
     const { items, reason, refundAmount } = returnData;
 
     const order = await Order.findById(orderId).session(session);
     if (!order) {
-      throw new Error('Order not found');
+      throw new Error(MESSAGES.ORDER.NOT_FOUND);
     }
 
     if (order.status !== 'delivered') {
-      throw new Error('Only delivered orders can be returned');
+      throw new Error(MESSAGES.ORDER.RETURN_ONLY_DELIVERED);
     }
 
     // Process return for specific items or full order
@@ -494,21 +481,15 @@ export const processReturnService = async (orderId, returnData, isAdmin = false)
     await order.save({ session });
 
     await session.commitTransaction();
-
-    return { 
-      success: true, 
-      message: 'Return processed successfully',
-      order: {
-        _id: order._id,
-        status: order.status,
-        refundAmount: order.refundAmount,
-        returnedAt: order.returnedAt
-      }
+    return {
+      success: true,
+      message: MESSAGES.ORDER.RETURN_SUCCESS,
+      order: { _id: order._id, status: order.status, refundAmount: order.refundAmount, returnedAt: order.returnedAt }
     };
   } catch (error) {
     await session.abortTransaction();
     console.error('Process return service error:', error);
-    return { success: false, message: error.message || 'Failed to process return' };
+    return { success: false, message: error.message || MESSAGES.ORDER.RETURN_FAILED };
   } finally {
     session.endSession();
   }
@@ -543,6 +524,6 @@ export const getOrderStatsService = async () => {
     };
   } catch (error) {
     console.error('Get order stats service error:', error);
-    return { success: false, message: 'Failed to fetch order statistics' };
+    return { success: false, message: MESSAGES.ORDER.STATS_FAILED };
   }
 };

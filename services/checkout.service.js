@@ -5,6 +5,7 @@ import Product from '../models/product.model.js';
 import Category from '../models/category.model.js';
 import Address from '../models/address.model.js';
 import Order from '../models/order.model.js';
+import { MESSAGES } from '../constants/messages.constant.js';
 
 const MAX_QTY = 10;
 
@@ -77,16 +78,16 @@ export const getCheckoutDataService = async (userId) => {
       .populate('items.variant');
 
     if (!cart || cart.items.length === 0) {
-      return { success: false, message: 'Cart is empty' };
+      return { success: false, message: MESSAGES.CART.EMPTY };
     }
 
     // Validate cart items
     const { validItems, blockedItems, stockErrors } = await validateCartItems(cart.items);
 
     if (validItems.length === 0) {
-      return { 
-        success: false, 
-        message: 'No valid items in cart',
+      return {
+        success: false,
+        message: MESSAGES.CHECKOUT.CART_UNAVAILABLE,
         blockedItems,
         stockErrors
       };
@@ -134,7 +135,7 @@ export const getCheckoutDataService = async (userId) => {
     };
   } catch (error) {
     console.error('Get checkout data service error:', error);
-    return { success: false, message: 'Failed to prepare checkout data' };
+    return { success: false, message: MESSAGES.CHECKOUT.PREPARE_FAILED };
   }
 };
 
@@ -145,20 +146,20 @@ export const validateBuyNowService = async (productId, variantId, quantity = 1) 
 
     const product = await Product.findById(productId).populate('category');
     if (!product || product.isDeleted || !product.isActive) {
-      return { success: false, message: 'Product is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.NOT_AVAILABLE };
     }
 
     const variant = await Variant.findById(variantId);
     if (!variant || variant.isDeleted || !variant.isActive) {
-      return { success: false, message: 'Selected variant is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.VARIANT_UNAVAILABLE };
     }
 
     if (!product.category || !product.category.isListed) {
-      return { success: false, message: 'Product category is not available' };
+      return { success: false, message: MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE };
     }
 
     if (variant.stock === 0) {
-      return { success: false, message: 'Product is out of stock' };
+      return { success: false, message: MESSAGES.PRODUCT.OUT_OF_STOCK };
     }
 
     if (quantity > variant.stock) {
@@ -199,7 +200,7 @@ export const validateBuyNowService = async (productId, variantId, quantity = 1) 
     };
   } catch (error) {
     console.error('Validate buy now service error:', error);
-    return { success: false, message: 'Failed to validate product for purchase' };
+    return { success: false, message: MESSAGES.CHECKOUT.VALIDATE_FAILED };
   }
 };
 
@@ -220,30 +221,28 @@ export const processCheckoutService = async (checkoutData) => {
     // Validate address
     const address = await Address.findOne({ _id: addressId, userId });
     if (!address) {
-      throw new Error('Invalid shipping address');
+      throw new Error(MESSAGES.CHECKOUT.INVALID_ADDRESS);
     }
 
     let orderItems = [];
 
     if (isBuyNow) {
-      // Buy now - validate single item
       if (!items || items.length !== 1) {
-        throw new Error('Buy now requires exactly one item');
+        throw new Error(MESSAGES.CHECKOUT.BUY_NOW_ONE_ITEM);
       }
 
       const item = items[0];
       const product = await Product.findById(item.productId).populate('category');
       const variant = await Variant.findById(item.variantId);
 
-      // Validate availability
       if (!product || product.isDeleted || !product.isActive) {
-        throw new Error('Product is not available');
+        throw new Error(MESSAGES.PRODUCT.NOT_AVAILABLE);
       }
       if (!variant || variant.isDeleted || !variant.isActive) {
-        throw new Error('Variant is not available');
+        throw new Error(MESSAGES.PRODUCT.VARIANT_UNAVAILABLE);
       }
       if (!product.category || !product.category.isListed) {
-        throw new Error('Product category is not available');
+        throw new Error(MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE);
       }
       if (variant.stock < item.quantity) {
         throw new Error(`Insufficient stock. Available: ${variant.stock}`);
@@ -274,17 +273,17 @@ export const processCheckoutService = async (checkoutData) => {
         .session(session);
 
       if (!cart || cart.items.length === 0) {
-        throw new Error('Cart is empty');
+        throw new Error(MESSAGES.CART.EMPTY);
       }
 
       const { validItems, blockedItems } = await validateCartItems(cart.items);
 
       if (validItems.length === 0) {
-        throw new Error('No valid items in cart');
+        throw new Error(MESSAGES.CHECKOUT.CART_UNAVAILABLE);
       }
 
       if (blockedItems.length > 0) {
-        throw new Error(`Some items are no longer available: ${blockedItems.map(b => b.reason).join(', ')}`);
+        throw new Error(`${MESSAGES.CHECKOUT.ITEMS_UNAVAILABLE}: ${blockedItems.map(b => b.reason).join(', ')}`);
       }
 
       // Prepare order items and deduct stock
@@ -344,10 +343,9 @@ export const processCheckoutService = async (checkoutData) => {
     await order.save({ session });
 
     await session.commitTransaction();
-
     return {
       success: true,
-      message: 'Order placed successfully',
+      message: MESSAGES.ORDER.PLACED_SUCCESS,
       order: {
         _id: order._id,
         orderNumber: order._id.toString().slice(-8).toUpperCase(),
@@ -360,7 +358,7 @@ export const processCheckoutService = async (checkoutData) => {
   } catch (error) {
     await session.abortTransaction();
     console.error('Process checkout service error:', error);
-    return { success: false, message: error.message || 'Failed to process checkout' };
+    return { success: false, message: error.message || MESSAGES.CHECKOUT.PROCESS_FAILED };
   } finally {
     session.endSession();
   }
@@ -372,13 +370,12 @@ export const validateCheckoutService = async (userId, addressId, items = null) =
     // Validate address
     const address = await Address.findOne({ _id: addressId, userId });
     if (!address) {
-      return { success: false, message: 'Invalid shipping address' };
+      return { success: false, message: MESSAGES.CHECKOUT.INVALID_ADDRESS };
     }
 
     if (items) {
-      // Buy now validation
       if (items.length !== 1) {
-        return { success: false, message: 'Buy now requires exactly one item' };
+        return { success: false, message: MESSAGES.CHECKOUT.BUY_NOW_ONE_ITEM };
       }
 
       const item = items[0];
@@ -386,30 +383,29 @@ export const validateCheckoutService = async (userId, addressId, items = null) =
       const variant = await Variant.findById(item.variantId);
 
       if (!product || product.isDeleted || !product.isActive) {
-        return { success: false, message: 'Product is not available' };
+        return { success: false, message: MESSAGES.PRODUCT.NOT_AVAILABLE };
       }
       if (!variant || variant.isDeleted || !variant.isActive) {
-        return { success: false, message: 'Variant is not available' };
+        return { success: false, message: MESSAGES.PRODUCT.VARIANT_UNAVAILABLE };
       }
       if (variant.stock < item.quantity) {
         return { success: false, message: `Insufficient stock. Available: ${variant.stock}` };
       }
     } else {
-      // Cart validation
       const cart = await Cart.findOne({ user: userId })
         .populate({ path: 'items.product', populate: { path: 'category' } })
         .populate('items.variant');
 
       if (!cart || cart.items.length === 0) {
-        return { success: false, message: 'Cart is empty' };
+        return { success: false, message: MESSAGES.CART.EMPTY };
       }
 
       const { validItems, blockedItems } = await validateCartItems(cart.items);
 
       if (validItems.length === 0) {
-        return { 
-          success: false, 
-          message: 'No valid items in cart',
+        return {
+          success: false,
+          message: MESSAGES.CHECKOUT.CART_UNAVAILABLE,
           blockedItems: blockedItems.map(b => b.reason)
         };
       }
@@ -417,15 +413,15 @@ export const validateCheckoutService = async (userId, addressId, items = null) =
       if (blockedItems.length > 0) {
         return {
           success: false,
-          message: 'Some items in your cart are no longer available',
+          message: MESSAGES.CHECKOUT.ITEMS_UNAVAILABLE,
           blockedItems: blockedItems.map(b => b.reason)
         };
       }
     }
 
-    return { success: true, message: 'Checkout validation passed' };
+    return { success: true, message: MESSAGES.CHECKOUT.VALIDATION_PASSED };
   } catch (error) {
     console.error('Validate checkout service error:', error);
-    return { success: false, message: 'Checkout validation failed' };
+    return { success: false, message: MESSAGES.CHECKOUT.VALIDATION_FAILED };
   }
 };

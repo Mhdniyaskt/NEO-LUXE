@@ -1,5 +1,6 @@
 import Address from "../models/address.model.js";
 import User from "../models/user.model.js";
+import { MESSAGES } from "../constants/messages.constant.js";
 
 export const getUserAddressesService = async (userId, page, limit) => {
   try {
@@ -17,7 +18,7 @@ export const getUserAddressesService = async (userId, page, limit) => {
     };
   } catch (error) {
     console.error("Service error (get addresses):", error);
-    return { success: false, message: "Something went wrong" };
+    return { success: false, message: MESSAGES.ADDRESS.SOMETHING_WRONG };
   }
 };
 
@@ -26,9 +27,8 @@ export const addAddressService = async (userId, data) => {
     const { fullName, phone, pincode, streetAddress, city, state, addressType, isDefault } = data;
 
     const hasAddress = await Address.exists({ userId });
-
-    // First address is always default; otherwise respect the isDefault flag
     const makeDefault = !hasAddress || isDefault === "true" || isDefault === true;
+
     if (makeDefault) {
       await Address.updateMany({ userId }, { $set: { isDefault: false } });
     }
@@ -46,10 +46,10 @@ export const addAddressService = async (userId, data) => {
     });
 
     await User.findByIdAndUpdate(userId, { $push: { addresses: address._id } });
-    return { success: true, message: "Address added successfully" };
+    return { success: true, message: MESSAGES.ADDRESS.ADDED };
   } catch (error) {
     console.error("Service error (add address):", error);
-    return { success: false, message: "Something went wrong" };
+    return { success: false, message: MESSAGES.ADDRESS.SOMETHING_WRONG };
   }
 };
 
@@ -69,13 +69,13 @@ export const updateAddressService = async (userId, addressId, data) => {
     );
 
     if (!updated) {
-      return { success: false, message: "Address update failed" };
+      return { success: false, message: MESSAGES.ADDRESS.NOT_FOUND };
     }
 
-    return { success: true, message: "Address updated successfully" };
+    return { success: true, message: MESSAGES.ADDRESS.UPDATED };
   } catch (error) {
     console.error("Service error (update address):", error);
-    return { success: false, message: "Something went wrong" };
+    return { success: false, message: MESSAGES.ADDRESS.SOMETHING_WRONG };
   }
 };
 
@@ -90,13 +90,13 @@ export const setDefaultAddressService = async (userId, addressId) => {
     );
 
     if (!updated) {
-      return { success: false, message: "Address not found" };
+      return { success: false, message: MESSAGES.ADDRESS.NOT_FOUND };
     }
 
-    return { success: true, message: "Default address updated" };
+    return { success: true, message: MESSAGES.ADDRESS.UPDATED };
   } catch (error) {
     console.error("Service error (set default):", error);
-    return { success: false, message: "Something went wrong" };
+    return { success: false, message: MESSAGES.ADDRESS.SOMETHING_WRONG };
   }
 };
 
@@ -105,10 +105,9 @@ export const deleteAddressService = async (userId, addressId) => {
     const deletedAddress = await Address.findOneAndDelete({ _id: addressId, userId });
 
     if (!deletedAddress) {
-      return { success: false, message: "Could not delete address" };
+      return { success: false, message: MESSAGES.ADDRESS.NOT_FOUND };
     }
 
-    // If the deleted address was the default, promote the most recent remaining one
     if (deletedAddress.isDefault) {
       const next = await Address.findOne({ userId }).sort({ createdAt: -1 });
       if (next) {
@@ -118,9 +117,9 @@ export const deleteAddressService = async (userId, addressId) => {
     }
 
     await User.findByIdAndUpdate(userId, { $pull: { addresses: addressId } });
-    return { success: true, message: "Address deleted successfully" };
+    return { success: true, message: MESSAGES.ADDRESS.DELETED };
   } catch (error) {
     console.error("Service error (delete address):", error);
-    return { success: false, message: "Something went wrong" };
+    return { success: false, message: MESSAGES.ADDRESS.SOMETHING_WRONG };
   }
 };
