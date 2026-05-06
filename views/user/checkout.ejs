@@ -294,10 +294,9 @@
         <!-- Place Order button -->
         <button id="placeOrderBtn"
                 onclick="placeOrder()"
-                <%= (!addresses || addresses.length === 0) ? 'disabled' : '' %>
                 class="w-full py-3 rounded-xl flex items-center justify-center gap-2 font-bold text-sm transition-all duration-200
                        <%= (!addresses || addresses.length === 0)
-                           ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-gray-800'
+                           ? 'bg-slate-800 text-slate-500 border border-gray-800 hover:border-cyan-400/30 hover:text-slate-400 cursor-pointer'
                            : 'bg-cyan-400 text-[#05080d] hover:bg-cyan-300 shadow-[0_4px_20px_rgba(0,212,255,0.15)]' %>">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
@@ -348,12 +347,21 @@
 
   async function placeOrder() {
     if (!selectedAddressId) {
-      Swal.fire({
-        title: 'No Address Selected',
-        text: 'Please select a delivery address to continue.',
-        icon: 'warning', confirmButtonColor: '#06b6d4',
-        background: '#0a0f18', color: '#e2e8f0',
+      const result = await Swal.fire({
+        title: 'No Delivery Address',
+        text: 'Please add a delivery address to place your order.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#06b6d4',
+        cancelButtonColor: '#475569',
+        confirmButtonText: 'Add Address',
+        cancelButtonText: 'Cancel',
+        background: '#0a0f18',
+        color: '#e2e8f0',
       });
+      if (result.isConfirmed) {
+        window.location.href = '/addresses';
+      }
       return;
     }
 
@@ -366,22 +374,67 @@
       </svg>
       Placing Order…`;
 
+    const resetBtn = () => {
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+        </svg>
+        Place Order`;
+    };
+
     try {
       const res  = await fetch('/checkout/place-order', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ addressId: selectedAddressId, paymentMethod: selectedPayment }),
       });
       const data = await res.json();
+
       if (data.success) {
         window.location.href = data.redirect;
-      } else {
-        const params = new URLSearchParams({
-          orderId: data.orderId || '', amount: data.amount || '', paymentMethod: selectedPayment,
-        });
-        window.location.href = '/payment-failed?' + params.toString();
+        return;
       }
+
+      // Cart-level issue — items unavailable/blocked, user should review cart
+      if (data.redirect === '/cart') {
+        const result = await Swal.fire({
+          title: 'Cart Updated',
+          text: data.message,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#06b6d4',
+          cancelButtonColor: '#475569',
+          confirmButtonText: 'Go to Cart',
+          cancelButtonText: 'Stay Here',
+          background: '#0a0f18',
+          color: '#e2e8f0',
+        });
+        if (result.isConfirmed) window.location.href = '/cart';
+        else resetBtn();
+        return;
+      }
+
+      // Any other validation error (unlisted product, out of stock, bad address, etc.)
+      await Swal.fire({
+        title: 'Cannot Place Order',
+        text: data.message || 'Something went wrong. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#06b6d4',
+        background: '#0a0f18',
+        color: '#e2e8f0',
+      });
+      resetBtn();
+
     } catch {
-      window.location.href = '/payment-failed?paymentMethod=' + selectedPayment;
+      await Swal.fire({
+        title: 'Connection Error',
+        text: 'Could not reach the server. Please check your connection and try again.',
+        icon: 'error',
+        confirmButtonColor: '#06b6d4',
+        background: '#0a0f18',
+        color: '#e2e8f0',
+      });
+      resetBtn();
     }
   }
 </script>

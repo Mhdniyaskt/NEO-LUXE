@@ -122,7 +122,7 @@
         </div>
       </div>
 
-      <!-- Return request banner — only when return is still pending (not yet approved/rejected) -->
+      <!-- Return request banner — only when ALL items are requested (order-level returned) -->
       <%
         const activeItems       = order.items.filter(i => i.status !== 'cancelled');
         const hasRequestedItems = activeItems.some(i => i.returnStatus === 'requested');
@@ -161,8 +161,13 @@
           </div>
           <div>
             <p class="text-white font-bold text-sm">Return Approved — Refund Processed</p>
+            <%
+              const refundedAmt = order.items
+                .filter(i => i.returnStatus === 'approved')
+                .reduce((sum, i) => sum + i.itemTotal, 0);
+            %>
             <p class="text-slate-400 text-xs mt-0.5">
-              ₹<%= order.total.toLocaleString('en-IN') %> has been credited to the customer's wallet.
+              ₹<%= refundedAmt.toLocaleString('en-IN') %> has been credited to the customer's wallet.
             </p>
           </div>
         </div>
@@ -218,12 +223,31 @@
                         <td class="px-6 py-4 text-cyan-400 font-bold">₹<%= item.itemTotal.toLocaleString('en-IN') %></td>
                         <td class="px-6 py-4">
                           <%
-                            // Per-item status: if item is individually cancelled show that,
-                            // otherwise fall back to the overall order status
-                            const itemStatus = item.status === 'cancelled' ? 'cancelled' : order.status;
+                            // Per-item status badge:
+                            // - cancelled item → 'cancelled'
+                            // - return approved → 'returned'
+                            // - return requested → 'return requested' (use pending color)
+                            // - return rejected → show order status (still delivered)
+                            // - otherwise → order status
+                            let itemDisplayStatus, itemDisplayColor;
+                            if (item.status === 'cancelled') {
+                              itemDisplayStatus = 'cancelled';
+                              itemDisplayColor  = statusColors['cancelled'];
+                            } else if (item.returnStatus === 'approved') {
+                              itemDisplayStatus = 'returned';
+                              itemDisplayColor  = statusColors['returned'];
+                            } else if (item.returnStatus === 'requested') {
+                              itemDisplayStatus = 'return pending';
+                              itemDisplayColor  = statusColors['pending'];
+                            } else {
+                              // For non-returned items, always show 'delivered' if the order
+                              // is delivered or partially returned
+                              itemDisplayStatus = ['delivered','returned'].includes(order.status) ? 'delivered' : order.status;
+                              itemDisplayColor  = statusColors[itemDisplayStatus] || '';
+                            }
                           %>
-                          <span class="px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider border <%= statusColors[itemStatus] || '' %>">
-                            <%= itemStatus %>
+                          <span class="px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider border <%= itemDisplayColor %>">
+                            <%= itemDisplayStatus %>
                           </span>
                         </td>
                         <td class="px-6 py-4 text-right">
@@ -239,20 +263,23 @@
                               </button>
                             </div>
                           <% } else if (item.returnStatus === 'approved') { %>
-                            <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded border bg-green-500/10 text-green-400 border-green-500/20">Refunded</span>
+                            <div class="flex flex-col items-end gap-1.5">
+                              <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded border bg-green-500/10 text-green-400 border-green-500/20">
+                                Refunded
+                              </span>
+                              <% if (!item.stockRestored) { %>
+                                <button onclick="restockItem('<%= order._id %>', <%= idx %>, '<%= item.productName.replace(/'/g, "\\'") %>', <%= item.quantity %>)"
+                                        class="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 text-[10px] font-bold px-2.5 py-1.5 rounded-lg transition">
+                                  <i class="fas fa-boxes text-[9px]"></i> Restock
+                                </button>
+                              <% } else { %>
+                                <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                                  <i class="fas fa-check text-[8px]"></i> Restocked
+                                </span>
+                              <% } %>
+                            </div>
                           <% } else if (item.returnStatus === 'rejected') { %>
                             <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded border bg-red-500/10 text-red-400 border-red-500/20">Rejected</span>
-                          <% } else if (order.status === 'returned' && item.status !== 'cancelled' && item.returnStatus === 'requested') { %>
-                            <div class="flex justify-end gap-1.5">
-                              <button onclick="handleReturn('<%= order._id %>', 'approve')"
-                                      class="w-7 h-7 bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 rounded-lg transition flex items-center justify-center" title="Approve">
-                                <i class="fas fa-check text-[10px]"></i>
-                              </button>
-                              <button onclick="handleReturn('<%= order._id %>', 'reject')"
-                                      class="w-7 h-7 bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 rounded-lg transition flex items-center justify-center" title="Reject">
-                                <i class="fas fa-times text-[10px]"></i>
-                              </button>
-                            </div>
                           <% } else { %>
                             <span class="text-slate-700 text-[10px]">—</span>
                           <% } %>
@@ -465,6 +492,56 @@
             <% } %>
           </div>
 
+          <%
+            // Show restock card if any approved-return items haven't been restocked yet
+            const pendingRestock = order.items.filter(
+              i => i.returnStatus === 'approved' && !i.stockRestored
+            );
+          %>
+          <% if (pendingRestock.length > 0) { %>
+            <div class="card-bg rounded-2xl p-5 border border-amber-500/20">
+              <div class="flex items-center gap-2 mb-3">
+                <i class="fas fa-boxes text-amber-400 text-xs"></i>
+                <h3 class="text-[10px] font-bold text-white uppercase tracking-widest">Restock Returned Items</h3>
+              </div>
+              <p class="text-slate-400 text-[11px] leading-relaxed mb-4">
+                <span class="text-amber-400 font-bold"><%= pendingRestock.length %> item<%= pendingRestock.length !== 1 ? 's' : '' %></span>
+                with approved returns are waiting to be restocked.
+                Click below to add the quantities back to inventory.
+              </p>
+              <ul class="space-y-1.5 mb-4">
+                <% pendingRestock.forEach(item => { %>
+                  <li class="flex justify-between text-[10px]">
+                    <span class="text-slate-300 truncate max-w-[160px]"><%= item.productName %></span>
+                    <span class="text-amber-400 font-bold flex-shrink-0 ml-2">+<%= item.quantity %> units</span>
+                  </li>
+                <% }) %>
+              </ul>
+              <button onclick="restockItems('<%= order._id %>')"
+                      class="w-full bg-amber-400 hover:bg-amber-300 text-[#05070A] font-bold text-xs py-2.5 rounded-xl transition flex items-center justify-center gap-2">
+                <i class="fas fa-undo text-[10px]"></i>
+                Restock to Inventory
+              </button>
+            </div>
+          <% } %>
+
+          <%
+            // Show a "restocked" confirmation if all approved items are already restocked
+            const allRestocked = order.items.some(i => i.returnStatus === 'approved' && i.stockRestored);
+            const noneWaiting  = order.items.filter(i => i.returnStatus === 'approved').every(i => i.stockRestored);
+          %>
+          <% if (allRestocked && noneWaiting) { %>
+            <div class="card-bg rounded-2xl p-4 border border-green-500/20 flex items-center gap-3">
+              <div class="w-7 h-7 bg-green-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-check text-green-400 text-[10px]"></i>
+              </div>
+              <div>
+                <p class="text-green-400 text-xs font-bold">Stock Restored</p>
+                <p class="text-slate-500 text-[10px] mt-0.5">All returned items have been added back to inventory.</p>
+              </div>
+            </div>
+          <% } %>
+
         </div>
       </div>
 
@@ -548,6 +625,73 @@
       }
     } catch {
       Swal.fire({ icon:'error', title:'Error', text:'Something went wrong.', background:'#0B1120', color:'#E2E8F0' });
+    }
+  }
+
+  async function restockItems(orderId) {
+    const result = await Swal.fire({
+      title: 'Restock Returned Items?',
+      text: 'This will add the returned quantities back to inventory. This cannot be undone.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#1E293B',
+      confirmButtonText: 'Yes, Restock',
+      background: '#0B1120',
+      color: '#E2E8F0',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      const res  = await fetch(`/admin/orders/${orderId}/restock`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      if (data.success) {
+        await Swal.fire({ icon: 'success', title: 'Restocked!', text: data.message,
+          timer: 2000, showConfirmButton: false, background: '#0B1120', color: '#E2E8F0' });
+        location.reload();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: data.message, background: '#0B1120', color: '#E2E8F0' });
+      }
+    } catch {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Something went wrong.', background: '#0B1120', color: '#E2E8F0' });
+    }
+  }
+
+  // Restock a single item by index
+  async function restockItem(orderId, itemIndex, productName, qty) {
+    const result = await Swal.fire({
+      title: 'Restock this item?',
+      html: `Add <strong class="text-amber-400">+${qty} unit(s)</strong> of <strong>${productName}</strong> back to inventory?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#f59e0b',
+      cancelButtonColor: '#1E293B',
+      confirmButtonText: 'Yes, Restock',
+      cancelButtonText: 'Cancel',
+      background: '#0B1120',
+      color: '#E2E8F0',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      const res  = await fetch(`/admin/orders/${orderId}/restock`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemIndex }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await Swal.fire({ icon: 'success', title: 'Restocked!', text: data.message,
+          timer: 2000, showConfirmButton: false, background: '#0B1120', color: '#E2E8F0' });
+        location.reload();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Error', text: data.message, background: '#0B1120', color: '#E2E8F0' });
+      }
+    } catch {
+      Swal.fire({ icon: 'error', title: 'Error', text: 'Something went wrong.', background: '#0B1120', color: '#E2E8F0' });
     }
   }
 

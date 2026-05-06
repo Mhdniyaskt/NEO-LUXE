@@ -411,15 +411,22 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     });
   }
 
-  // Restore stock for every item
+  // Restore stock only for active (non-cancelled) items
   for (const item of order.items) {
-    await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
+    if (item.status !== 'cancelled') {
+      await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
+    }
   }
 
-  order.status       = 'cancelled';
-  order.cancelReason = reason.trim();
-  // COD orders cancelled before shipment — no money was collected, mark as cancelled
-  // (not 'refunded' since nothing was paid)
+  // Mark all active items as cancelled
+  order.items.forEach((item, i) => {
+    if (item.status !== 'cancelled') {
+      order.items[i].status = 'cancelled';
+    }
+  });
+
+  order.status        = 'cancelled';
+  order.cancelReason  = reason.trim();
   order.paymentStatus = 'cancelled';
   await order.save();
 
@@ -469,7 +476,9 @@ export const returnOrder = asyncHandler(async (req, res) => {
 });
 
 // ─── POST /orders/:orderId/items/:itemIndex/return ────────────────────────────
-// Request return for a single delivered item (reason is mandatory)
+// Request return for a single delivered item (reason is mandatory).
+// Order-level status stays 'delivered' until every active item has a return
+// request — only then does it flip to 'returned'.
 export const returnOrderItem = asyncHandler(async (req, res) => {
   const userId  = req.session.user.id;
   const { orderId, itemIndex } = req.params;
@@ -489,7 +498,8 @@ export const returnOrderItem = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Order not found.' });
   }
 
-  if (order.status !== 'delivered') {
+  // Allow item-level returns as long as the order is delivered or partially returned
+  if (order.status !== 'delivered' && order.status !== 'returned') {
     return res.status(400).json({ success: false, message: 'Only delivered orders can be returned.' });
   }
 
@@ -506,11 +516,13 @@ export const returnOrderItem = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'A return has already been requested for this item.' });
   }
 
+  // Update only this item's return status
   order.items[idx].returnStatus = 'requested';
   order.items[idx].returnReason = reason.trim();
 
-  // If all active items now have a return request, mark whole order as returned
-  const activeItems = order.items.filter(i => i.status !== 'cancelled');
+  // Flip order-level status to 'returned' ONLY when every active item
+  // (not cancelled) now has a return request — i.e. this was the last one
+  const activeItems  = order.items.filter(i => i.status !== 'cancelled');
   const allRequested = activeItems.every(i => i.returnStatus !== 'none');
   if (allRequested) {
     order.status       = 'returned';
@@ -617,6 +629,20 @@ export const downloadInvoice = asyncHandler(async (req, res) => {
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
   doc.pipe(res);
 
+  // ── Filter to billable items only ────────────────────────────────────
+  // Cancelled items were never charged; approved returns were refunded.
+  // Neither should appear on the invoice.
+  const billableItems = order.items.filter(
+    item => item.status !== 'cancelled' && item.returnStatus !== 'approved'
+  );
+
+  // Recalculate totals from billable items so the invoice always matches
+  // what was actually charged, regardless of stored order totals.
+  const invoiceSubtotal = billableItems.reduce((sum, item) => sum + item.itemTotal, 0);
+  const invoiceShipping = invoiceSubtotal >= 5000 ? 0 : 50;
+  const invoiceTax      = Math.round(invoiceSubtotal * 0.18);
+  const invoiceTotal    = invoiceSubtotal + invoiceShipping + invoiceTax;
+
   // ── Header ──────────────────────────────────────────────────────────
   doc.fontSize(22).font('Helvetica-Bold').text('NEO-LUXE', 50, 50);
   doc.fontSize(10).font('Helvetica').fillColor('#666').text('Premium Timepieces', 50, 76);
@@ -639,8 +665,17 @@ export const downloadInvoice = asyncHandler(async (req, res) => {
 
   doc.fillColor('#000').fontSize(11).font('Helvetica-Bold').text('PAYMENT', 350, 130);
   doc.fontSize(10).font('Helvetica').fillColor('#333')
-    .text(`Method: ${order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online'}`, 350, 148)
-    .text(`Status: ${order.paymentStatus}`, 350, 162);
+    .text(`Method: ${order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online'}`, 350, 148);
+
+  // Human-readable payment status for the invoice
+  const payStatusLabel = {
+    pending:   'Pending Collection',
+    paid:      'Paid',
+    failed:    'Failed',
+    refunded:  'Refunded',
+    cancelled: 'Cancelled (Not Charged)',
+  };
+  doc.text(`Status: ${payStatusLabel[order.paymentStatus] || order.paymentStatus}`, 350, 162);
 
   // ── Items table ──────────────────────────────────────────────────────
   let y = 230;
@@ -658,7 +693,7 @@ export const downloadInvoice = asyncHandler(async (req, res) => {
   y += 10;
 
   doc.font('Helvetica').fillColor('#333').fontSize(10);
-  for (const item of order.items) {
+  for (const item of billableItems) {
     doc.text(item.productName, 50, y, { width: 220 })
        .text(item.variantColor || '—', 280, y)
        .text(String(item.quantity), 360, y)
@@ -674,9 +709,9 @@ export const downloadInvoice = asyncHandler(async (req, res) => {
   y += 12;
 
   const totalsRows = [
-    ['Subtotal',  `Rs.${order.subtotal.toLocaleString('en-IN')}`],
-    ['Shipping',  order.shipping === 0 ? 'Free' : `Rs.${order.shipping.toLocaleString('en-IN')}`],
-    ['Tax (GST)', `Rs.${order.tax.toLocaleString('en-IN')}`],
+    ['Subtotal',  `Rs.${invoiceSubtotal.toLocaleString('en-IN')}`],
+    ['Shipping',  invoiceShipping === 0 ? 'Free' : `Rs.${invoiceShipping.toLocaleString('en-IN')}`],
+    ['Tax (GST)', `Rs.${invoiceTax.toLocaleString('en-IN')}`],
   ];
   for (const [label, value] of totalsRows) {
     doc.font('Helvetica').fillColor('#555').fontSize(10)
@@ -690,7 +725,7 @@ export const downloadInvoice = asyncHandler(async (req, res) => {
   y += 10;
   doc.font('Helvetica-Bold').fillColor('#000').fontSize(12)
      .text('TOTAL', 350, y)
-     .text(`Rs.${order.total.toLocaleString('en-IN')}`, 490, y);
+     .text(`Rs.${invoiceTotal.toLocaleString('en-IN')}`, 490, y);
 
   // ── Footer ───────────────────────────────────────────────────────────
   doc.fontSize(9).font('Helvetica').fillColor('#999')

@@ -32,7 +32,8 @@ const orderItemSchema = new mongoose.Schema(
       enum: ['none', 'requested', 'approved', 'rejected'],
       default: 'none',
     },
-    returnReason: { type: String, default: '' },
+    returnReason:   { type: String, default: '' },
+    stockRestored:  { type: Boolean, default: false }, // true once returned stock is added back
   },
   { _id: false }
 );

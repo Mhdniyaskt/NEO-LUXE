@@ -61,6 +61,7 @@ router.get('/orders',                    noCache, orderController.getOrders);
 router.get('/orders/:id',                noCache, orderController.getOrderDetail);
 router.patch('/orders/:id/status',       orderController.updateOrderStatus);
 router.patch('/orders/:id/return',       orderController.handleReturn);
+router.patch('/orders/:id/restock',      orderController.restockReturnedItems);
 
 // Stock / Inventory
 router.get('/stock',                     noCache, stockController.getStockPage);

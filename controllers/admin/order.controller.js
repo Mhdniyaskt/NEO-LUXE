@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import asyncHandler from '../../utils/asyncHandler.util.js';
 import Order from '../../models/order.model.js';
 import User  from '../../models/user.model.js';
+import Variant from '../../models/variant.model.js';
 
 // ─── GET /admin/orders ────────────────────────────────────────────────────────
 export const getOrders = asyncHandler(async (req, res) => {
@@ -128,6 +129,13 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   }
 
   order.status = status;
+
+  // Keep paymentStatus in sync with order lifecycle
+  // When admin marks as delivered → COD payment is now collected
+  if (status === 'delivered' && order.paymentMethod === 'cod') {
+    order.paymentStatus = 'paid';
+  }
+
   await order.save();
 
   return res.json({ success: true, message: 'Order status updated.', status: order.status });
@@ -166,18 +174,27 @@ export const handleReturn = asyncHandler(async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid action.' });
     }
 
-    // If all requested items are now resolved (approved/rejected), update order-level status
-    const activeItems = order.items.filter(i => i.status !== 'cancelled');
-    const allApproved = activeItems.every(i => i.returnStatus === 'approved');
+    // Update order-level status based on the state of all active items after this action
+    const activeItems  = order.items.filter(i => i.status !== 'cancelled');
+    const allApproved  = activeItems.every(i => i.returnStatus === 'approved');
+    const allResolved  = activeItems.every(i => i.returnStatus !== 'none' && i.returnStatus !== 'requested');
+    const anyApproved  = activeItems.some(i => i.returnStatus === 'approved');
     const anyRequested = activeItems.some(i => i.returnStatus === 'requested');
 
     if (allApproved) {
+      // Every active item approved → fully returned + fully refunded
+      order.status        = 'returned';
       order.paymentStatus = 'refunded';
-    }
-    // If no more pending requests, revert order status to delivered (unless all approved)
-    if (!anyRequested && !allApproved) {
+    } else if (allResolved && anyApproved) {
+      // All requests resolved (mix of approved + rejected) → mark returned, partial refund
+      order.status        = 'returned';
+      // paymentStatus stays 'paid' — not a full refund
+    } else if (allResolved && !anyApproved) {
+      // All requests rejected, nothing approved → revert to delivered
       order.status = 'delivered';
     }
+    // If there are still pending requests (anyRequested), leave order.status as-is ('delivered')
+    // so the customer can still see the Return button for unrequested items
 
     await order.save();
     return res.json({
@@ -194,19 +211,32 @@ export const handleReturn = asyncHandler(async (req, res) => {
   }
 
   if (action === 'approve') {
-    // Credit full order amount to wallet
-    await User.findByIdAndUpdate(order.user, {
-      $inc: { walletBalance: order.total },
-    });
-    // Mark all requested items as approved
+    // Mark all requested items as approved first
     order.items.forEach((item, i) => {
       if (item.returnStatus === 'requested') {
         order.items[i].returnStatus = 'approved';
       }
     });
+
+    // Credit only the sum of approved items (not the stored order.total snapshot)
+    const approvedAmount = order.items
+      .filter(i => i.returnStatus === 'approved')
+      .reduce((sum, i) => sum + i.itemTotal, 0);
+
+    await User.findByIdAndUpdate(order.user, {
+      $inc: { walletBalance: approvedAmount },
+    });
+
+    order.status        = 'returned';
     order.paymentStatus = 'refunded';
+
+    await order.save();
+    return res.json({
+      success: true,
+      message: `Return approved. ₹${approvedAmount.toLocaleString('en-IN')} refunded to customer wallet.`,
+    });
   } else if (action === 'reject') {
-    // Reject all pending return requests and revert order
+    // Reject all pending return requests and revert order to delivered
     order.items.forEach((item, i) => {
       if (item.returnStatus === 'requested') {
         order.items[i].returnStatus = 'rejected';
@@ -220,8 +250,80 @@ export const handleReturn = asyncHandler(async (req, res) => {
   await order.save();
   return res.json({
     success: true,
-    message: action === 'approve'
-      ? `Return approved. ₹${order.total.toLocaleString('en-IN')} refunded to customer wallet.`
-      : 'Return request rejected. Order reverted to delivered.',
+    message: 'Return request rejected. Order reverted to delivered.',
+  });
+});
+
+// ─── PATCH /admin/orders/:id/restock ─────────────────────────────────────────
+// Restore stock for approved-return items.
+// If itemIndex is provided → restock that single item.
+// Otherwise → restock all pending approved items at once.
+export const restockReturnedItems = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { itemIndex } = req.body;
+
+  const order = await Order.findById(id);
+  if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+  // Allow restock for both fully-returned and partially-returned (still 'delivered') orders
+  const hasApproved = order.items.some(i => i.returnStatus === 'approved');
+  if (!hasApproved) {
+    return res.status(400).json({ success: false, message: 'No approved return items to restock.' });
+  }
+
+  // ── Per-item restock ─────────────────────────────────────────────────
+  if (itemIndex !== undefined && itemIndex !== null && itemIndex !== '') {
+    const idx = parseInt(itemIndex, 10);
+    if (isNaN(idx) || idx < 0 || idx >= order.items.length) {
+      return res.status(400).json({ success: false, message: 'Invalid item index.' });
+    }
+
+    const item = order.items[idx];
+
+    if (item.returnStatus !== 'approved') {
+      return res.status(400).json({ success: false, message: 'Item return has not been approved.' });
+    }
+    if (item.stockRestored) {
+      return res.status(400).json({ success: false, message: 'Stock already restored for this item.' });
+    }
+
+    await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
+    order.items[idx].stockRestored = true;
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: `Stock restored — ${item.quantity} unit(s) of "${item.productName}" added back to inventory.`,
+    });
+  }
+
+  // ── Bulk restock (all pending approved items) ────────────────────────
+  const toRestock = order.items.filter(
+    item => item.returnStatus === 'approved' && !item.stockRestored
+  );
+
+  if (toRestock.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'No approved return items pending restock.',
+    });
+  }
+
+  for (const item of toRestock) {
+    await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
+  }
+
+  order.items.forEach((item, i) => {
+    if (item.returnStatus === 'approved' && !item.stockRestored) {
+      order.items[i].stockRestored = true;
+    }
+  });
+
+  await order.save();
+
+  const totalQty = toRestock.reduce((sum, i) => sum + i.quantity, 0);
+  return res.json({
+    success: true,
+    message: `Stock restored for ${toRestock.length} item(s) — ${totalQty} unit(s) added back to inventory.`,
   });
 });

@@ -184,14 +184,25 @@
 
                         <!-- Update stock -->
                         <td class="px-6 py-4">
-                          <div class="flex items-center justify-end gap-2">
-                            <input type="number" min="0" value="<%= variant.stock %>"
-                                   id="stock-input-<%= variant._id %>"
-                                   class="w-20 bg-[#05070A] border border-slate-800 rounded-lg py-1.5 px-2 text-sm text-white text-center focus:outline-none focus:border-cyan-500/50 transition"/>
-                            <button onclick="updateStock('<%= variant._id %>')"
-                                    class="bg-cyan-400 hover:bg-cyan-300 text-[#05070A] font-bold text-[10px] px-3 py-1.5 rounded-lg transition whitespace-nowrap">
-                              Update
-                            </button>
+                          <div class="flex flex-col items-end gap-1">
+                            <div class="flex items-center gap-2">
+                              <div class="relative">
+                                <input type="text" inputmode="numeric" pattern="[0-9]*"
+                                       value="<%= variant.stock %>"
+                                       id="stock-input-<%= variant._id %>"
+                                       maxlength="6"
+                                       placeholder="0"
+                                       class="w-24 bg-[#05070A] border border-slate-800 rounded-lg py-1.5 px-3 text-sm text-white text-center focus:outline-none focus:border-cyan-500/50 transition"
+                                       oninput="validateStockInput(this)"
+                                       onkeydown="if(event.key==='Enter') updateStock('<%= variant._id %>')"/>
+                              </div>
+                              <button onclick="updateStock('<%= variant._id %>')"
+                                      id="stock-btn-<%= variant._id %>"
+                                      class="bg-cyan-400 hover:bg-cyan-300 text-[#05070A] font-bold text-[10px] px-3 py-1.5 rounded-lg transition whitespace-nowrap">
+                                Update
+                              </button>
+                            </div>
+                            <p id="stock-err-<%= variant._id %>" class="hidden text-red-400 text-[10px] font-semibold"></p>
                           </div>
                         </td>
                       </tr>
@@ -263,15 +274,83 @@
     document.getElementById('sidebar').classList.toggle('-translate-x-full');
   }
 
-  async function updateStock(variantId) {
-    const input = document.getElementById('stock-input-' + variantId);
-    const qty   = parseInt(input.value, 10);
+  // ── Real-time input validation ─────────────────────────────────────────────
+  function validateStockInput(input) {
+    const variantId = input.id.replace('stock-input-', '');
+    const errEl     = document.getElementById('stock-err-' + variantId);
+    const btn       = document.getElementById('stock-btn-' + variantId);
 
-    if (isNaN(qty) || qty < 0) {
-      input.classList.add('border-red-500');
-      setTimeout(() => input.classList.remove('border-red-500'), 1500);
+    // Strip anything that isn't a digit
+    let val = input.value.replace(/[^0-9]/g, '');
+
+    // Remove leading zeros (except bare "0")
+    val = val.replace(/^0+(\d)/, '$1');
+
+    input.value = val;
+
+    const num = parseInt(val, 10);
+
+    // Validate
+    if (val === '' || isNaN(num)) {
+      showErr(input, errEl, btn, 'Enter a valid number.');
       return;
     }
+    if (num > 99999) {
+      input.value = '99999';
+      showErr(input, errEl, btn, 'Max stock is 99,999.');
+      return;
+    }
+
+    clearErr(input, errEl, btn);
+  }
+
+  function showErr(input, errEl, btn, msg) {
+    input.classList.add('border-red-500/70');
+    input.classList.remove('border-slate-800', 'border-green-500/70');
+    errEl.textContent = msg;
+    errEl.classList.remove('hidden');
+    btn.disabled = true;
+    btn.classList.add('opacity-40', 'cursor-not-allowed');
+    btn.classList.remove('hover:bg-cyan-300');
+  }
+
+  function clearErr(input, errEl, btn) {
+    input.classList.remove('border-red-500/70');
+    input.classList.add('border-slate-800');
+    errEl.classList.add('hidden');
+    btn.disabled = false;
+    btn.classList.remove('opacity-40', 'cursor-not-allowed');
+    btn.classList.add('hover:bg-cyan-300');
+  }
+
+  // ── Update stock ───────────────────────────────────────────────────────────
+  async function updateStock(variantId) {
+    const input  = document.getElementById('stock-input-' + variantId);
+    const errEl  = document.getElementById('stock-err-' + variantId);
+    const btn    = document.getElementById('stock-btn-' + variantId);
+    const val    = input.value.trim();
+    const qty    = parseInt(val, 10);
+
+    // Final validation before submit
+    if (val === '' || isNaN(qty)) {
+      showErr(input, errEl, btn, 'Enter a valid number.');
+      input.focus();
+      return;
+    }
+    if (qty < 0) {
+      showErr(input, errEl, btn, 'Stock cannot be negative.');
+      input.focus();
+      return;
+    }
+    if (qty > 99999) {
+      showErr(input, errEl, btn, 'Max stock is 99,999.');
+      input.focus();
+      return;
+    }
+
+    // Loading state
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin text-[10px]"></i>';
 
     try {
       const res  = await fetch(`/admin/stock/${variantId}`, {
@@ -282,37 +361,47 @@
       const data = await res.json();
 
       if (data.success) {
-        // Update display
+        // Update the displayed stock number
         const display = document.getElementById('stock-display-' + variantId);
         if (display) display.textContent = data.stock;
 
-        // Flash green
-        input.classList.add('border-green-500');
-        setTimeout(() => input.classList.remove('border-green-500'), 1500);
+        // Flash green on input
+        input.classList.remove('border-slate-800');
+        input.classList.add('border-green-500/70');
+        setTimeout(() => {
+          input.classList.remove('border-green-500/70');
+          input.classList.add('border-slate-800');
+        }, 1800);
 
-        // Toast
-        const toast = document.createElement('div');
-        toast.className = 'fixed top-4 right-4 z-50 bg-[#0B1120] border border-green-500/30 text-green-400 text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2';
-        toast.innerHTML = '<i class="fas fa-check-circle"></i> Stock updated to ' + data.stock;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 2500);
+        // Toast notification
+        showToast('Stock updated to ' + data.stock, 'success');
       } else {
-        Swal.fire({ icon:'error', title:'Error', text: data.message, background:'#0B1120', color:'#E2E8F0' });
+        showErr(input, errEl, btn, data.message || 'Update failed.');
+        showToast(data.message || 'Update failed.', 'error');
       }
     } catch {
-      Swal.fire({ icon:'error', title:'Error', text:'Something went wrong.', background:'#0B1120', color:'#E2E8F0' });
+      showErr(input, errEl, btn, 'Connection error. Try again.');
+      showToast('Connection error. Try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = 'Update';
+      btn.classList.remove('opacity-40', 'cursor-not-allowed');
+      btn.classList.add('hover:bg-cyan-300');
     }
   }
 
-  // Allow Enter key to trigger update
-  document.querySelectorAll('input[id^="stock-input-"]').forEach(input => {
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        const variantId = input.id.replace('stock-input-', '');
-        updateStock(variantId);
-      }
-    });
-  });
+  // ── Toast helper ───────────────────────────────────────────────────────────
+  function showToast(msg, type) {
+    const isSuccess = type === 'success';
+    const toast = document.createElement('div');
+    toast.className = `fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2.5 rounded-xl shadow-2xl text-xs font-bold border transition-all
+      ${isSuccess
+        ? 'bg-[#0B1120] border-green-500/30 text-green-400'
+        : 'bg-[#0B1120] border-red-500/30 text-red-400'}`;
+    toast.innerHTML = `<i class="fas fa-${isSuccess ? 'check-circle' : 'exclamation-circle'}"></i> ${msg}`;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 2200);
+  }
 </script>
 </body>
 </html>

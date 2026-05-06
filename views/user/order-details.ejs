@@ -93,7 +93,13 @@
         <div class="bg-[#0a0f18] border border-gray-800 rounded-2xl p-6">
           <h2 class="text-lg font-bold text-white mb-6">Track Your Delivery</h2>
 
-          <% if (order.status === 'cancelled' || order.status === 'returned') { %>
+          <%
+            // Show the cancelled/returned banner only when the order-level status
+            // is truly terminal — 'cancelled' always, 'returned' only when ALL
+            // active items have a return request (order-level flip happens then).
+            const isFullyTerminal = order.status === 'cancelled' || order.status === 'returned';
+          %>
+          <% if (isFullyTerminal) { %>
             <!-- Cancelled/Returned Banner -->
             <div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
               <div class="flex items-start gap-3">
@@ -167,7 +173,7 @@
             <% if (order.items && order.items.length > 0) { %>
               <% order.items.forEach((item, index) => {
                    const isCancelled = order.status === 'cancelled' || item.status === 'cancelled';
-                   const isReturned  = order.status === 'returned';
+                   const isItemReturned = item.returnStatus === 'approved';
               %>
                 <div class="flex gap-4 pb-4 border-b border-gray-800 last:border-0 last:pb-0">
                   <!-- Image -->
@@ -199,10 +205,20 @@
                     </p>
                     <% if (isCancelled) { %>
                       <span class="status-badge status-cancelled">Cancelled</span>
-                    <% } else if (isReturned) { %>
+                    <% } else if (isItemReturned) { %>
                       <span class="status-badge status-returned">Returned</span>
                     <% } else { %>
-                      <span class="status-badge status-<%= order.status %>"><%= order.status %></span>
+                      <%
+                        // Per-item display status:
+                        // - If order is 'returned' but this item hasn't been returned → show 'delivered'
+                        // - Otherwise show the order-level status
+                        const displayStatus = (
+                          (order.status === 'returned' || order.status === 'cancelled') &&
+                          item.returnStatus === 'none' &&
+                          item.status !== 'cancelled'
+                        ) ? 'delivered' : order.status;
+                      %>
+                      <span class="status-badge status-<%= displayStatus %>"><%= displayStatus %></span>
                     <% } %>
                   </div>
 
@@ -216,8 +232,8 @@
                     </div>
                   <% } %>
 
-                  <!-- Return Item Button — only for delivered, active, not-yet-returned items -->
-                  <% if (order.status === 'delivered' && item.status !== 'cancelled' && item.returnStatus === 'none') { %>
+                  <!-- Return Item Button — only for delivered/partially-returned, active, not-yet-returned items -->
+                  <% if (['delivered', 'returned'].includes(order.status) && item.status !== 'cancelled' && item.returnStatus === 'none') { %>
                     <div class="flex items-start">
                       <button onclick="openItemReturnModal('<%= order._id %>', <%= index %>, '<%= item.productName.replace(/'/g, "\\'") %>')"
                               class="text-orange-400 border border-orange-400/30 hover:bg-orange-400/10 text-xs font-semibold px-3 py-1.5 rounded-lg transition">
@@ -257,7 +273,7 @@
           </div>
 
           <!-- Request Return — now handled per-item above -->
-          <% if (order.status === 'delivered') { %>
+          <% if (['delivered', 'returned'].includes(order.status) && order.items.some(i => i.status !== 'cancelled' && i.returnStatus === 'none')) { %>
             <p class="text-slate-600 text-xs text-center mt-4">
               Use the <span class="text-orange-400 font-semibold">Return</span> button next to each item to request a return.
             </p>
@@ -272,24 +288,45 @@
         <!-- Order Summary Card -->
         <div class="bg-[#0a0f18] border border-gray-800 rounded-2xl p-5">
           <h3 class="text-sm font-bold text-white mb-4 uppercase tracking-wider">Order Summary</h3>
+          <%
+            // Calculate what was actually charged (excluding cancelled/returned items)
+            const activeItems = order.items.filter(i => i.status !== 'cancelled' && i.returnStatus !== 'approved');
+            const chargedSubtotal = activeItems.reduce((sum, i) => sum + i.itemTotal, 0);
+            const chargedShipping = chargedSubtotal >= 5000 ? 0 : 50;
+            const chargedTax      = Math.round(chargedSubtotal * 0.18);
+            const chargedTotal    = chargedSubtotal + chargedShipping + chargedTax;
+
+            // Calculate refund amount for approved returns
+            const returnedItems = order.items.filter(i => i.returnStatus === 'approved');
+            const refundSubtotal = returnedItems.reduce((sum, i) => sum + i.itemTotal, 0);
+            const refundShipping = (order.items.length === returnedItems.length && order.shipping > 0) ? order.shipping : 0;
+            const refundTax      = Math.round(refundSubtotal * 0.18);
+            const refundTotal    = refundSubtotal + refundShipping + refundTax;
+          %>
           <div class="space-y-3 text-sm">
             <div class="flex justify-between">
               <span class="text-slate-400">Subtotal</span>
-              <span class="text-white">₹<%= order.subtotal.toLocaleString('en-IN') %></span>
+              <span class="text-white">₹<%= chargedSubtotal.toLocaleString('en-IN') %></span>
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">Delivery</span>
-              <span class="<%= order.shipping === 0 ? 'text-cyan-400 font-semibold' : 'text-white' %>">
-                <%= order.shipping === 0 ? 'Free' : '₹' + order.shipping.toLocaleString('en-IN') %>
+              <span class="<%= chargedShipping === 0 ? 'text-cyan-400 font-semibold' : 'text-white' %>">
+                <%= chargedShipping === 0 ? 'Free' : '₹' + chargedShipping.toLocaleString('en-IN') %>
               </span>
             </div>
             <div class="flex justify-between">
               <span class="text-slate-400">VAT (incl.)</span>
-              <span class="text-white">₹<%= order.tax.toLocaleString('en-IN') %></span>
+              <span class="text-white">₹<%= chargedTax.toLocaleString('en-IN') %></span>
             </div>
+            <% if (refundTotal > 0) { %>
+              <div class="flex justify-between text-red-400">
+                <span>Refunded</span>
+                <span>-₹<%= refundTotal.toLocaleString('en-IN') %></span>
+              </div>
+            <% } %>
             <div class="border-t border-gray-800 pt-3 flex justify-between items-center">
               <span class="text-white font-bold">Total</span>
-              <span class="text-cyan-400 font-bold text-lg">₹<%= order.total.toLocaleString('en-IN') %></span>
+              <span class="text-cyan-400 font-bold text-lg">₹<%= (chargedTotal - refundTotal).toLocaleString('en-IN') %></span>
             </div>
           </div>
         </div>
@@ -388,8 +425,14 @@
                   </svg>
                   <p class="text-green-400 text-xs font-semibold">Refunded to Wallet</p>
                 </div>
+                <%
+                  // Show only the sum of approved-return items, not the full order total
+                  const refundedAmt = order.items
+                    .filter(i => i.returnStatus === 'approved')
+                    .reduce((sum, i) => sum + i.itemTotal, 0);
+                %>
                 <p class="text-slate-400 text-xs">
-                  ₹<%= order.total.toLocaleString('en-IN') %> has been credited to your wallet.
+                  ₹<%= refundedAmt.toLocaleString('en-IN') %> has been credited to your wallet.
                 </p>
               </div>
             <% } %>
@@ -416,7 +459,7 @@
         <% } %>
 
         <!-- Request Return Button (sidebar) — now per-item -->
-        <% if (order.status === 'delivered') { %>
+        <% if (['delivered', 'returned'].includes(order.status) && order.items.some(i => i.status !== 'cancelled' && i.returnStatus === 'none')) { %>
           <div class="bg-[#0a0f18] border border-orange-400/20 rounded-xl p-4 text-center">
             <p class="text-orange-400 text-xs font-semibold mb-1">Need to return an item?</p>
             <p class="text-slate-500 text-[10px]">Use the Return button next to each product in the Order Items section.</p>
