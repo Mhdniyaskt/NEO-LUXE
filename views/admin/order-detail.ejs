@@ -122,8 +122,12 @@
         </div>
       </div>
 
-      <!-- Return request banner -->
-      <% if (order.status === 'returned') { %>
+      <!-- Return request banner — only when return is still pending (not yet approved/rejected) -->
+      <%
+        const activeItems       = order.items.filter(i => i.status !== 'cancelled');
+        const hasRequestedItems = activeItems.some(i => i.returnStatus === 'requested');
+      %>
+      <% if (order.status === 'returned' && order.paymentStatus !== 'refunded' && hasRequestedItems) { %>
         <div class="card-bg border-l-4 border-orange-400 rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-start gap-3">
             <div class="w-8 h-8 bg-orange-400/10 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -238,7 +242,7 @@
                             <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded border bg-green-500/10 text-green-400 border-green-500/20">Refunded</span>
                           <% } else if (item.returnStatus === 'rejected') { %>
                             <span class="text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded border bg-red-500/10 text-red-400 border-red-500/20">Rejected</span>
-                          <% } else if (order.status === 'returned' && item.status !== 'cancelled') { %>
+                          <% } else if (order.status === 'returned' && item.status !== 'cancelled' && item.returnStatus === 'requested') { %>
                             <div class="flex justify-end gap-1.5">
                               <button onclick="handleReturn('<%= order._id %>', 'approve')"
                                       class="w-7 h-7 bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 rounded-lg transition flex items-center justify-center" title="Approve">
@@ -429,21 +433,36 @@
             </div>
           </div>
 
-          <!-- Update Status -->
+          <!-- Update Status — hidden for terminal orders -->
           <div class="card-bg rounded-2xl p-5">
             <div class="flex items-center gap-2 mb-4">
               <i class="fas fa-edit text-cyan-400 text-xs"></i>
               <h3 class="text-[10px] font-bold text-white uppercase tracking-widest">Update Status</h3>
             </div>
-            <select id="statusSelect" class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/50 appearance-none mb-3">
-              <% ['pending','confirmed','processing','shipped','delivered','cancelled','returned'].forEach(s => { %>
-                <option value="<%= s %>" <%= order.status === s ? 'selected' : '' %>><%= s.charAt(0).toUpperCase() + s.slice(1) %></option>
-              <% }) %>
-            </select>
-            <button onclick="updateStatus('<%= order._id %>')"
-                    class="w-full bg-cyan-400 hover:bg-cyan-300 text-[#05070A] font-bold text-xs py-2.5 rounded-xl transition">
-              Update Status
-            </button>
+
+            <% if (['cancelled', 'returned', 'delivered'].includes(order.status)) { %>
+              <!-- Terminal state — locked -->
+              <div class="flex items-start gap-3 p-3 bg-slate-800/50 rounded-xl border border-slate-700/50">
+                <i class="fas fa-lock text-slate-500 text-xs mt-0.5 flex-shrink-0"></i>
+                <div>
+                  <p class="text-slate-400 text-xs font-semibold mb-0.5">Status Locked</p>
+                  <p class="text-slate-600 text-[10px] leading-relaxed">
+                    This order is <span class="text-<%= order.status === 'cancelled' ? 'red' : order.status === 'returned' ? 'orange' : 'green' %>-400 font-semibold"><%= order.status %></span> and cannot be updated further.
+                  </p>
+                </div>
+              </div>
+            <% } else { %>
+              <select id="statusSelect"
+                      class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-2.5 px-3 text-sm text-slate-300 focus:outline-none focus:border-cyan-500/50 appearance-none mb-3">
+                <% ['pending','confirmed','processing','shipped','delivered'].forEach(s => { %>
+                  <option value="<%= s %>" <%= order.status === s ? 'selected' : '' %>><%= s.charAt(0).toUpperCase() + s.slice(1) %></option>
+                <% }) %>
+              </select>
+              <button onclick="updateStatus('<%= order._id %>')"
+                      class="w-full bg-cyan-400 hover:bg-cyan-300 text-[#05070A] font-bold text-xs py-2.5 rounded-xl transition">
+                Update Status
+              </button>
+            <% } %>
           </div>
 
         </div>

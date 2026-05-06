@@ -115,8 +115,20 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Invalid status.' });
   }
 
-  const order = await Order.findByIdAndUpdate(id, { status }, { new: true });
+  // Fetch current order to check if it's in a terminal state
+  const order = await Order.findById(id);
   if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
+
+  // Cancelled, returned, and delivered orders are terminal — status cannot be changed
+  if (['cancelled', 'returned', 'delivered'].includes(order.status)) {
+    return res.status(400).json({
+      success: false,
+      message: `Order is ${order.status} and cannot be updated further.`,
+    });
+  }
+
+  order.status = status;
+  await order.save();
 
   return res.json({ success: true, message: 'Order status updated.', status: order.status });
 });
