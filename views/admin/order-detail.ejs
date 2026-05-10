@@ -118,7 +118,15 @@
         </div>
         <div class="card-bg rounded-xl p-4">
           <p class="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Total Amount</p>
-          <p class="text-cyan-400 font-bold text-lg">₹<%= order.total.toLocaleString('en-IN') %></p>
+          <%
+            const cancelledItems  = order.items.filter(i => i.status === 'cancelled');
+            const cancelledTotal  = cancelledItems.reduce((sum, i) => sum + (i.itemTotal || 0), 0);
+            const effectiveTotal  = order.total - cancelledTotal;
+          %>
+          <p class="text-cyan-400 font-bold text-lg">₹<%= effectiveTotal.toLocaleString('en-IN') %></p>
+          <% if (cancelledTotal > 0) { %>
+            <p class="text-red-400 text-[10px] mt-0.5 line-through">₹<%= order.total.toLocaleString('en-IN') %></p>
+          <% } %>
         </div>
       </div>
 
@@ -126,8 +134,10 @@
       <%
         const activeItems       = order.items.filter(i => i.status !== 'cancelled');
         const hasRequestedItems = activeItems.some(i => i.returnStatus === 'requested');
+        const allItemsRequested = activeItems.length > 0 && activeItems.every(i => i.returnStatus === 'requested');
       %>
-      <% if (order.status === 'returned' && order.paymentStatus !== 'refunded' && hasRequestedItems) { %>
+      <%# Full-order return banner — only when ALL active items are requested %>
+      <% if (allItemsRequested && order.paymentStatus !== 'refunded') { %>
         <div class="card-bg border-l-4 border-orange-400 rounded-xl p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-start gap-3">
             <div class="w-8 h-8 bg-orange-400/10 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -455,7 +465,13 @@
               </div>
               <div class="border-t border-slate-800 pt-3 flex justify-between items-center">
                 <span class="text-slate-400 font-semibold">Total</span>
-                <span class="text-cyan-400 font-bold text-base">₹<%= order.total.toLocaleString('en-IN') %></span>
+                <div class="text-right">
+                  <span class="text-cyan-400 font-bold text-base">₹<%= effectiveTotal.toLocaleString('en-IN') %></span>
+                  <% if (cancelledTotal > 0) { %>
+                    <p class="text-red-400 text-[10px] line-through">₹<%= order.total.toLocaleString('en-IN') %></p>
+                    <p class="text-red-400 text-[10px]">−₹<%= cancelledTotal.toLocaleString('en-IN') %> cancelled</p>
+                  <% } %>
+                </div>
               </div>
             </div>
           </div>

@@ -179,18 +179,17 @@
                                 </div>
                             </div>
                             <% }) %>
-                            <div id="variantsContainer" class="space-y-6">
-   <% variants.forEach((variant, index) => { %>
-        <% }) %>
-</div>
+                            <div id="variantsContainer" class="space-y-6 mt-6">
+                                <%# New variants added via JS will appear here %>
+                            </div>
 
-<div class="mt-6">
-    <button type="button" onclick="addNewVariant()" 
-        class="w-full py-4 border-2 border-dashed border-slate-700 rounded-2xl text-slate-500 hover:text-cyan-400 hover:border-cyan-400/50 transition flex items-center justify-center gap-2 group">
-        <i class="fas fa-plus-circle group-hover:scale-110 transition"></i>
-        <span class="font-bold text-xs uppercase tracking-widest">Add Another Variant</span>
-    </button>
-</div>
+                            <div class="mt-6">
+                                <button type="button" onclick="addNewVariant()" 
+                                    class="w-full py-4 border-2 border-dashed border-slate-700 rounded-2xl text-slate-500 hover:text-cyan-400 hover:border-cyan-400/50 transition flex items-center justify-center gap-2 group">
+                                    <i class="fas fa-plus-circle group-hover:scale-110 transition"></i>
+                                    <span class="font-bold text-xs uppercase tracking-widest">Add Another Variant</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -211,7 +210,8 @@
                                     <input type="text" name="movementType" value="<%= product.specifications.movementType %>" class="input-field">
                                 </div>
                               <div class="flex items-center gap-2">
-    <input type="checkbox" name="isActive" id="isActive" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
+    <input type="hidden" name="isActive" value="false">
+    <input type="checkbox" name="isActive" id="isActive" value="on" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
     <label for="isActive" class="text-sm">Active / Listed in Store</label>
 </div>
                             </div>

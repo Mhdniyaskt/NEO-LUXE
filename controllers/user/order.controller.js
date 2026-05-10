@@ -31,7 +31,9 @@ export const getOrders = asyncHandler(async (req, res) => {
     layout: 'layouts/user',
     path: 'orders',
     orders: result.orders,
-    pagination: result.pagination,
+    currentPage: result.pagination.currentPage,
+    totalPages: result.pagination.totalPages,
+    total: result.pagination.total,
     currentStatus: status,
     search
   });
@@ -80,18 +82,19 @@ export const cancelOrder = asyncHandler(async (req, res) => {
 export const returnOrder = asyncHandler(async (req, res) => {
   const userId = req.session.user.id;
   const { orderId } = req.params;
-  const { reason = 'Customer requested return' } = req.body;
+  const { reason } = req.body;
 
-  // For user-initiated returns, we'll create a return request
-  // The actual processing should be done by admin
-  const result = await getOrderByIdService(orderId, userId);
-  
-  if (!result.success) {
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({ success: false, message: 'Please provide a reason for the return' });
+  }
+
+  const Order = (await import('../../models/order.model.js')).default;
+
+  const order = await Order.findOne({ _id: orderId, user: userId });
+  if (!order) {
     return res.status(404).json({ success: false, message: 'Order not found' });
   }
 
-  const { order } = result;
-  
   if (order.status !== 'delivered') {
     return res.status(400).json({
       success: false,
@@ -99,11 +102,20 @@ export const returnOrder = asyncHandler(async (req, res) => {
     });
   }
 
-  // Here you would typically create a return request record
-  // For now, we'll just return success
+  // Mark all active (non-cancelled, not-yet-requested) items as return-requested
+  // DO NOT flip order.status — stays 'delivered' until admin approves
+  order.items.forEach((item, i) => {
+    if (item.status !== 'cancelled' && item.returnStatus === 'none') {
+      order.items[i].returnStatus = 'requested';
+      order.items[i].returnReason = reason.trim();
+    }
+  });
+
+  await order.save();
+
   return res.json({
     success: true,
-    message: 'Return request submitted successfully. Our team will review and process it soon.'
+    message: 'Return request submitted. Our team will review it within 24–48 hours.'
   });
 });
 
@@ -113,31 +125,51 @@ export const cancelOrderItem = asyncHandler(async (req, res) => {
   const { orderId, itemIndex } = req.params;
   const { reason = 'Customer requested item cancellation' } = req.body;
 
-  const result = await getOrderByIdService(orderId, userId);
-  
-  if (!result.success) {
+  const Order   = (await import('../../models/order.model.js')).default;
+  const Variant = (await import('../../models/variant.model.js')).default;
+
+  const order = await Order.findOne({ _id: orderId, user: userId });
+  if (!order) {
     return res.status(404).json({ success: false, message: 'Order not found' });
   }
 
-  const { order } = result;
   const itemIdx = parseInt(itemIndex);
-  
-  if (itemIdx < 0 || itemIdx >= order.items.length) {
+  if (isNaN(itemIdx) || itemIdx < 0 || itemIdx >= order.items.length) {
     return res.status(400).json({ success: false, message: 'Invalid item index' });
   }
 
   if (['delivered', 'cancelled', 'returned'].includes(order.status)) {
     return res.status(400).json({
       success: false,
-      message: `Cannot cancel items from ${order.status} orders`
+      message: `Cannot cancel items from a ${order.status} order`
     });
   }
 
-  // For individual item cancellation, you'd need more complex logic
-  // This is a simplified implementation
+  const item = order.items[itemIdx];
+  if (item.status === 'cancelled') {
+    return res.status(400).json({ success: false, message: 'Item is already cancelled' });
+  }
+
+  // Mark item as cancelled
+  order.items[itemIdx].status = 'cancelled';
+
+  // Restore stock for this item
+  await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
+
+  // If ALL items are now cancelled → cancel the whole order
+  const allCancelled = order.items.every(i => i.status === 'cancelled');
+  if (allCancelled) {
+    order.status = 'cancelled';
+    order.cancelReason = reason;
+  }
+
+  await order.save();
+
   return res.json({
     success: true,
-    message: 'Item cancellation request submitted successfully'
+    message: allCancelled
+      ? 'All items cancelled. Order has been cancelled.'
+      : 'Item cancelled and stock restored.'
   });
 });
 
@@ -145,21 +177,25 @@ export const cancelOrderItem = asyncHandler(async (req, res) => {
 export const returnOrderItem = asyncHandler(async (req, res) => {
   const userId = req.session.user.id;
   const { orderId, itemIndex } = req.params;
-  const { reason = 'Customer requested item return' } = req.body;
+  const { reason } = req.body;
 
-  const result = await getOrderByIdService(orderId, userId);
-  
-  if (!result.success) {
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({ success: false, message: 'Please provide a reason for the return' });
+  }
+
+  const Order = (await import('../../models/order.model.js')).default;
+
+  const order = await Order.findOne({ _id: orderId, user: userId });
+  if (!order) {
     return res.status(404).json({ success: false, message: 'Order not found' });
   }
 
-  const { order } = result;
   const itemIdx = parseInt(itemIndex);
-  
-  if (itemIdx < 0 || itemIdx >= order.items.length) {
+  if (isNaN(itemIdx) || itemIdx < 0 || itemIdx >= order.items.length) {
     return res.status(400).json({ success: false, message: 'Invalid item index' });
   }
 
+  // Only allow returns on delivered orders
   if (order.status !== 'delivered') {
     return res.status(400).json({
       success: false,
@@ -167,11 +203,29 @@ export const returnOrderItem = asyncHandler(async (req, res) => {
     });
   }
 
-  // For individual item returns, you'd need more complex logic
-  // This is a simplified implementation
+  const item = order.items[itemIdx];
+
+  if (item.status === 'cancelled') {
+    return res.status(400).json({ success: false, message: 'Cannot return a cancelled item' });
+  }
+
+  if (item.returnStatus !== 'none') {
+    return res.status(400).json({
+      success: false,
+      message: `Return already ${item.returnStatus} for this item`
+    });
+  }
+
+  // Mark only this item as return-requested
+  // DO NOT flip order.status — it stays 'delivered' until admin approves
+  order.items[itemIdx].returnStatus = 'requested';
+  order.items[itemIdx].returnReason = reason.trim();
+
+  await order.save();
+
   return res.json({
     success: true,
-    message: 'Item return request submitted successfully'
+    message: 'Return request submitted. Our team will review it within 24–48 hours.'
   });
 });
 

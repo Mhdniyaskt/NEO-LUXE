@@ -1,10 +1,10 @@
 // controllers/user/cart.controller.js
 import asyncHandler from '../../utils/asyncHandler.util.js';
+import Cart from '../../models/cart.model.js';
+import Variant from '../../models/variant.model.js';
 import {
   getCartService,
   addToCartService,
-  removeFromCartService,
-  updateCartQuantityService,
   clearCartService
 } from '../../services/cart.service.js';
 
@@ -57,53 +57,69 @@ export const addToCart = asyncHandler(async (req, res) => {
   return res.json(result);
 });
 
-// ─── DELETE /cart/remove/:productId/:variantId ──────────────────────────────
+// ─── DELETE /cart/remove/:variantId ──────────────────────────────────────────
 export const removeFromCart = asyncHandler(async (req, res) => {
   const userId = req.session.user.id;
-  const { productId, variantId } = req.params;
+  const { variantId } = req.params;
 
-  const result = await removeFromCartService(userId, productId, variantId);
-  
-  if (result.success) {
-    // Get updated cart summary
-    const cartResult = await getCartService(userId);
-    return res.json({
-      ...result,
-      summary: cartResult.success ? cartResult.cart.summary : null
-    });
+  const cart = await Cart.findOne({ user: userId });
+  if (!cart) {
+    return res.json({ success: false, message: 'Cart not found' });
   }
-  
-  return res.json(result);
+
+  const itemIndex = cart.items.findIndex(
+    item => item.variant.toString() === variantId
+  );
+
+  if (itemIndex === -1) {
+    return res.json({ success: false, message: 'Item not found in cart' });
+  }
+
+  cart.items.splice(itemIndex, 1);
+  await cart.save();
+
+  const cartResult = await getCartService(userId);
+  return res.json({
+    success: true,
+    message: 'Item removed from cart',
+    summary: cartResult.success ? cartResult.cart.summary : null
+  });
 });
 
 // ─── PATCH /cart/update-qty ──────────────────────────────────────────────────
 export const updateQty = asyncHandler(async (req, res) => {
   const userId = req.session.user.id;
-  const { productId, variantId, quantity } = req.body;
+  const { variantId, change } = req.body;
 
-  const result = await updateCartQuantityService(userId, productId, variantId, quantity);
-  
-  if (result.success) {
-    // Get updated cart data
-    const cartResult = await getCartService(userId);
-    if (cartResult.success) {
-      const item = cartResult.cart.items.find(item => 
-        item.product._id.toString() === productId && 
-        item.variant._id.toString() === variantId
-      );
-      
-      return res.json({
-        ...result,
-        quantity: item ? item.quantity : quantity,
-        itemSubtotal: item ? item.variant.basePrice * item.quantity : 0,
-        basePrice: item ? item.variant.basePrice : 0,
-        finalPrice: item ? item.variant.basePrice : 0,
-        ...cartResult.cart.summary
-      });
-    }
-  }
-  
-  return res.json(result);
+  const cart = await Cart.findOne({ user: userId });
+  if (!cart) return res.json({ success: false, message: 'Cart not found' });
+
+  const item = cart.items.find(i => i.variant.toString() === variantId);
+  if (!item) return res.json({ success: false, message: 'Item not found in cart' });
+
+  const variant = await Variant.findById(variantId);
+  if (!variant) return res.json({ success: false, message: 'Variant not found' });
+
+  const newQty = item.quantity + Number(change);
+
+  if (newQty < 1)             return res.json({ success: false, message: 'Minimum quantity is 1' });
+  if (newQty > 10)            return res.json({ success: false, message: 'Maximum 10 units allowed' });
+  if (newQty > variant.stock) return res.json({ success: false, message: 'Stock limit reached' });
+
+  item.quantity = newQty;
+  await cart.save();
+
+  const cartResult = await getCartService(userId);
+
+  return res.json({
+    success:      true,
+    quantity:     newQty,
+    stock:        variant.stock,
+    itemSubtotal: variant.basePrice * newQty,
+    basePrice:    variant.basePrice,
+    finalPrice:   variant.basePrice,
+    ...(cartResult.success ? cartResult.cart.summary : {})
+  });
 });
 
 // ─── DELETE /cart/clear ──────────────────────────────────────────────────────

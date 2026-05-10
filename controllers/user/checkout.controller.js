@@ -30,7 +30,7 @@ export const getCheckout = asyncHandler(async (req, res) => {
   res.render('user/checkout', {
     layout: 'layouts/user',
     path: 'checkout',
-    items: checkout.items,
+    checkoutItems: checkout.items,
     addresses: checkout.addresses,
     totals: checkout.totals,
     blockedItems: checkout.issues.blockedItems,
@@ -78,7 +78,7 @@ export const placeOrder = asyncHandler(async (req, res) => {
       message: result.message,
       orderId: result.order._id,
       orderNumber: result.order.orderNumber,
-      redirectUrl: `/order-confirmation/${result.order._id}`
+      redirect: `/orders/${result.order._id}`
     });
   }
 
@@ -164,7 +164,7 @@ export const placeBuyNowOrder = asyncHandler(async (req, res) => {
       message: result.message,
       orderId: result.order._id,
       orderNumber: result.order.orderNumber,
-      redirectUrl: `/order-confirmation/${result.order._id}`
+      redirect: `/orders/${result.order._id}`
     });
   }
 
@@ -192,77 +192,146 @@ export const getOrderConfirmation = asyncHandler(async (req, res) => {
   });
 });
 
-// ─── GET /order-invoice/:orderId ─────────────────────────────────────────────
+// ─── GET /orders/:orderId/invoice ────────────────────────────────────────────
 export const downloadInvoice = asyncHandler(async (req, res) => {
-  const userId = req.session.user.id;
+  const userId  = req.session.user.id;
   const { orderId } = req.params;
 
   const result = await getOrderByIdService(orderId, userId);
-  
   if (!result.success) {
     return res.status(404).json({ success: false, message: 'Order not found' });
   }
 
   const { order } = result;
 
-  // Create PDF invoice
-  const doc = new PDFDocument({ margin: 50 });
-  
-  // Set response headers
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename=invoice-${order.orderNumber}.pdf`);
-  
-  // Pipe PDF to response
-  doc.pipe(res);
-
-  // Add invoice content
-  doc.fontSize(20).text('NEO LUXE', 50, 50);
-  doc.fontSize(16).text('INVOICE', 50, 80);
-  
-  doc.fontSize(12);
-  doc.text(`Order Number: ${order.orderNumber}`, 50, 120);
-  doc.text(`Date: ${new Date(order.createdAt).toLocaleDateString()}`, 50, 140);
-  doc.text(`Status: ${order.status.toUpperCase()}`, 50, 160);
-
-  // Customer details
-  doc.text('Bill To:', 50, 200);
-  doc.text(order.shippingAddress.fullName, 50, 220);
-  doc.text(order.shippingAddress.streetAddress, 50, 240);
-  doc.text(`${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.pincode}`, 50, 260);
-  doc.text(order.shippingAddress.phone, 50, 280);
-
-  // Items table header
-  let yPosition = 320;
-  doc.text('Item', 50, yPosition);
-  doc.text('Qty', 300, yPosition);
-  doc.text('Price', 400, yPosition);
-  doc.text('Total', 500, yPosition);
-  
-  // Draw line
-  doc.moveTo(50, yPosition + 20).lineTo(550, yPosition + 20).stroke();
-  yPosition += 40;
-
-  // Items
-  for (const item of order.items) {
-    doc.text(`${item.product.name} - ${item.variant.color}`, 50, yPosition);
-    doc.text(item.quantity.toString(), 300, yPosition);
-    doc.text(`₹${item.price}`, 400, yPosition);
-    doc.text(`₹${item.price * item.quantity}`, 500, yPosition);
-    yPosition += 20;
+  // Only allow invoice download for delivered orders
+  if (order.status !== 'delivered') {
+    return res.status(400).json({ success: false, message: 'Invoice is only available for delivered orders' });
   }
 
-  // Totals
-  yPosition += 20;
-  doc.moveTo(50, yPosition).lineTo(550, yPosition).stroke();
-  yPosition += 20;
-  
-  doc.text(`Subtotal: ₹${order.subtotal}`, 400, yPosition);
-  yPosition += 20;
-  doc.text(`Tax: ₹${order.tax}`, 400, yPosition);
-  yPosition += 20;
-  doc.text(`Shipping: ₹${order.shipping}`, 400, yPosition);
-  yPosition += 20;
-  doc.fontSize(14).text(`Total: ₹${order.total}`, 400, yPosition);
+  // Only include items that were actually delivered (not cancelled, not returned/approved)
+  const deliveredItems = order.items.filter(
+    i => i.status !== 'cancelled' && i.returnStatus !== 'approved'
+  );
+
+  // Recalculate totals from delivered items only
+  const subtotal = deliveredItems.reduce((sum, i) => sum + (i.itemTotal || i.basePrice * i.quantity || 0), 0);
+  const shipping  = subtotal >= 5000 ? 0 : 50;
+  const tax       = Math.round(subtotal * 0.18);
+  const total     = subtotal + shipping + tax;
+
+  const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename=invoice-${order.orderNumber || orderId.slice(-8).toUpperCase()}.pdf`);
+  doc.pipe(res);
+
+  // ── Header ────────────────────────────────────────────────────────────
+  doc.rect(0, 0, 595, 120).fill('#05080d');
+  doc.fillColor('#22d3ee').fontSize(26).font('Helvetica-Bold').text('NEO LUXE', 50, 35);
+  doc.fillColor('#94a3b8').fontSize(10).font('Helvetica').text('Premium Watch Collection', 50, 65);
+  doc.fillColor('#ffffff').fontSize(22).font('Helvetica-Bold').text('INVOICE', 430, 40);
+  doc.fillColor('#22d3ee').fontSize(10).font('Helvetica').text(`#${order.orderNumber || orderId.slice(-8).toUpperCase()}`, 430, 68);
+
+  // ── Order meta ────────────────────────────────────────────────────────
+  let y = 140;
+  doc.fillColor('#1e293b').rect(50, y, 495, 1).fill();
+  y += 15;
+
+  doc.fillColor('#64748b').fontSize(8).font('Helvetica-Bold').text('ORDER DATE', 50, y);
+  doc.fillColor('#64748b').fontSize(8).font('Helvetica-Bold').text('PAYMENT METHOD', 220, y);
+  doc.fillColor('#64748b').fontSize(8).font('Helvetica-Bold').text('STATUS', 390, y);
+  y += 14;
+  doc.fillColor('#0f172a').fontSize(10).font('Helvetica').text(
+    new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), 50, y);
+  doc.fillColor('#0f172a').fontSize(10).font('Helvetica').text(
+    order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment', 220, y);
+  doc.fillColor('#16a34a').fontSize(10).font('Helvetica-Bold').text('DELIVERED', 390, y);
+  y += 30;
+
+  doc.fillColor('#1e293b').rect(50, y, 495, 1).fill();
+  y += 20;
+
+  // ── Bill To ───────────────────────────────────────────────────────────
+  doc.fillColor('#64748b').fontSize(8).font('Helvetica-Bold').text('BILL TO', 50, y);
+  y += 14;
+  doc.fillColor('#0f172a').fontSize(11).font('Helvetica-Bold').text(order.shippingAddress.fullName, 50, y);
+  y += 16;
+  const addr = [
+    order.shippingAddress.addressLine1,
+    order.shippingAddress.addressLine2,
+    `${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.pincode}`,
+  ].filter(Boolean).join(', ');
+  doc.fillColor('#334155').fontSize(10).font('Helvetica').text(addr, 50, y, { width: 250 });
+  y += doc.heightOfString(addr, { width: 250 }) + 6;
+  doc.fillColor('#334155').fontSize(10).text(`Phone: ${order.shippingAddress.phone}`, 50, y);
+  y += 30;
+
+  // ── Items table ───────────────────────────────────────────────────────
+  // Header row
+  doc.fillColor('#0f172a').rect(50, y, 495, 28).fill();
+  doc.fillColor('#ffffff').fontSize(9).font('Helvetica-Bold');
+  doc.text('ITEM', 60, y + 9);
+  doc.text('COLOR', 290, y + 9);
+  doc.text('QTY', 360, y + 9, { width: 40, align: 'center' });
+  doc.text('UNIT PRICE', 410, y + 9, { width: 70, align: 'right' });
+  doc.text('TOTAL', 490, y + 9, { width: 55, align: 'right' });
+  y += 28;
+
+  // Item rows
+  deliveredItems.forEach((item, idx) => {
+    const rowBg = idx % 2 === 0 ? '#f8fafc' : '#f1f5f9';
+    const unitPrice = item.basePrice || 0;
+    const lineTotal = item.itemTotal || (unitPrice * item.quantity) || 0;
+
+    doc.fillColor(rowBg).rect(50, y, 495, 26).fill();
+    doc.fillColor('#0f172a').fontSize(9).font('Helvetica-Bold').text(item.productName || '—', 60, y + 8, { width: 220, ellipsis: true });
+    doc.fillColor('#475569').fontSize(9).font('Helvetica').text(item.variantColor || '—', 290, y + 8, { width: 60 });
+    doc.fillColor('#0f172a').fontSize(9).font('Helvetica').text(String(item.quantity), 360, y + 8, { width: 40, align: 'center' });
+    doc.fillColor('#0f172a').fontSize(9).font('Helvetica').text(`Rs.${unitPrice.toLocaleString('en-IN')}`, 410, y + 8, { width: 70, align: 'right' });
+    doc.fillColor('#0f172a').fontSize(9).font('Helvetica-Bold').text(`Rs.${lineTotal.toLocaleString('en-IN')}`, 490, y + 8, { width: 55, align: 'right' });
+    y += 26;
+  });
+
+  y += 15;
+
+  // ── Totals ────────────────────────────────────────────────────────────
+  const totalsX = 370;
+  const valX    = 490;
+  const valW    = 55;
+
+  doc.fillColor('#e2e8f0').rect(totalsX, y, 175, 1).fill();
+  y += 12;
+
+  doc.fillColor('#64748b').fontSize(9).font('Helvetica').text('Subtotal', totalsX, y);
+  doc.fillColor('#0f172a').fontSize(9).font('Helvetica').text(`Rs.${subtotal.toLocaleString('en-IN')}`, valX, y, { width: valW, align: 'right' });
+  y += 16;
+
+  doc.fillColor('#64748b').fontSize(9).font('Helvetica').text('Shipping', totalsX, y);
+  doc.fillColor(shipping === 0 ? '#16a34a' : '#0f172a').fontSize(9).font('Helvetica').text(
+    shipping === 0 ? 'FREE' : `Rs.${shipping}`, valX, y, { width: valW, align: 'right' });
+  y += 16;
+
+  doc.fillColor('#64748b').fontSize(9).font('Helvetica').text('Tax (18% GST)', totalsX, y);
+  doc.fillColor('#0f172a').fontSize(9).font('Helvetica').text(`Rs.${tax.toLocaleString('en-IN')}`, valX, y, { width: valW, align: 'right' });
+  y += 12;
+
+  doc.fillColor('#e2e8f0').rect(totalsX, y, 175, 1).fill();
+  y += 12;
+
+  doc.fillColor('#0f172a').rect(totalsX - 5, y - 4, 185, 28).fill();
+  doc.fillColor('#ffffff').fontSize(11).font('Helvetica-Bold').text('TOTAL', totalsX, y + 4);
+  doc.fillColor('#22d3ee').fontSize(13).font('Helvetica-Bold').text(`Rs.${total.toLocaleString('en-IN')}`, valX - 10, y + 3, { width: valW + 10, align: 'right' });
+  y += 40;
+
+  // ── Footer ────────────────────────────────────────────────────────────
+  doc.fillColor('#e2e8f0').rect(50, y, 495, 1).fill();
+  y += 15;
+  doc.fillColor('#94a3b8').fontSize(8).font('Helvetica')
+     .text('Thank you for shopping with Neo Luxe. For support, contact us at support@neoluxe.com', 50, y, { align: 'center', width: 495 });
+  y += 14;
+  doc.fillColor('#cbd5e1').fontSize(7).font('Helvetica')
+     .text('This is a computer-generated invoice and does not require a signature.', 50, y, { align: 'center', width: 495 });
 
   doc.end();
 });

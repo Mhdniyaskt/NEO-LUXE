@@ -304,26 +304,123 @@ export const createProductService = async (productData) => {
   }
 };
 
-// ─── Update product ───────────────────────────────────────────────────────────
-export const updateProductService = async (productId, updateData) => {
+// ─── Update product (full: basic fields + variants + images) ─────────────────
+export const updateProductService = async (productId, updateData, files = []) => {
   try {
     const product = await Product.findById(productId);
     if (!product || product.isDeleted) {
       return { success: false, message: MESSAGES.PRODUCT.NOT_FOUND };
     }
 
-    // Update product fields
-    const allowedFields = ['name', 'brand', 'category', 'description', 'caseSize', 'strapType', 'movementType', 'isActive'];
-    const updates = {};
-    
-    for (const field of allowedFields) {
-      if (updateData[field] !== undefined) {
-        updates[field] = updateData[field];
-      }
+    // ── 1. Update basic product fields ────────────────────────────────
+    const {
+      name, brand, category, description,
+      caseSize, strapType, movementType, isActive
+    } = updateData;
+
+    if (!name?.trim() || !brand?.trim() || !category || !description?.trim()) {
+      return { success: false, message: 'Name, brand, category and description are required' };
     }
 
-    if (Object.keys(updates).length > 0) {
-      await Product.findByIdAndUpdate(productId, updates);
+    await Product.findByIdAndUpdate(productId, {
+      name:        name.trim(),
+      brand:       brand.trim(),
+      category,
+      description: description.trim(),
+      specifications: {
+        caseSize:     caseSize?.trim()     || '',
+        strapType:    strapType?.trim()    || '',
+        movementType: movementType?.trim() || '',
+      },
+      // checkbox sends 'on' when checked, absent when unchecked
+      isActive: isActive === 'on' || isActive === 'true' || isActive === true,
+    });
+
+    // ── 2. Parse variants from form data ──────────────────────────────
+    // Form sends: variants[0][_id], variants[0][color], variants[0][basePrice], etc.
+    // Build a map: index → { _id, color, basePrice, regularPrice, stock }
+    const variantMap = {};
+    for (const [key, value] of Object.entries(updateData)) {
+      const match = key.match(/^variants\[([^\]]+)\]\[([^\]]+)\]$/);
+      if (!match) continue;
+      const [, idx, field] = match;
+      if (!variantMap[idx]) variantMap[idx] = {};
+      variantMap[idx][field] = value;
+    }
+
+    // ── 3. Group uploaded files by variant index ──────────────────────
+    const filesByVariant = {};
+    for (const file of files) {
+      // fieldname pattern: variantImages_<index>
+      const match = file.fieldname.match(/^variantImages_(.+)$/);
+      if (!match) continue;
+      const idx = match[1];
+      if (!filesByVariant[idx]) filesByVariant[idx] = [];
+      filesByVariant[idx].push(file);
+    }
+
+    // ── 4. Process each variant ───────────────────────────────────────
+    for (const [idx, vData] of Object.entries(variantMap)) {
+      const { _id, color, basePrice, regularPrice, stock } = vData;
+
+      if (!color?.trim()) continue; // skip incomplete entries
+
+      const parsedBase    = parseFloat(basePrice)    || 0;
+      const parsedRegular = parseFloat(regularPrice) || parsedBase;
+      const parsedStock   = parseInt(stock)          || 0;
+
+      // Upload new images for this variant
+      const newImages = [];
+      if (filesByVariant[idx]) {
+        for (const file of filesByVariant[idx]) {
+          try {
+            const uploadResult = await cloudinary.uploader.upload(file.path, {
+              folder: 'neo-luxe/variants',
+              transformation: [
+                { width: 800, height: 800, crop: 'fill' },
+                { quality: 'auto', fetch_format: 'auto' }
+              ]
+            });
+            newImages.push({ url: uploadResult.secure_url, isPrimary: false });
+          } catch (uploadErr) {
+            console.error('Cloudinary upload error:', uploadErr);
+          }
+        }
+      }
+
+      if (_id) {
+        // ── Existing variant — update fields + append new images ──────
+        const variant = await Variant.findById(_id);
+        if (!variant || variant.isDeleted) continue;
+
+        const updatedImages = [...variant.images, ...newImages];
+        // Ensure at least one primary image
+        if (updatedImages.length > 0 && !updatedImages.find(i => i.isPrimary)) {
+          updatedImages[0].isPrimary = true;
+        }
+
+        await Variant.findByIdAndUpdate(_id, {
+          color:        color.trim(),
+          basePrice:    parsedBase,
+          regularPrice: parsedRegular,
+          stock:        parsedStock,
+          images:       updatedImages,
+        });
+      } else {
+        // ── New variant — create it ───────────────────────────────────
+        if (newImages.length > 0) newImages[0].isPrimary = true;
+
+        await Variant.create({
+          product:      productId,
+          color:        color.trim(),
+          basePrice:    parsedBase,
+          regularPrice: parsedRegular,
+          stock:        parsedStock,
+          images:       newImages,
+          isActive:     true,
+          isDeleted:    false,
+        });
+      }
     }
 
     return { success: true, message: MESSAGES.PRODUCT.UPDATE_SUCCESS };

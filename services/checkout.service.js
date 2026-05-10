@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import Cart from '../models/cart.model.js';
 import Variant from '../models/variant.model.js';
 import Product from '../models/product.model.js';
@@ -101,24 +100,19 @@ export const getCheckoutDataService = async (userId) => {
       .sort({ isDefault: -1, createdAt: -1 })
       .lean();
 
-    // Prepare checkout items
+    // Prepare checkout items — shape matches what checkout.ejs expects
     const checkoutItems = validItems.map(({ item, product, variant, qty }) => ({
-      product: {
-        _id: product._id,
-        name: product.name,
-        brand: product.brand,
-        images: product.images
-      },
-      variant: {
-        _id: variant._id,
-        color: variant.color,
-        basePrice: variant.basePrice,
-        finalPrice: variant.finalPrice,
-        images: variant.images
-      },
-      quantity: qty,
-      price: variant.basePrice,
-      subtotal: variant.basePrice * qty
+      productId:    product._id,
+      variantId:    variant._id,
+      productName:  product.name,
+      brand:        product.brand,
+      color:        variant.color,
+      imageUrl:     (variant.images?.[0]?.url) || (product.images?.[0]?.url) || null,
+      quantity:     qty,
+      basePrice:    variant.basePrice,
+      regularPrice: variant.regularPrice ?? variant.basePrice,
+      finalPrice:   variant.finalPrice   ?? variant.basePrice,
+      itemTotal:    variant.basePrice * qty
     }));
 
     return {
@@ -206,29 +200,26 @@ export const validateBuyNowService = async (productId, variantId, quantity = 1) 
 
 // ─── Process checkout and create order ────────────────────────────────────────
 export const processCheckoutService = async (checkoutData) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const {
       userId,
       addressId,
       paymentMethod,
-      items, // For buy now, this will be a single item array
+      items,
       isBuyNow = false
     } = checkoutData;
 
     // Validate address
     const address = await Address.findOne({ _id: addressId, userId });
     if (!address) {
-      throw new Error(MESSAGES.CHECKOUT.INVALID_ADDRESS);
+      return { success: false, message: MESSAGES.CHECKOUT.INVALID_ADDRESS };
     }
 
     let orderItems = [];
 
     if (isBuyNow) {
       if (!items || items.length !== 1) {
-        throw new Error(MESSAGES.CHECKOUT.BUY_NOW_ONE_ITEM);
+        return { success: false, message: MESSAGES.CHECKOUT.BUY_NOW_ONE_ITEM };
       }
 
       const item = items[0];
@@ -236,100 +227,112 @@ export const processCheckoutService = async (checkoutData) => {
       const variant = await Variant.findById(item.variantId);
 
       if (!product || product.isDeleted || !product.isActive) {
-        throw new Error(MESSAGES.PRODUCT.NOT_AVAILABLE);
+        return { success: false, message: MESSAGES.PRODUCT.NOT_AVAILABLE };
       }
       if (!variant || variant.isDeleted || !variant.isActive) {
-        throw new Error(MESSAGES.PRODUCT.VARIANT_UNAVAILABLE);
+        return { success: false, message: MESSAGES.PRODUCT.VARIANT_UNAVAILABLE };
       }
       if (!product.category || !product.category.isListed) {
-        throw new Error(MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE);
+        return { success: false, message: MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE };
       }
       if (variant.stock < item.quantity) {
-        throw new Error(`Insufficient stock. Available: ${variant.stock}`);
+        return { success: false, message: `Insufficient stock. Available: ${variant.stock}` };
       }
 
-      orderItems = [{
-        product: item.productId,
-        variant: item.variantId,
-        quantity: item.quantity,
-        price: variant.basePrice
-      }];
-
-      // Deduct stock
+      // Deduct stock atomically using findOneAndUpdate
       const stockResult = await Variant.findOneAndUpdate(
         { _id: item.variantId, stock: { $gte: item.quantity } },
         { $inc: { stock: -item.quantity } },
-        { session, new: true }
+        { new: true }
       );
 
       if (!stockResult) {
-        throw new Error('Failed to reserve stock. Item may be out of stock.');
+        return { success: false, message: 'Failed to reserve stock. Item may be out of stock.' };
       }
+
+      orderItems = [{
+        product:      item.productId,
+        variant:      item.variantId,
+        productName:  product.name,
+        variantColor: variant.color,
+        imageUrl:     variant.images?.[0]?.url || product.images?.[0]?.url || '',
+        basePrice:    variant.basePrice,
+        regularPrice: variant.regularPrice ?? variant.basePrice,
+        quantity:     item.quantity,
+        itemTotal:    variant.basePrice * item.quantity,
+      }];
+
     } else {
-      // Regular checkout - validate cart
+      // Regular checkout — validate cart
       const cart = await Cart.findOne({ user: userId })
         .populate({ path: 'items.product', populate: { path: 'category' } })
-        .populate('items.variant')
-        .session(session);
+        .populate('items.variant');
 
       if (!cart || cart.items.length === 0) {
-        throw new Error(MESSAGES.CART.EMPTY);
+        return { success: false, message: MESSAGES.CART.EMPTY };
       }
 
       const { validItems, blockedItems } = await validateCartItems(cart.items);
 
       if (validItems.length === 0) {
-        throw new Error(MESSAGES.CHECKOUT.CART_UNAVAILABLE);
+        return { success: false, message: MESSAGES.CHECKOUT.CART_UNAVAILABLE };
       }
 
       if (blockedItems.length > 0) {
-        throw new Error(`${MESSAGES.CHECKOUT.ITEMS_UNAVAILABLE}: ${blockedItems.map(b => b.reason).join(', ')}`);
+        return {
+          success: false,
+          message: `${MESSAGES.CHECKOUT.ITEMS_UNAVAILABLE}: ${blockedItems.map(b => b.reason).join(', ')}`
+        };
       }
 
-      // Prepare order items and deduct stock
+      // Deduct stock for each item atomically
       for (const { item, variant, qty } of validItems) {
-        orderItems.push({
-          product: item.product._id,
-          variant: item.variant._id,
-          quantity: qty,
-          price: variant.basePrice
-        });
-
-        // Atomic stock deduction
         const stockResult = await Variant.findOneAndUpdate(
           { _id: item.variant._id, stock: { $gte: qty } },
           { $inc: { stock: -qty } },
-          { session, new: true }
+          { new: true }
         );
 
         if (!stockResult) {
-          throw new Error(`Failed to reserve stock for ${item.product.name}`);
+          return { success: false, message: `Failed to reserve stock for ${item.product.name}. Please try again.` };
         }
+
+        orderItems.push({
+          product:      item.product._id,
+          variant:      item.variant._id,
+          productName:  item.product.name,
+          variantColor: variant.color,
+          imageUrl:     variant.images?.[0]?.url || item.product.images?.[0]?.url || '',
+          basePrice:    variant.basePrice,
+          regularPrice: variant.regularPrice ?? variant.basePrice,
+          quantity:     qty,
+          itemTotal:    variant.basePrice * qty,
+        });
       }
 
       // Clear cart
       cart.items = [];
-      await cart.save({ session });
+      await cart.save();
     }
 
     // Calculate order totals
-    const subtotal = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const subtotal = orderItems.reduce((sum, item) => sum + item.itemTotal, 0);
     const shipping = subtotal >= 5000 ? 0 : 50;
-    const tax = Math.round(subtotal * 0.18);
-    const total = subtotal + tax + shipping;
+    const tax      = Math.round(subtotal * 0.18);
+    const total    = subtotal + tax + shipping;
 
     // Create order
     const order = new Order({
       user: userId,
       items: orderItems,
       shippingAddress: {
-        fullName: address.fullName,
-        phone: address.phone,
-        streetAddress: address.streetAddress,
-        city: address.city,
-        state: address.state,
-        pincode: address.pincode,
-        addressType: address.addressType
+        fullName:     address.fullName,
+        phone:        address.phone,
+        addressLine1: address.streetAddress,
+        addressLine2: address.streetAddress2 || '',
+        city:         address.city,
+        state:        address.state,
+        pincode:      address.pincode,
       },
       paymentMethod,
       paymentStatus: paymentMethod === 'cod' ? 'pending' : 'paid',
@@ -340,9 +343,8 @@ export const processCheckoutService = async (checkoutData) => {
       status: 'pending'
     });
 
-    await order.save({ session });
+    await order.save();
 
-    await session.commitTransaction();
     return {
       success: true,
       message: MESSAGES.ORDER.PLACED_SUCCESS,
@@ -356,11 +358,8 @@ export const processCheckoutService = async (checkoutData) => {
       }
     };
   } catch (error) {
-    await session.abortTransaction();
     console.error('Process checkout service error:', error);
     return { success: false, message: error.message || MESSAGES.CHECKOUT.PROCESS_FAILED };
-  } finally {
-    session.endSession();
   }
 };
 

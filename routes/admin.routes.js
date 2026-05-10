@@ -5,10 +5,10 @@ import * as dashboardController from "../controllers/admin/dasboard.controller.j
 import * as customersController from "../controllers/admin/customers.controller.js";
 import * as categoryCtrl from "../controllers/admin/category.controller.js";
 import { isAdmin, isLogout } from "../middleware/auth.middleware.js";
-import { upload2 } from '../middleware/upload.middleware.js';
-import * as productController from '../controllers/admin/product.controller.js';
-import * as orderController from '../controllers/admin/order.controller.js';
-import * as stockController from '../controllers/admin/stock.controller.js';
+import { upload2 } from "../middleware/upload.middleware.js";
+import * as productController from "../controllers/admin/product.controller.js";
+import * as orderController from "../controllers/admin/order.controller.js";
+import * as stockController from "../controllers/admin/stock.controller.js";
 
 const router = express.Router();
 
@@ -20,7 +20,7 @@ router
 
 // ═══ PROTECTED ADMIN ROUTES ═══
 // Everything below this line will automatically check for isAdmin
-router.use(isAdmin); 
+router.use(isAdmin);
 
 router.post("/logout", adminAuthController.handleAdminLogout);
 
@@ -36,35 +36,37 @@ router.put("/edit-category", categoryCtrl.editCategory);
 router.patch("/toggle-category/:id", categoryCtrl.toggleCategory);
 router.delete("/delete-category/:id", categoryCtrl.softDeleteCategory);
 
-
 // Route for deleting a specific image from a variant (imageUrl passed in request body)
-router.delete('/products/:productId/variants/:variantId/images', productController.deleteVariantImage);
+router.delete(
+  "/products/:productId/variants/:variantId/images",
+  productController.deleteVariantImage,
+);
 // Products
-router.get('/products', noCache, productController.getProductPage);
-router.get('/products/check-name', productController.checkProductName);
+router.get("/products", noCache, productController.getProductPage);
+router.get("/products/check-name", productController.checkProductName);
 
 router
-  .route('/products/add')
+  .route("/products/add")
   .get(noCache, productController.getaddProducts)
   .post(upload2.any(), productController.postAddProducts);
 
 router
-  .route('/products/edit/:id')
+  .route("/products/edit/:id")
   .get(noCache, productController.geteditProduct)
   .put(upload2.any(), productController.postEditProduct);
 
-router.patch('/products/delete/:id', productController.softDeleteProduct);
-router.patch('/products/toggle/:id', productController.toggleProductStatus);
+router.patch("/products/delete/:id", productController.softDeleteProduct);
+router.patch("/products/toggle/:id", productController.toggleProductStatus);
 
 // Orders
-router.get('/orders',                    noCache, orderController.getOrders);
-router.get('/orders/:id',                noCache, orderController.getOrderDetail);
-router.patch('/orders/:id/status',       orderController.updateOrderStatus);
-router.patch('/orders/:id/return',       orderController.handleReturn);
-router.patch('/orders/:id/restock',      orderController.restockReturnedItems);
+router.get("/orders", noCache, orderController.getOrders);
+router.get("/orders/:id", noCache, orderController.getOrderDetail);
+router.patch("/orders/:id/status", orderController.updateOrderStatus);
+router.patch("/orders/:id/return", orderController.handleReturn);
+router.patch("/orders/:id/restock", orderController.restockReturnedItems);
 
 // Stock / Inventory
-router.get('/stock',                     noCache, stockController.getStockPage);
-router.patch('/stock/:variantId',        stockController.updateStock);
+router.get("/stock", noCache, stockController.getStockPage);
+router.patch("/stock/:variantId", stockController.updateStock);
 
 export default router;

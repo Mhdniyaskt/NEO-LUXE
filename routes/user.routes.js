@@ -4,7 +4,8 @@ import * as authController from "../controllers/user/auth.controller.js";
 import * as otpController from "../controllers/user/otp.controller.js";
 import * as profileController from "../controllers/user/profile.controller.js";
 import * as emailController from "../controllers/user/profile.change.email.controller.js";
-import * as addressController from "../controllers/user/address.controller.js";import * as passwordController from "../controllers/user/profile.change.password.controller.js";
+import * as addressController from "../controllers/user/address.controller.js";
+import * as passwordController from "../controllers/user/profile.change.password.controller.js";
 
 import {
   checkUser,
@@ -15,9 +16,17 @@ import {
 import { requireOtpSession } from "../middleware/otp.middleware.js";
 import { noCache } from "../middleware/nocache.middleware.js";
 import { upload } from "../middleware/upload.middleware.js";
-import { getProductDetails, getProducts } from "../controllers/user/shop.controller.js";
+import {
+  getProductDetails,
+  getProducts,
+} from "../controllers/user/shop.controller.js";
 import { getAbout } from "../controllers/user/about.controller.js";
-import { addToCart, getCart, removeFromCart, updateQty } from "../controllers/user/cart.controller.js";
+import {
+  addToCart,
+  getCart,
+  removeFromCart,
+  updateQty,
+} from "../controllers/user/cart.controller.js";
 import {
   getCheckout,
   placeOrder,
@@ -129,7 +138,11 @@ router.get(
 router.post("/addresses", requireAuth, addressController.addAddress);
 
 // /default must be registered BEFORE /:addressId to avoid route shadowing
-router.patch("/addresses/:addressId/default", requireAuth, addressController.setDefaultAddress);
+router.patch(
+  "/addresses/:addressId/default",
+  requireAuth,
+  addressController.setDefaultAddress,
+);
 
 router
   .route("/addresses/:addressId")
@@ -140,33 +153,39 @@ router.get("/about", getAbout);
 router.get("/shop", getProducts);
 router.get("/shop/:id", getProductDetails);
 
-
- 
-router.get('/cart',                          requireAuth, getCart);
-router.post('/cart/add',                     addToCart);          // addToCart handles its own 401 JSON response
-router.delete('/cart/remove/:variantId',     requireAuth, removeFromCart);
-router.patch('/cart/update-qty',             requireAuth, updateQty);
+router.get("/cart", requireAuth, getCart);
+router.post("/cart/add", addToCart); // addToCart handles its own 401 JSON response
+router.delete("/cart/remove/:variantId", requireAuth, removeFromCart);
+router.patch("/cart/update-qty", requireAuth, updateQty);
 
 // Checkout & Orders
-router.get('/checkout',                                    requireAuth, noCache, getCheckout);
-router.post('/checkout/place-order',                       requireAuth, placeOrder);
-router.get('/buy-now/:productId/:variantId',               requireAuth, noCache, getBuyNow);
-router.post('/buy-now/place-order',                       requireAuth, placeBuyNowOrder);
-router.get('/payment-failed',                              requireAuth, noCache, getPaymentFailed);
-router.get('/orders',                                      requireAuth, noCache, getOrders);
-router.get('/orders/:orderId',                             requireAuth, noCache, getOrderConfirmation);
-router.get('/orders/:orderId/details',                     requireAuth, noCache, getOrderDetails);
-router.post('/orders/:orderId/cancel',                     requireAuth, cancelOrder);
-router.post('/orders/:orderId/return',                     requireAuth, returnOrder);
-router.post('/orders/:orderId/items/:itemIndex/cancel',    requireAuth, cancelOrderItem);
-router.post('/orders/:orderId/items/:itemIndex/return',    requireAuth, returnOrderItem);
-router.get('/orders/:orderId/invoice',                     requireAuth, downloadInvoice);
+router.get("/checkout", requireAuth, noCache, getCheckout);
+router.post("/checkout/place-order", requireAuth, placeOrder);
+router.get("/buy-now/:productId/:variantId", requireAuth, noCache, getBuyNow);
+router.post("/buy-now/place-order", requireAuth, placeBuyNowOrder);
+router.get("/payment-failed", requireAuth, noCache, getPaymentFailed);
+router.get("/orders", requireAuth, noCache, getOrders);
+router.get("/orders/:orderId", requireAuth, noCache, getOrderConfirmation);
+router.get("/orders/:orderId/details", requireAuth, noCache, getOrderDetails);
+router.post("/orders/:orderId/cancel", requireAuth, cancelOrder);
+router.post("/orders/:orderId/return", requireAuth, returnOrder);
+router.post(
+  "/orders/:orderId/items/:itemIndex/cancel",
+  requireAuth,
+  cancelOrderItem,
+);
+router.post(
+  "/orders/:orderId/items/:itemIndex/return",
+  requireAuth,
+  returnOrderItem,
+);
+router.get("/orders/:orderId/invoice", requireAuth, downloadInvoice);
 
 // Wishlist
-router.get('/user/wishlist',                 requireAuth, noCache, getWishlist);
-router.get('/user/wishlist/ids',             getWishlistIds);
-router.post('/user/wishlist/toggle',         toggleWishlist);
-router.post('/user/wishlist/move-to-cart',   requireAuth, moveToCart);
-router.delete('/user/wishlist/:variantId',   requireAuth, removeFromWishlist);
+router.get("/user/wishlist", requireAuth, noCache, getWishlist);
+router.get("/user/wishlist/ids", getWishlistIds);
+router.post("/user/wishlist/toggle", toggleWishlist);
+router.post("/user/wishlist/move-to-cart", requireAuth, moveToCart);
+router.delete("/user/wishlist/:variantId", requireAuth, removeFromWishlist);
 
 export default router;

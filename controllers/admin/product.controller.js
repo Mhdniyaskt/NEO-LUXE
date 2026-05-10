@@ -87,13 +87,10 @@ export const geteditProduct = asyncHandler(async (req, res) => {
 export const postEditProduct = asyncHandler(async (req, res) => {
   const { id } = req.params;
   
-  const result = await updateProductService(id, req.body);
+  const result = await updateProductService(id, req.body, req.files || []);
   
   if (result.success) {
-    return res.json({
-      success: true,
-      message: result.message
-    });
+    return res.json({ success: true, message: result.message });
   }
   
   return res.status(400).json(result);

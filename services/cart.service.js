@@ -1,6 +1,7 @@
 import Cart from '../models/cart.model.js';
 import Variant from '../models/variant.model.js';
 import Product from '../models/product.model.js';
+import Wishlist from '../models/wishlist.model.js';
 import { MESSAGES } from '../constants/messages.constant.js';
 
 const MAX_QTY = 10;   // max quantity per variant line
@@ -143,6 +144,13 @@ export const addToCartService = async (userId, productId, variantId, quantity = 
     }
 
     await cart.save();
+
+    // Auto-remove from wishlist if this variant was wishlisted
+    await Wishlist.findOneAndUpdate(
+      { user: userId },
+      { $pull: { items: { variant: variantId } } }
+    );
+
     return { success: true, message: MESSAGES.CART.ITEM_ADDED };
   } catch (error) {
     console.error('Add to cart service error:', error);

@@ -174,27 +174,24 @@ export const handleReturn = asyncHandler(async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid action.' });
     }
 
-    // Update order-level status based on the state of all active items after this action
-    const activeItems  = order.items.filter(i => i.status !== 'cancelled');
-    const allApproved  = activeItems.every(i => i.returnStatus === 'approved');
-    const allResolved  = activeItems.every(i => i.returnStatus !== 'none' && i.returnStatus !== 'requested');
-    const anyApproved  = activeItems.some(i => i.returnStatus === 'approved');
-    const anyRequested = activeItems.some(i => i.returnStatus === 'requested');
+    // ── Recalculate order-level status after this action ─────────────
+    // Rules:
+    // - order.status = 'returned' ONLY when ALL active (non-cancelled) items are approved
+    // - order.status = 'delivered' in all other cases (partial returns, all rejected, pending)
+    const activeItems = order.items.filter(i => i.status !== 'cancelled');
+    const allApproved = activeItems.length > 0 && activeItems.every(i => i.returnStatus === 'approved');
 
     if (allApproved) {
-      // Every active item approved → fully returned + fully refunded
       order.status        = 'returned';
       order.paymentStatus = 'refunded';
-    } else if (allResolved && anyApproved) {
-      // All requests resolved (mix of approved + rejected) → mark returned, partial refund
-      order.status        = 'returned';
-      // paymentStatus stays 'paid' — not a full refund
-    } else if (allResolved && !anyApproved) {
-      // All requests rejected, nothing approved → revert to delivered
+    } else {
+      // Partial approval, mix of approved+rejected, or still pending — stay delivered
       order.status = 'delivered';
+      // Only mark refunded if at least one item was approved (partial refund)
+      if (activeItems.some(i => i.returnStatus === 'approved')) {
+        order.paymentStatus = 'paid'; // partial refund, not full
+      }
     }
-    // If there are still pending requests (anyRequested), leave order.status as-is ('delivered')
-    // so the customer can still see the Return button for unrequested items
 
     await order.save();
     return res.json({
@@ -205,20 +202,22 @@ export const handleReturn = asyncHandler(async (req, res) => {
     });
   }
 
-  // ── Full-order return ────────────────────────────────────────────────
-  if (order.status !== 'returned') {
-    return res.status(400).json({ success: false, message: 'Order is not in returned state.' });
+  // ── Full-order return (no itemIndex) ────────────────────────────────
+  // Check that there are actually requested items to process
+  const requestedItems = order.items.filter(i => i.returnStatus === 'requested');
+  if (requestedItems.length === 0) {
+    return res.status(400).json({ success: false, message: 'No pending return requests found.' });
   }
 
   if (action === 'approve') {
-    // Mark all requested items as approved first
+    // Approve all requested items
     order.items.forEach((item, i) => {
       if (item.returnStatus === 'requested') {
         order.items[i].returnStatus = 'approved';
       }
     });
 
-    // Credit only the sum of approved items (not the stored order.total snapshot)
+    // Credit sum of all approved items to wallet
     const approvedAmount = order.items
       .filter(i => i.returnStatus === 'approved')
       .reduce((sum, i) => sum + i.itemTotal, 0);
@@ -236,7 +235,7 @@ export const handleReturn = asyncHandler(async (req, res) => {
       message: `Return approved. ₹${approvedAmount.toLocaleString('en-IN')} refunded to customer wallet.`,
     });
   } else if (action === 'reject') {
-    // Reject all pending return requests and revert order to delivered
+    // Reject all pending requests and revert to delivered
     order.items.forEach((item, i) => {
       if (item.returnStatus === 'requested') {
         order.items[i].returnStatus = 'rejected';

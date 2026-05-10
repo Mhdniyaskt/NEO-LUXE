@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import Order from '../models/order.model.js';
 import User from '../models/user.model.js';
 import Variant from '../models/variant.model.js';
@@ -79,37 +78,24 @@ async function validateOrderItems(items) {
 
 // ─── Create new order ─────────────────────────────────────────────────────────
 export const createOrderService = async (orderData) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
-    const {
-      userId,
-      items,
-      shippingAddress,
-      paymentMethod,
-      paymentStatus = 'pending'
-    } = orderData;
+    const { userId, items, shippingAddress, paymentMethod, paymentStatus = 'pending' } = orderData;
 
-    // Validate user
     const user = await User.findById(userId);
     if (!user) {
-      throw new Error(MESSAGES.ORDER.USER_NOT_FOUND);
+      return { success: false, message: MESSAGES.ORDER.USER_NOT_FOUND };
     }
 
     const { validItems, errors } = await validateOrderItems(items);
     if (errors.length > 0) {
-      throw new Error(`${MESSAGES.ORDER.VALIDATION_FAILED}: ${errors.join(', ')}`);
+      return { success: false, message: `${MESSAGES.ORDER.VALIDATION_FAILED}: ${errors.join(', ')}` };
     }
-
     if (validItems.length === 0) {
-      throw new Error(MESSAGES.ORDER.NO_VALID_ITEMS);
+      return { success: false, message: MESSAGES.ORDER.NO_VALID_ITEMS };
     }
 
-    // Calculate totals
     const totals = calculateOrderTotals(validItems);
 
-    // Create order
     const order = new Order({
       user: userId,
       items: validItems.map(item => ({
@@ -128,32 +114,22 @@ export const createOrderService = async (orderData) => {
       status: 'pending'
     });
 
-    await order.save({ session });
+    await order.save();
 
-    // Deduct stock atomically
+    // Deduct stock atomically per item
     for (const item of validItems) {
       const result = await Variant.findOneAndUpdate(
-        { 
-          _id: item.variant, 
-          stock: { $gte: item.quantity } 
-        },
+        { _id: item.variant, stock: { $gte: item.quantity } },
         { $inc: { stock: -item.quantity } },
-        { session, new: true }
+        { new: true }
       );
-
       if (!result) {
-        throw new Error(`Failed to deduct stock for ${item.productName}. Insufficient stock.`);
+        return { success: false, message: `Failed to deduct stock for ${item.productName}. Insufficient stock.` };
       }
     }
 
     // Clear user's cart
-    await Cart.findOneAndUpdate(
-      { user: userId },
-      { $set: { items: [] } },
-      { session }
-    );
-
-    await session.commitTransaction();
+    await Cart.findOneAndUpdate({ user: userId }, { $set: { items: [] } });
 
     return {
       success: true,
@@ -167,11 +143,8 @@ export const createOrderService = async (orderData) => {
       }
     };
   } catch (error) {
-    await session.abortTransaction();
     console.error('Create order service error:', error);
     return { success: false, message: error.message || MESSAGES.ORDER.CREATE_FAILED };
-  } finally {
-    session.endSession();
   }
 };
 
@@ -367,93 +340,67 @@ export const updateOrderStatusService = async (orderId, newStatus, isAdmin = fal
 
 // ─── Cancel order ─────────────────────────────────────────────────────────────
 export const cancelOrderService = async (orderId, userId = null, reason = '', isAdmin = false) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     const filter = { _id: orderId };
-    if (userId && !isAdmin) {
-      filter.user = userId;
-    }
+    if (userId && !isAdmin) filter.user = userId;
 
-    const order = await Order.findOne(filter).session(session);
+    const order = await Order.findOne(filter);
     if (!order) {
-      throw new Error(MESSAGES.ORDER.NOT_FOUND);
+      return { success: false, message: MESSAGES.ORDER.NOT_FOUND };
     }
 
     if (['delivered', 'cancelled', 'returned'].includes(order.status)) {
-      throw new Error(`${MESSAGES.ORDER.CANCEL_FORBIDDEN}: ${order.status}`);
+      return { success: false, message: `${MESSAGES.ORDER.CANCEL_FORBIDDEN}: ${order.status}` };
     }
 
     // Restore stock for all items
     for (const item of order.items) {
-      await Variant.findByIdAndUpdate(
-        item.variant,
-        { $inc: { stock: item.quantity } },
-        { session }
-      );
+      await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
     }
 
-    // Update order status
     order.status = 'cancelled';
     order.cancelledAt = new Date();
     order.cancellationReason = reason;
-    await order.save({ session });
+    await order.save();
 
-    await session.commitTransaction();
     return {
       success: true,
       message: MESSAGES.ORDER.CANCEL_SUCCESS,
       order: { _id: order._id, status: order.status, cancelledAt: order.cancelledAt }
     };
   } catch (error) {
-    await session.abortTransaction();
     console.error('Cancel order service error:', error);
     return { success: false, message: error.message || MESSAGES.ORDER.CANCEL_FAILED };
-  } finally {
-    session.endSession();
   }
 };
 
 // ─── Process return request ──────────────────────────────────────────────────
 export const processReturnService = async (orderId, returnData, isAdmin = false) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
-
   try {
     if (!isAdmin) {
-      throw new Error(MESSAGES.ORDER.UNAUTHORIZED_RETURN);
+      return { success: false, message: MESSAGES.ORDER.UNAUTHORIZED_RETURN };
     }
 
     const { items, reason, refundAmount } = returnData;
 
-    const order = await Order.findById(orderId).session(session);
+    const order = await Order.findById(orderId);
     if (!order) {
-      throw new Error(MESSAGES.ORDER.NOT_FOUND);
+      return { success: false, message: MESSAGES.ORDER.NOT_FOUND };
     }
 
     if (order.status !== 'delivered') {
-      throw new Error(MESSAGES.ORDER.RETURN_ONLY_DELIVERED);
+      return { success: false, message: MESSAGES.ORDER.RETURN_ONLY_DELIVERED };
     }
 
-    // Process return for specific items or full order
     if (items && Array.isArray(items)) {
       // Partial return
       for (const returnItem of items) {
-        const orderItem = order.items.find(item => 
-          item.product.toString() === returnItem.productId && 
+        const orderItem = order.items.find(item =>
+          item.product.toString() === returnItem.productId &&
           item.variant.toString() === returnItem.variantId
         );
-
         if (orderItem && returnItem.quantity <= orderItem.quantity) {
-          // Restore stock
-          await Variant.findByIdAndUpdate(
-            returnItem.variantId,
-            { $inc: { stock: returnItem.quantity } },
-            { session }
-          );
-
-          // Mark item as returned
+          await Variant.findByIdAndUpdate(returnItem.variantId, { $inc: { stock: returnItem.quantity } });
           orderItem.returnStatus = 'returned';
           orderItem.returnedQuantity = returnItem.quantity;
           orderItem.returnReason = reason;
@@ -462,11 +409,7 @@ export const processReturnService = async (orderId, returnData, isAdmin = false)
     } else {
       // Full order return
       for (const item of order.items) {
-        await Variant.findByIdAndUpdate(
-          item.variant,
-          { $inc: { stock: item.quantity } },
-          { session }
-        );
+        await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
         item.returnStatus = 'returned';
         item.returnedQuantity = item.quantity;
         item.returnReason = reason;
@@ -477,21 +420,16 @@ export const processReturnService = async (orderId, returnData, isAdmin = false)
     order.returnedAt = new Date();
     order.returnReason = reason;
     order.refundAmount = refundAmount || order.total;
-    
-    await order.save({ session });
+    await order.save();
 
-    await session.commitTransaction();
     return {
       success: true,
       message: MESSAGES.ORDER.RETURN_SUCCESS,
       order: { _id: order._id, status: order.status, refundAmount: order.refundAmount, returnedAt: order.returnedAt }
     };
   } catch (error) {
-    await session.abortTransaction();
     console.error('Process return service error:', error);
     return { success: false, message: error.message || MESSAGES.ORDER.RETURN_FAILED };
-  } finally {
-    session.endSession();
   }
 };
 

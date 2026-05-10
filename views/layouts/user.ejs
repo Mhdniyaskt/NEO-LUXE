@@ -271,6 +271,25 @@
             });
           }
 
+          // ── 7. If this variant was wishlisted, reflect its removal ──
+          // The server already removed it from the wishlist (cart.service.js).
+          // Update the UI: turn off the heart icon + decrement header badge.
+          if (_wishlistedIds.has(variantId)) {
+            _wishlistedIds.delete(variantId);
+
+            // Turn off every wishlist button for this variant on the page
+            document.querySelectorAll(`[data-wishlist-btn][data-variant-id="${variantId}"]`).forEach(wBtn => {
+              _setWishlistActive(wBtn, false);
+            });
+
+            // Decrement header wishlist badge
+            document.querySelectorAll('[data-wishlist-count]').forEach(el => {
+              const n = Math.max(0, parseInt(el.textContent || '0') - 1);
+              el.textContent = n;
+              el.classList.toggle('hidden', n === 0);
+            });
+          }
+
           // Dispatch cartAdded — synchronous listeners (e.g. product-details page)
           // can set a custom button state. We check afterwards whether a listener
           // already handled the button before deciding to restore it.
