@@ -45,7 +45,7 @@
       Continue Shopping
     </a>
   </div>
- <button onclick="clearCart()">clear All Items</button>
+
   <!-- Cart issues banner -->
   <% if (typeof cartIssues !== 'undefined' && cartIssues.length) { %>
     <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl px-5 py-4 mb-6 space-y-1.5">
@@ -342,20 +342,7 @@
 
 <script>
 
-  async function clearCart(){
-    try {
-      await fetch('/cart/clear', { method: 'DELETE' });
-  location.reload(); 
-    } catch ( error) {
-      console.error('Error clearing cart:', error);
-      Swal.fire({ title:'Error', text:'Something went wrong while clearing the cart.', icon:'error', background:'#0a0f18', color:'#e2e8f0', confirmButtonColor:'#06b6d4' });
-      return;
-      
-    }
   
-
-
-  }
   function fmt(n) { return '₹' + Number(n).toLocaleString('en-IN'); }
 
   function updateSummary(s) {

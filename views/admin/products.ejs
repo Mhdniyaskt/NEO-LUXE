@@ -8,12 +8,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { background-color: #020617; }
-        .sidebar-bg { background-color: #020617; border-right: 1px solid #1e293b; }
+        body { background-color: #05070A; }
         .card-bg { background-color: #0b1120; border: 1px solid #1e293b; }
         .custom-glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.3); }
         .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scroll::-webkit-scrollbar-track { background: #020617; }
+        .custom-scroll::-webkit-scrollbar-track { background: #05070A; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
         .custom-scroll::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
     </style>
@@ -24,7 +23,7 @@
     
     <%- include('../partials/admin-sidebar', { path: 'watches' }) %>
 
-    <main class="flex-1 flex flex-col min-w-0 bg-[#020617]">
+    <main class="flex-1 flex flex-col min-w-0 bg-[#05070A]">
         
         <header class="p-8 flex-shrink-0 flex justify-between items-start">
             <div>
@@ -66,7 +65,7 @@
             <div class="card-bg rounded-2xl flex-1 overflow-hidden flex flex-col">
                 <div class="overflow-x-auto custom-scroll flex-1">
                     <table class="w-full text-left text-sm min-w-[1000px]">
-                        <thead class="sticky-header border-b border-slate-800 text-[10px] uppercase tracking-[0.15em] text-slate-500 font-bold">
+                        <thead class="bg-slate-900/40 border-b border-slate-800 text-[10px] uppercase tracking-[0.15em] text-slate-500 font-bold sticky top-0 z-10 backdrop-blur-sm">
                             <tr>
                                 <th class="px-6 py-5">Watch Details</th>
                                 <th class="px-6 py-5">Brand</th>
@@ -146,21 +145,27 @@
 
                 <div class="p-5 border-t border-slate-800 flex justify-between items-center bg-[#0b1120]">
                     <div class="text-[11px] text-slate-500 uppercase tracking-widest font-medium">
-                        Page <span class="text-white"><%= currentPage %></span> of <span class="text-white"><%= totalPages %></span>
+                        Page <span class="text-white font-semibold"><%= currentPage %></span> of <span class="text-white font-semibold"><%= totalPages %></span>
                     </div>
-                   <div class="flex items-center space-x-1">
+                   <div class="flex items-center gap-1">
     <% if(currentPage > 1) { %>
         <a href="?page=<%= currentPage - 1 %>&search=<%= encodeURIComponent(search) %>&brand=<%= encodeURIComponent(selectedBrand) %>" 
-           class="p-2 text-slate-400 hover:text-white transition">
+           class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition text-xs">
             <i class="fas fa-chevron-left text-xs"></i>
         </a>
     <% } %>
     
-    <button class="w-8 h-8 rounded-lg bg-cyan-500 text-slate-900 font-bold text-xs"><%= currentPage %></button>
+    <% for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) { %>
+        <a href="?page=<%= i %>&search=<%= encodeURIComponent(search) %>&brand=<%= encodeURIComponent(selectedBrand) %>"
+           class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition
+                  <%= i === currentPage ? 'bg-cyan-400 border-cyan-400 text-[#05070A]' : 'border-slate-800 text-slate-400 hover:border-slate-600 hover:text-white' %>">
+            <%= i %>
+        </a>
+    <% } %>
     
     <% if(currentPage < totalPages) { %>
         <a href="?page=<%= currentPage + 1 %>&search=<%= encodeURIComponent(search) %>&brand=<%= encodeURIComponent(selectedBrand) %>" 
-           class="p-2 text-slate-400 hover:text-white transition">
+           class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition text-xs">
             <i class="fas fa-chevron-right text-xs"></i>
         </a>
     <% } %>

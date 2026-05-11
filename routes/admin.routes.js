@@ -5,7 +5,7 @@ import * as dashboardController from "../controllers/admin/dasboard.controller.j
 import * as customersController from "../controllers/admin/customers.controller.js";
 import * as categoryCtrl from "../controllers/admin/category.controller.js";
 import { isAdmin, isLogout } from "../middleware/auth.middleware.js";
-import { upload2 } from "../middleware/upload.middleware.js";
+import { upload, upload2 } from "../middleware/upload.middleware.js";
 import * as productController from "../controllers/admin/product.controller.js";
 import * as orderController from "../controllers/admin/order.controller.js";
 import * as stockController from "../controllers/admin/stock.controller.js";
@@ -53,7 +53,7 @@ router
 router
   .route("/products/edit/:id")
   .get(noCache, productController.geteditProduct)
-  .put(upload2.any(), productController.postEditProduct);
+  .put(upload.any(), productController.postEditProduct);
 
 router.patch("/products/delete/:id", productController.softDeleteProduct);
 router.patch("/products/toggle/:id", productController.toggleProductStatus);

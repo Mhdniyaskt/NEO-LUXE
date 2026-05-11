@@ -10,7 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        body { background-color: #020617; color: #94a3b8; }
+        body { background-color: #05070A; color: #94a3b8; }
         .card-bg { background-color: #0b1120; border: 1px solid #1e293b; }
         .input-field { background-color: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; padding: 0.75rem 1rem; color: white; font-size: 0.875rem; width: 100%; }
         .input-field:focus { outline: none; border-color: #06b6d4; box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.1); }
@@ -80,7 +80,7 @@
 <div class="flex h-screen w-full">
     <%- include('../partials/admin-sidebar', { path: 'watches' }) %>
 
-    <main class="flex-1 flex flex-col min-w-0 bg-[#020617]">
+    <main class="flex-1 flex flex-col min-w-0 bg-[#05070A]">
         <header class="p-8 pb-4 flex justify-between items-center">
             <div>
                 <a href="/admin/products" class="text-[10px] uppercase tracking-widest text-slate-500 hover:text-cyan-400 flex items-center mb-2 transition">
@@ -210,8 +210,7 @@
                                     <input type="text" name="movementType" value="<%= product.specifications.movementType %>" class="input-field">
                                 </div>
                               <div class="flex items-center gap-2">
-    <input type="hidden" name="isActive" value="false">
-    <input type="checkbox" name="isActive" id="isActive" value="on" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
+    <input type="checkbox" name="isActive" id="isActive" value="true" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
     <label for="isActive" class="text-sm">Active / Listed in Store</label>
 </div>
                             </div>
@@ -533,7 +532,9 @@
             });
         });
 
-        if (!formData.has('isActive')) formData.append('isActive', 'false');
+        // Ensure isActive is always sent correctly based on checkbox state
+        formData.delete('isActive');
+        formData.append('isActive', document.getElementById('isActive').checked ? 'true' : 'false');
 
         try {
             const response = await fetch(`/admin/products/edit/${productId}`, {

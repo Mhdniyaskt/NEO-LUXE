@@ -115,7 +115,7 @@
                 <div class="flex items-center justify-between pt-3 border-t border-gray-800/60">
                   <div>
                     <p class="text-[10px] text-slate-500 uppercase tracking-widest mb-0.5">
-                      <%= order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Paid via Online' %>
+                      <%= order.paymentMethod === 'cod' ? 'Cash on Delivery' : order.paymentMethod === 'wallet' ? 'Paid via Wallet' : 'Paid via Online' %>
                     </p>
                     <p class="text-cyan-400 font-bold text-lg">₹<%= order.total.toLocaleString('en-IN') %></p>
                   </div>

@@ -108,6 +108,15 @@ app.use((err, req, res, next) => {
     return res.status(HTTP_STATUS.BAD_GATEWAY).json({ success: false, message: MESSAGES.UPLOAD.CLOUDINARY_FAILED });
   }
 
+  // Razorpay API errors — don't expose their status codes directly
+  if (err.error && err.statusCode) {
+    console.error('Razorpay API error:', err.error);
+    return res.status(500).json({
+      success: false,
+      message: 'Payment gateway error. Please try again.'
+    });
+  }
+
   // Mongoose validation errors
   if (err.name === "ValidationError") {
     const messages = Object.values(err.errors).map(e => e.message).join(", ");

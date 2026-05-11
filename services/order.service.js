@@ -4,6 +4,7 @@ import Variant from '../models/variant.model.js';
 import Product from '../models/product.model.js';
 import Cart from '../models/cart.model.js';
 import { MESSAGES } from '../constants/messages.constant.js';
+import { creditWalletService } from './wallet.service.js';
 
 // ─── Helper: Calculate order totals ──────────────────────────────────────────
 function calculateOrderTotals(items) {
@@ -363,9 +364,24 @@ export const cancelOrderService = async (orderId, userId = null, reason = '', is
     order.cancellationReason = reason;
     await order.save();
 
+    // ── Refund to wallet if order was already paid ────────────────────
+    const refundableMethods = ['razorpay', 'wallet'];
+    const wasPaid = order.paymentStatus === 'paid' && refundableMethods.includes(order.paymentMethod);
+    if (wasPaid) {
+      await creditWalletService({
+        userId:      order.user,
+        amount:      order.total,
+        description: `Refund for cancelled order #${order._id.toString().slice(-8).toUpperCase()}`,
+        orderId:     order._id,
+        category:    'cancellation',
+      });
+    }
+
     return {
       success: true,
-      message: MESSAGES.ORDER.CANCEL_SUCCESS,
+      message: wasPaid
+        ? `${MESSAGES.ORDER.CANCEL_SUCCESS} ₹${order.total.toLocaleString('en-IN')} refunded to your wallet.`
+        : MESSAGES.ORDER.CANCEL_SUCCESS,
       order: { _id: order._id, status: order.status, cancelledAt: order.cancelledAt }
     };
   } catch (error) {

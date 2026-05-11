@@ -314,16 +314,20 @@
             </div>
 
             <% if (isCancelled) { %>
-              <div class="flex items-start gap-3">
-                <div class="tl-dot bg-red-500 mt-1"></div>
+              <div class="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <div class="tl-dot bg-red-500 mt-1 flex-shrink-0"></div>
                 <div>
                   <p class="text-red-400 font-bold text-sm">Order Cancelled</p>
-                  <% if (order.cancelReason) { %>
-                    <p class="text-slate-500 text-xs mt-0.5"><%= order.cancelReason %></p>
-                  <% } %>
                   <p class="text-slate-600 text-[10px] mt-1">
                     <%= new Date(order.updatedAt).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) %>
                   </p>
+                  <% const adminCancelReason = order.cancelReason || order.cancellationReason; %>
+                  <% if (adminCancelReason) { %>
+                    <div class="mt-2 flex items-start gap-1.5">
+                      <i class="fas fa-info-circle text-red-400 text-[10px] mt-0.5 flex-shrink-0"></i>
+                      <p class="text-slate-300 text-xs"><span class="text-slate-500">Reason:</span> <span class="font-medium"><%= adminCancelReason %></span></p>
+                    </div>
+                  <% } %>
                 </div>
               </div>
             <% } else { %>

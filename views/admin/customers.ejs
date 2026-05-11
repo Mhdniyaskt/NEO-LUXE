@@ -29,21 +29,15 @@
     <style>
         body { background-color: #05070A; color: #E2E8F0; font-family: 'Outfit', sans-serif; }
         .card-bg { background-color: #0B1120; border: 1px solid #1E293B; }
-        .sidebar-bg { background-color: #05070A; border-right: 1px solid #1E293B; }
         
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: #05070A; }
         ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #22D3EE; }
-
-        /* Mobile Sidebar Overlay */
-        #sidebar-overlay.active { display: block; }
     </style>
 </head>
 <body class="antialiased overflow-hidden">
-
-    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden lg:hidden"></div>
 
     <div class="flex h-screen w-full relative">
         
@@ -166,7 +160,7 @@
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebar-overlay');
             sidebar.classList.toggle('-translate-x-full');
-            overlay.classList.toggle('hidden');
+            if (overlay) overlay.classList.toggle('hidden');
         }
 
        function confirmToggle(userId, isBlocked) {

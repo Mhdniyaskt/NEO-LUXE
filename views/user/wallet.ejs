@@ -1,0 +1,396 @@
+<style>
+  .active-nav-item {
+    background: linear-gradient(90deg, rgba(0,163,255,0.1) 0%, rgba(0,163,255,0.02) 100%);
+    border-right: 2px solid #00a3ff;
+    color: #00a3ff;
+  }
+</style>
+
+<div class="bg-[#05080d] min-h-screen px-6 py-8">
+  <div class="max-w-7xl mx-auto">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+      <%- include('../partials/profile-sidebar') %>
+
+      <!-- ── Main content ──────────────────────────────────────────────── -->
+      <div class="lg:col-span-9 space-y-6">
+
+        <!-- Page header -->
+        <div>
+          <h1 class="text-2xl font-bold text-white tracking-tight">My Wallet</h1>
+          <p class="text-slate-500 text-sm mt-1">Manage your funds and view transaction history securely.</p>
+        </div>
+
+        <!-- Balance card -->
+        <div class="bg-[#0a0f18] border border-gray-800/70 rounded-2xl p-7 relative overflow-hidden">
+          <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_0%_0%,rgba(0,163,255,0.06),transparent_60%)] pointer-events-none"></div>
+
+          <div class="flex flex-wrap items-center justify-between gap-5 relative">
+            <!-- Balance -->
+            <div>
+              <p class="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-2 flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+                Total Balance
+              </p>
+              <div class="flex items-baseline gap-2">
+                <span id="walletBalanceDisplay" class="text-4xl font-bold text-white tracking-tight">
+                  ₹<%= balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) %>
+                </span>
+                <span class="text-slate-500 text-sm font-medium">IND</span>
+              </div>
+              <p class="text-slate-600 text-xs mt-2 flex items-center gap-1">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Last updated: Just now
+              </p>
+            </div>
+
+            <!-- Add Money button -->
+            <button onclick="openTopupModal()"
+                    class="flex items-center gap-2 bg-cyan-400 hover:bg-cyan-300 text-[#05080d] font-bold text-sm px-6 py-3 rounded-xl transition-all shadow-[0_4px_20px_rgba(0,212,255,0.2)] flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+              </svg>
+              Add Money
+            </button>
+          </div>
+        </div>
+
+        <!-- Transactions -->
+        <div class="bg-[#0a0f18] border border-gray-800/70 rounded-2xl overflow-hidden">
+
+          <div class="px-6 py-5 border-b border-gray-800/60 flex items-center justify-between">
+            <h2 class="text-white font-bold text-sm flex items-center gap-2">
+              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+              Transactions
+            </h2>
+            <span class="text-slate-500 text-xs"><%= pagination.total %> total</span>
+          </div>
+
+          <% if (transactions.length === 0) { %>
+            <div class="py-20 text-center">
+              <div class="w-16 h-16 bg-[#111827] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-gray-800">
+                <svg class="w-8 h-8 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+                </svg>
+              </div>
+              <p class="text-slate-400 text-sm font-medium">No transactions yet</p>
+              <p class="text-slate-600 text-xs mt-1">Add money or make a purchase to see activity here.</p>
+            </div>
+          <% } else { %>
+            <!-- Table header -->
+            <div class="hidden sm:grid grid-cols-12 px-6 py-3 bg-slate-900/30 border-b border-gray-800/40">
+              <span class="col-span-6 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Description</span>
+              <span class="col-span-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold">Date</span>
+              <span class="col-span-3 text-[10px] uppercase tracking-widest text-slate-500 font-bold text-right">Amount</span>
+            </div>
+
+            <div class="divide-y divide-gray-800/40">
+              <% transactions.forEach(tx => {
+                const isCredit = tx.type === 'credit';
+                const date     = new Date(tx.createdAt);
+                const dateStr  = date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                const timeStr  = date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+
+                const icons = {
+                  refund:       { bg: 'bg-green-500/10 border-green-500/20',  icon: 'text-green-400',  path: 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6' },
+                  cancellation: { bg: 'bg-amber-500/10 border-amber-500/20',  icon: 'text-amber-400',  path: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z' },
+                  purchase:     { bg: 'bg-red-500/10 border-red-500/20',      icon: 'text-red-400',    path: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z' },
+                  topup:        { bg: 'bg-cyan-500/10 border-cyan-500/20',    icon: 'text-cyan-400',   path: 'M12 4v16m8-8H4' },
+                  admin_credit: { bg: 'bg-purple-500/10 border-purple-500/20',icon: 'text-purple-400', path: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+                  other:        { bg: 'bg-slate-800 border-slate-700',        icon: 'text-slate-400',  path: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z' },
+                };
+                const ic = icons[tx.category] || icons.other;
+              %>
+              <div class="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors">
+                <div class="w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0 <%= ic.bg %>">
+                  <svg class="w-4 h-4 <%= ic.icon %>" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="<%= ic.path %>"/>
+                  </svg>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-white text-sm font-medium truncate"><%= tx.description %></p>
+                  <p class="text-slate-500 text-[11px] mt-0.5"><%= dateStr %> · <%= timeStr %></p>
+                </div>
+                <div class="text-right flex-shrink-0">
+                  <p class="font-bold text-sm <%= isCredit ? 'text-green-400' : 'text-red-400' %>">
+                    <%= isCredit ? '+' : '−' %> ₹<%= tx.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) %>
+                  </p>
+                  <p class="text-slate-600 text-[10px] mt-0.5">
+                    Bal: ₹<%= tx.balanceAfter.toLocaleString('en-IN', { minimumFractionDigits: 2 }) %>
+                  </p>
+                </div>
+              </div>
+              <% }) %>
+            </div>
+
+            <!-- Pagination -->
+            <% if (pagination.totalPages > 1) { %>
+              <div class="px-6 py-4 border-t border-gray-800/60 flex items-center justify-between">
+                <p class="text-slate-500 text-xs">
+                  Page <span class="text-white font-semibold"><%= pagination.currentPage %></span>
+                  of <span class="text-white font-semibold"><%= pagination.totalPages %></span>
+                </p>
+                <div class="flex items-center gap-1">
+                  <% if (pagination.currentPage > 1) { %>
+                    <a href="?page=<%= pagination.currentPage - 1 %>"
+                       class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-800 text-slate-400 hover:text-white hover:border-gray-600 transition text-xs">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                      </svg>
+                    </a>
+                  <% } %>
+                  <% for (let i = Math.max(1, pagination.currentPage - 2); i <= Math.min(pagination.totalPages, pagination.currentPage + 2); i++) { %>
+                    <a href="?page=<%= i %>"
+                       class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition
+                              <%= i === pagination.currentPage ? 'bg-cyan-400 border-cyan-400 text-[#05080d]' : 'border-gray-800 text-slate-400 hover:border-gray-600 hover:text-white' %>">
+                      <%= i %>
+                    </a>
+                  <% } %>
+                  <% if (pagination.currentPage < pagination.totalPages) { %>
+                    <a href="?page=<%= pagination.currentPage + 1 %>"
+                       class="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-800 text-slate-400 hover:text-white hover:border-gray-600 transition text-xs">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                      </svg>
+                    </a>
+                  <% } %>
+                </div>
+              </div>
+            <% } %>
+          <% } %>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add Money Modal ────────────────────────────────────────────────────── -->
+<div id="topupModal"
+     class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+     onclick="if(event.target===this) closeTopupModal()">
+  <div class="bg-[#0a0f18] border border-gray-800 rounded-2xl p-7 w-full max-w-sm shadow-2xl relative">
+
+    <!-- Close -->
+    <button onclick="closeTopupModal()"
+            class="absolute top-4 right-4 text-slate-500 hover:text-white transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+
+    <h3 class="text-white font-bold text-lg mb-1">Add Money to Wallet</h3>
+    <p class="text-slate-500 text-xs mb-6">Securely add funds via Razorpay. Min ₹10 · Max ₹50,000</p>
+
+    <!-- Quick amounts -->
+    <div class="grid grid-cols-3 gap-2 mb-5">
+      <% [100, 250, 500, 1000, 2000, 5000].forEach(amt => { %>
+        <button onclick="setAmount(<%= amt %>)"
+                class="quick-amt border border-gray-700 hover:border-cyan-400/50 hover:bg-cyan-400/5 text-slate-300 hover:text-cyan-400 text-xs font-bold py-2.5 rounded-xl transition">
+          ₹<%= amt.toLocaleString('en-IN') %>
+        </button>
+      <% }) %>
+    </div>
+
+    <!-- Custom amount input -->
+    <div class="mb-5">
+      <label class="text-[10px] uppercase tracking-widest text-slate-500 font-bold block mb-2">Custom Amount (₹)</label>
+      <div class="relative">
+        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">₹</span>
+        <input type="number" id="topupAmount" min="10" max="50000" placeholder="Enter amount"
+               class="w-full bg-[#111827] border border-gray-700 rounded-xl py-3 pl-8 pr-4 text-white text-sm font-semibold
+                      focus:outline-none focus:border-cyan-400/50 transition"
+               oninput="syncQuickAmounts(this.value)"/>
+      </div>
+      <p id="topupError" class="text-red-400 text-xs mt-1.5 hidden"></p>
+    </div>
+
+    <!-- Pay button -->
+    <button id="topupPayBtn" onclick="initiateTopup()"
+            class="w-full bg-cyan-400 hover:bg-cyan-300 text-[#05080d] font-bold text-sm py-3.5 rounded-xl transition
+                   shadow-[0_4px_20px_rgba(0,212,255,0.2)] flex items-center justify-center gap-2">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+      </svg>
+      Pay with Razorpay
+    </button>
+
+    <p class="text-slate-600 text-[10px] text-center mt-3">
+      Secured by Razorpay · UPI · Cards · Net Banking
+    </p>
+  </div>
+</div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  const RAZORPAY_KEY = '<%= razorpayKeyId %>';
+
+  // ── Modal helpers ─────────────────────────────────────────────────────────
+  function openTopupModal() {
+    document.getElementById('topupModal').classList.remove('hidden');
+    document.getElementById('topupAmount').value = '';
+    document.getElementById('topupError').classList.add('hidden');
+    document.querySelectorAll('.quick-amt').forEach(b => b.classList.remove('border-cyan-400', 'bg-cyan-400/10', 'text-cyan-400'));
+  }
+
+  function closeTopupModal() {
+    document.getElementById('topupModal').classList.add('hidden');
+  }
+
+  function setAmount(val) {
+    document.getElementById('topupAmount').value = val;
+    document.getElementById('topupError').classList.add('hidden');
+    // Highlight selected quick amount
+    document.querySelectorAll('.quick-amt').forEach(b => {
+      const isThis = parseInt(b.textContent.replace(/[₹,]/g, '')) === val;
+      b.classList.toggle('border-cyan-400', isThis);
+      b.classList.toggle('bg-cyan-400/10', isThis);
+      b.classList.toggle('text-cyan-400', isThis);
+    });
+  }
+
+  function syncQuickAmounts(val) {
+    const num = parseInt(val);
+    document.querySelectorAll('.quick-amt').forEach(b => {
+      const isThis = parseInt(b.textContent.replace(/[₹,]/g, '')) === num;
+      b.classList.toggle('border-cyan-400', isThis);
+      b.classList.toggle('bg-cyan-400/10', isThis);
+      b.classList.toggle('text-cyan-400', isThis);
+    });
+  }
+
+  // ── Initiate top-up ───────────────────────────────────────────────────────
+  async function initiateTopup() {
+    const amountInput = document.getElementById('topupAmount');
+    const errorEl     = document.getElementById('topupError');
+    const btn         = document.getElementById('topupPayBtn');
+    const amount      = parseInt(amountInput.value);
+
+    errorEl.classList.add('hidden');
+
+    if (!amount || amount < 10) {
+      errorEl.textContent = 'Minimum top-up amount is ₹10.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+    if (amount > 50000) {
+      errorEl.textContent = 'Maximum top-up amount is ₹50,000.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    // Loading state
+    btn.disabled = true;
+    btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+    </svg> Processing…`;
+
+    try {
+      // Step 1 — create Razorpay order
+      const res  = await fetch('/wallet/topup/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        errorEl.textContent = data.message || 'Could not initiate payment.';
+        errorEl.classList.remove('hidden');
+        resetTopupBtn();
+        return;
+      }
+
+      // Step 2 — open Razorpay modal
+      const options = {
+        key:         RAZORPAY_KEY,
+        amount:      data.amount,
+        currency:    data.currency,
+        name:        'Neo-Luxe Wallet',
+        description: `Add ₹${amount.toLocaleString('en-IN')} to wallet`,
+        order_id:    data.razorpayOrderId,
+        theme:       { color: '#06b6d4' },
+
+        handler: async function (response) {
+          btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+          </svg> Verifying…`;
+
+          try {
+            const verifyRes  = await fetch('/wallet/topup/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                razorpay_order_id:   response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature:  response.razorpay_signature,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.success) {
+              closeTopupModal();
+              // Update balance display without page reload
+              document.getElementById('walletBalanceDisplay').textContent =
+                '₹' + verifyData.newBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+              Swal.fire({
+                icon:              'success',
+                title:             'Money Added!',
+                text:              verifyData.message,
+                confirmButtonColor:'#06b6d4',
+                background:        '#0a0f18',
+                color:             '#e2e8f0',
+              }).then(() => window.location.reload()); // reload to show new transaction
+            } else {
+              errorEl.textContent = verifyData.message || 'Verification failed.';
+              errorEl.classList.remove('hidden');
+              resetTopupBtn();
+            }
+          } catch {
+            errorEl.textContent = 'Verification error. Please contact support.';
+            errorEl.classList.remove('hidden');
+            resetTopupBtn();
+          }
+        },
+
+        modal: {
+          ondismiss: function () {
+            resetTopupBtn();
+          },
+        },
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.on('payment.failed', function () {
+        errorEl.textContent = 'Payment failed. Please try again.';
+        errorEl.classList.remove('hidden');
+        resetTopupBtn();
+      });
+
+      btn.disabled = false;
+      rzp.open();
+
+    } catch {
+      errorEl.textContent = 'Connection error. Please try again.';
+      errorEl.classList.remove('hidden');
+      resetTopupBtn();
+    }
+  }
+
+  function resetTopupBtn() {
+    const btn = document.getElementById('topupPayBtn');
+    btn.disabled = false;
+    btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
+    </svg> Pay with Razorpay`;
+  }
+</script>

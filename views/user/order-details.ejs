@@ -112,8 +112,8 @@
       <h2 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">Track Your Delivery</h2>
 
       <% if (isCancelled) { %>
-        <div class="flex items-center gap-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
-          <div class="w-10 h-10 rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center flex-shrink-0">
+        <div class="flex items-start gap-4 p-4 bg-red-500/10 border border-red-500/20 rounded-2xl">
+          <div class="w-10 h-10 rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center flex-shrink-0 mt-0.5">
             <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
             </svg>
@@ -122,8 +122,16 @@
             <p class="text-red-400 font-bold text-sm">Order Cancelled</p>
             <p class="text-slate-500 text-xs mt-0.5">
               <%= new Date(order.updatedAt).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) %>
-              <% if (order.cancelReason) { %> · Reason: <%= order.cancelReason %><% } %>
             </p>
+            <% const displayCancelReason = order.cancelReason || order.cancellationReason; %>
+            <% if (displayCancelReason) { %>
+              <div class="mt-2 flex items-start gap-1.5">
+                <svg class="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <p class="text-slate-300 text-xs"><span class="text-slate-500">Reason:</span> <span class="font-medium"><%= displayCancelReason %></span></p>
+              </div>
+            <% } %>
           </div>
         </div>
       <% } else { %>
@@ -357,7 +365,9 @@
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
                 </svg>
               </div>
-              <p class="text-slate-400 text-xs self-center"><%= order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online Payment' %></p>
+              <p class="text-slate-400 text-xs self-center">
+                <%= order.paymentMethod === 'cod' ? 'Cash on Delivery' : order.paymentMethod === 'wallet' ? 'Wallet' : order.paymentMethod === 'razorpay' ? 'Razorpay' : 'Online Payment' %>
+              </p>
             </div>
           </div>
         </div>
@@ -368,7 +378,9 @@
           <div class="space-y-3 text-sm">
             <div class="flex justify-between items-center">
               <span class="text-slate-400">Method</span>
-              <span class="text-white font-semibold text-xs"><%= order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'Online' %></span>
+              <span class="text-white font-semibold text-xs">
+                <%= order.paymentMethod === 'cod' ? 'Cash on Delivery' : order.paymentMethod === 'wallet' ? 'Wallet' : order.paymentMethod === 'razorpay' ? 'Razorpay' : 'Online' %>
+              </span>
             </div>
             <div class="flex justify-between items-center">
               <span class="text-slate-400">Status</span>
@@ -448,10 +460,26 @@
         <p class="text-slate-500 text-xs">This action cannot be undone.</p>
       </div>
     </div>
-    <label class="block text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Reason <span class="text-slate-700 normal-case">(optional)</span></label>
-    <textarea id="cancel-reason" rows="3"
-              class="w-full bg-[#060c18] border border-[#1a2235] focus:border-cyan-400/50 rounded-xl p-3 text-white text-sm outline-none transition resize-none mb-5"
-              placeholder="Tell us why you're cancelling..."></textarea>
+
+    <label class="block text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">
+      Reason <span class="text-red-400">*</span>
+    </label>
+    <select id="cancel-reason-select"
+            class="w-full bg-[#060c18] border border-[#1a2235] focus:border-red-400/50 rounded-xl p-3 text-white text-sm outline-none transition mb-3"
+            onchange="toggleCustomReason(this.value)">
+      <option value="">— Select a reason —</option>
+      <option value="Changed my mind">Changed my mind</option>
+      <option value="Found a better price elsewhere">Found a better price elsewhere</option>
+      <option value="Ordered by mistake">Ordered by mistake</option>
+      <option value="Delivery time too long">Delivery time too long</option>
+      <option value="Shipping address is wrong">Shipping address is wrong</option>
+      <option value="other">Other (specify below)</option>
+    </select>
+    <textarea id="cancel-reason-custom" rows="2"
+              class="w-full bg-[#060c18] border border-[#1a2235] focus:border-red-400/50 rounded-xl p-3 text-white text-sm outline-none transition resize-none hidden mb-3"
+              placeholder="Please describe your reason..."></textarea>
+    <p id="cancel-reason-error" class="hidden text-red-400 text-xs mb-3">Please select a reason for cancellation.</p>
+
     <div class="flex gap-3">
       <button type="button" onclick="closeCancelModal()"
               class="flex-1 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold py-3 rounded-xl transition text-sm">
@@ -500,10 +528,24 @@
 
 <script>
   function openCancelModal() {
-    document.getElementById('cancel-reason').value = '';
+    document.getElementById('cancel-reason-select').value = '';
+    document.getElementById('cancel-reason-custom').classList.add('hidden');
+    document.getElementById('cancel-reason-custom').value = '';
+    document.getElementById('cancel-reason-error').classList.add('hidden');
     document.getElementById('cancel-modal').classList.remove('hidden');
   }
   function closeCancelModal() { document.getElementById('cancel-modal').classList.add('hidden'); }
+
+  function toggleCustomReason(val) {
+    const custom = document.getElementById('cancel-reason-custom');
+    if (val === 'other') {
+      custom.classList.remove('hidden');
+    } else {
+      custom.classList.add('hidden');
+      custom.value = '';
+    }
+    document.getElementById('cancel-reason-error').classList.add('hidden');
+  }
   function openReturnModal() {}
   function closeReturnModal() { document.getElementById('return-modal').classList.add('hidden'); }
 
@@ -543,7 +585,25 @@
   }
 
   async function submitCancelOrder() {
-    const reason = document.getElementById('cancel-reason').value.trim();
+    const select = document.getElementById('cancel-reason-select');
+    const custom = document.getElementById('cancel-reason-custom');
+    const errorEl = document.getElementById('cancel-reason-error');
+
+    let reason = select.value;
+    if (!reason) {
+      errorEl.classList.remove('hidden');
+      return;
+    }
+    if (reason === 'other') {
+      reason = custom.value.trim();
+      if (!reason) {
+        errorEl.textContent = 'Please describe your reason.';
+        errorEl.classList.remove('hidden');
+        return;
+      }
+    }
+    errorEl.classList.add('hidden');
+
     const btn = document.querySelector('#cancel-modal button[onclick="submitCancelOrder()"]');
     btn.disabled = true; btn.textContent = 'Cancelling…';
     try {
@@ -553,8 +613,8 @@
       const data = await res.json();
       if (data.success) {
         closeCancelModal();
-        await Swal.fire({ icon:'success', title:'Order Cancelled', text:'Your order has been cancelled.',
-          background:'#0a0f18', color:'#fff', confirmButtonColor:'#22d3ee', timer:2000, showConfirmButton:false });
+        await Swal.fire({ icon:'success', title:'Order Cancelled', text: data.message,
+          background:'#0a0f18', color:'#fff', confirmButtonColor:'#22d3ee', timer:3000, showConfirmButton:false });
         location.reload();
       } else {
         Swal.fire({ icon:'error', title:'Cannot Cancel', text:data.message, background:'#0a0f18', color:'#fff', confirmButtonColor:'#22d3ee' });

@@ -34,6 +34,9 @@ import {
   placeBuyNowOrder,
   getOrderConfirmation,
   downloadInvoice,
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  handleRazorpayFailure,
 } from "../controllers/user/checkout.controller.js";
 import {
   getOrders,
@@ -51,6 +54,7 @@ import {
   moveToCart,
   getWishlistIds,
 } from "../controllers/user/wishlist.controller.js";
+import { getWallet, createTopupOrder, verifyTopup } from "../controllers/user/wallet.controller.js";
 
 const router = express.Router();
 
@@ -161,6 +165,9 @@ router.patch("/cart/update-qty", requireAuth, updateQty);
 // Checkout & Orders
 router.get("/checkout", requireAuth, noCache, getCheckout);
 router.post("/checkout/place-order", requireAuth, placeOrder);
+router.post("/checkout/razorpay/create-order", requireAuth, createRazorpayOrder);
+router.post("/checkout/razorpay/verify", requireAuth, verifyRazorpayPayment);
+router.post("/checkout/razorpay/failed", requireAuth, handleRazorpayFailure);
 router.get("/buy-now/:productId/:variantId", requireAuth, noCache, getBuyNow);
 router.post("/buy-now/place-order", requireAuth, placeBuyNowOrder);
 router.get("/payment-failed", requireAuth, noCache, getPaymentFailed);
@@ -187,5 +194,10 @@ router.get("/user/wishlist/ids", getWishlistIds);
 router.post("/user/wishlist/toggle", toggleWishlist);
 router.post("/user/wishlist/move-to-cart", requireAuth, moveToCart);
 router.delete("/user/wishlist/:variantId", requireAuth, removeFromWishlist);
+
+// Wallet
+router.get("/wallet", requireAuth, noCache, getWallet);
+router.post("/wallet/topup/create-order", requireAuth, createTopupOrder);
+router.post("/wallet/topup/verify", requireAuth, verifyTopup);
 
 export default router;

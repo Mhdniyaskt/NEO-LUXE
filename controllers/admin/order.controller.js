@@ -3,6 +3,7 @@ import asyncHandler from '../../utils/asyncHandler.util.js';
 import Order from '../../models/order.model.js';
 import User  from '../../models/user.model.js';
 import Variant from '../../models/variant.model.js';
+import { creditWalletService } from '../../services/wallet.service.js';
 
 // ─── GET /admin/orders ────────────────────────────────────────────────────────
 export const getOrders = asyncHandler(async (req, res) => {
@@ -164,10 +165,17 @@ export const handleReturn = asyncHandler(async (req, res) => {
 
     if (action === 'approve') {
       order.items[idx].returnStatus = 'approved';
-      // Credit this item's amount to the user's wallet
-      await User.findByIdAndUpdate(order.user, {
-        $inc: { walletBalance: item.itemTotal },
-      });
+      // Credit this item's amount to wallet ONLY for online-paid orders
+      const refundableMethods = ['razorpay', 'wallet'];
+      if (order.paymentStatus === 'paid' && refundableMethods.includes(order.paymentMethod)) {
+        await creditWalletService({
+          userId:      order.user,
+          amount:      item.itemTotal,
+          description: `Refund for returned item "${item.productName}" — Order #${order._id.toString().slice(-8).toUpperCase()}`,
+          orderId:     order._id,
+          category:    'refund',
+        });
+      }
     } else if (action === 'reject') {
       order.items[idx].returnStatus = 'rejected';
     } else {
@@ -183,7 +191,9 @@ export const handleReturn = asyncHandler(async (req, res) => {
 
     if (allApproved) {
       order.status        = 'returned';
-      order.paymentStatus = 'refunded';
+      order.paymentStatus = (order.paymentStatus === 'paid' && ['razorpay','wallet'].includes(order.paymentMethod))
+        ? 'refunded'
+        : order.paymentStatus;
     } else {
       // Partial approval, mix of approved+rejected, or still pending — stay delivered
       order.status = 'delivered';
@@ -217,22 +227,33 @@ export const handleReturn = asyncHandler(async (req, res) => {
       }
     });
 
-    // Credit sum of all approved items to wallet
+    // Credit sum of all approved items to wallet via wallet service
     const approvedAmount = order.items
       .filter(i => i.returnStatus === 'approved')
       .reduce((sum, i) => sum + i.itemTotal, 0);
 
-    await User.findByIdAndUpdate(order.user, {
-      $inc: { walletBalance: approvedAmount },
-    });
+    // Only refund to wallet for online-paid orders
+    const refundableMethods = ['razorpay', 'wallet'];
+    const shouldRefund = order.paymentStatus === 'paid' && refundableMethods.includes(order.paymentMethod);
+    if (shouldRefund) {
+      await creditWalletService({
+        userId:      order.user,
+        amount:      approvedAmount,
+        description: `Refund for returned order #${order._id.toString().slice(-8).toUpperCase()}`,
+        orderId:     order._id,
+        category:    'refund',
+      });
+    }
 
     order.status        = 'returned';
-    order.paymentStatus = 'refunded';
+    order.paymentStatus = shouldRefund ? 'refunded' : order.paymentStatus;
 
     await order.save();
     return res.json({
       success: true,
-      message: `Return approved. ₹${approvedAmount.toLocaleString('en-IN')} refunded to customer wallet.`,
+      message: shouldRefund
+        ? `Return approved. ₹${approvedAmount.toLocaleString('en-IN')} refunded to customer wallet.`
+        : 'Return approved.',
     });
   } else if (action === 'reject') {
     // Reject all pending requests and revert to delivered

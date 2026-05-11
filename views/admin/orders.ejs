@@ -210,8 +210,8 @@
                   <!-- Payment method -->
                   <td class="px-4 py-4 text-center">
                     <div class="flex items-center justify-center gap-1 text-slate-400 text-xs">
-                      <i class="<%= order.paymentMethod === 'cod' ? 'fas fa-money-bill-wave' : 'fas fa-credit-card' %> text-[10px]"></i>
-                      <span><%= order.paymentMethod === 'cod' ? 'COD' : 'Card' %></span>
+                      <i class="<%= order.paymentMethod === 'cod' ? 'fas fa-money-bill-wave' : order.paymentMethod === 'razorpay' ? 'fas fa-bolt' : 'fas fa-credit-card' %> text-[10px]"></i>
+                      <span><%= order.paymentMethod === 'cod' ? 'COD' : order.paymentMethod === 'razorpay' ? 'Razorpay' : 'Online' %></span>
                     </div>
                   </td>
 

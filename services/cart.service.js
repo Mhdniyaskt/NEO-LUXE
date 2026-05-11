@@ -29,26 +29,26 @@ async function validateCartItems(cartItems) {
     const category = product?.category;
 
     if (!product || product.isDeleted || !product.isActive) {
-      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: MESSAGES.PRODUCT.NOT_AVAILABLE });
+      cartIssues.push(MESSAGES.PRODUCT.NOT_AVAILABLE);
       continue;
     }
     if (!variant || variant.isDeleted || !variant.isActive) {
-      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: MESSAGES.PRODUCT.VARIANT_UNAVAILABLE });
+      cartIssues.push(MESSAGES.PRODUCT.VARIANT_UNAVAILABLE);
       continue;
     }
     if (!category || !category.isListed) {
-      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE });
+      cartIssues.push(MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE);
       continue;
     }
     if (variant.stock === 0) {
-      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: MESSAGES.PRODUCT.OUT_OF_STOCK });
+      cartIssues.push(MESSAGES.PRODUCT.OUT_OF_STOCK);
       continue;
     }
 
     let adjustedQty = item.quantity;
     if (item.quantity > variant.stock) {
       adjustedQty = variant.stock;
-      cartIssues.push({ productId: item.product._id, variantId: item.variant._id, issue: `Quantity reduced to ${variant.stock} (available stock)` });
+      cartIssues.push(`"${product.name}" quantity reduced to ${variant.stock} (available stock)`);
     }
 
     validItems.push({ ...item.toObject(), quantity: adjustedQty });

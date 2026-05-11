@@ -127,6 +127,7 @@ export const cancelOrderItem = asyncHandler(async (req, res) => {
 
   const Order   = (await import('../../models/order.model.js')).default;
   const Variant = (await import('../../models/variant.model.js')).default;
+  const { creditWalletService } = await import('../../services/wallet.service.js');
 
   const order = await Order.findOne({ _id: orderId, user: userId });
   if (!order) {
@@ -150,10 +151,8 @@ export const cancelOrderItem = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Item is already cancelled' });
   }
 
-  // Mark item as cancelled
+  // Mark item as cancelled and restore stock
   order.items[itemIdx].status = 'cancelled';
-
-  // Restore stock for this item
   await Variant.findByIdAndUpdate(item.variant, { $inc: { stock: item.quantity } });
 
   // If ALL items are now cancelled → cancel the whole order
@@ -165,11 +164,28 @@ export const cancelOrderItem = asyncHandler(async (req, res) => {
 
   await order.save();
 
+  // ── Refund this item to wallet if order was paid online ──────────────
+  const refundableMethods = ['razorpay', 'wallet'];
+  const wasPaid = order.paymentStatus === 'paid' && refundableMethods.includes(order.paymentMethod);
+  if (wasPaid) {
+    await creditWalletService({
+      userId:      order.user,
+      amount:      item.itemTotal,
+      description: `Refund for cancelled item "${item.productName}" — Order #${order._id.toString().slice(-8).toUpperCase()}`,
+      orderId:     order._id,
+      category:    'cancellation',
+    });
+  }
+
+  const refundMsg = wasPaid
+    ? ` ₹${item.itemTotal.toLocaleString('en-IN')} refunded to your wallet.`
+    : '';
+
   return res.json({
     success: true,
     message: allCancelled
-      ? 'All items cancelled. Order has been cancelled.'
-      : 'Item cancelled and stock restored.'
+      ? `All items cancelled. Order has been cancelled.${refundMsg}`
+      : `Item cancelled and stock restored.${refundMsg}`
   });
 });
 
@@ -231,8 +247,13 @@ export const returnOrderItem = asyncHandler(async (req, res) => {
 
 // ─── GET /payment-failed ──────────────────────────────────────────────────────
 export const getPaymentFailed = asyncHandler(async (req, res) => {
+  // With the new flow, no DB order is created before payment verification
+  // so there's nothing to look up — just render the page
   res.render('user/payment-failed', {
-    layout: 'layouts/user',
-    path: 'orders'
+    layout:        'layouts/user',
+    path:          'orders',
+    orderId:       null,
+    amount:        null,
+    paymentMethod: 'razorpay',
   });
 });

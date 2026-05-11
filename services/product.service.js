@@ -332,7 +332,7 @@ export const updateProductService = async (productId, updateData, files = []) =>
         strapType:    strapType?.trim()    || '',
         movementType: movementType?.trim() || '',
       },
-      // checkbox sends 'on' when checked, absent when unchecked
+      // checkbox sends 'true' when checked, 'false' when unchecked
       isActive: isActive === 'on' || isActive === 'true' || isActive === true,
     });
 
@@ -374,12 +374,22 @@ export const updateProductService = async (productId, updateData, files = []) =>
       if (filesByVariant[idx]) {
         for (const file of filesByVariant[idx]) {
           try {
-            const uploadResult = await cloudinary.uploader.upload(file.path, {
-              folder: 'neo-luxe/variants',
-              transformation: [
-                { width: 800, height: 800, crop: 'fill' },
-                { quality: 'auto', fetch_format: 'auto' }
-              ]
+            // memoryStorage gives file.buffer — upload via stream
+            const uploadResult = await new Promise((resolve, reject) => {
+              const stream = cloudinary.uploader.upload_stream(
+                {
+                  folder: 'neo-luxe/variants',
+                  transformation: [
+                    { width: 800, height: 800, crop: 'fill' },
+                    { quality: 'auto', fetch_format: 'auto' }
+                  ]
+                },
+                (error, result) => {
+                  if (error) reject(error);
+                  else resolve(result);
+                }
+              );
+              stream.end(file.buffer);
             });
             newImages.push({ url: uploadResult.secure_url, isPrimary: false });
           } catch (uploadErr) {
