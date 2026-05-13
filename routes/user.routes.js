@@ -157,6 +157,7 @@ router.get("/about", getAbout);
 router.get("/shop", getProducts);
 router.get("/shop/:id", getProductDetails);
 
+
 router.get("/cart", requireAuth, getCart);
 router.post("/cart/add", addToCart); // addToCart handles its own 401 JSON response
 router.delete("/cart/remove/:variantId", requireAuth, removeFromCart);

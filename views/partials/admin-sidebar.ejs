@@ -52,6 +52,16 @@
             <span class="text-sm font-medium">Stock</span>
             <% if (path === 'stock') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
         </a>
+
+        <!-- Coupons Link -->
+<a href="/admin/coupons" 
+   class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'coupons' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
+    <i class="fas fa-ticket-alt w-5 text-center text-sm flex-shrink-0 <%= path === 'coupons' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
+    <span class="text-sm font-medium">Coupons</span>
+    <% if (path === 'coupons') { %>
+        <span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+    <% } %>
+</a>
     </nav>
 
     <div class="mt-auto pt-6 border-t border-slate-800/60">

@@ -19,6 +19,11 @@ const emailTemplates = {
     subject: "Reset Your Password | NEO-LUXE",
     body: (otp) => `<h2>Password Reset Request</h2><p>Your reset code is: <strong>${otp}</strong></p>`
   }
+,
+  EMAIL_CHANGE: {
+    subject: "Confirm Your New Email | NEO-LUXE",
+    body: (otp) => `<h2>Email Change Request</h2><p>Your verification code is: <strong>${otp}</strong></p>`
+  }
 };
 
 export const sendOTP = async (email, purpose) => {

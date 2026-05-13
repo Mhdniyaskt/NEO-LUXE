@@ -34,7 +34,7 @@ export const showVerifyEmailChangeOTP = asyncHandler(async (req, res) => {
     const user = await User.findById(req.session.user.id);
     if (!user || !user.pendingEmail) return res.redirect("/profile/change-email");
 
-    res.render("user/verifyEmail", {
+    res.render("user/otp-verify-page", {
         layout: "layouts/user",
         actionUrl: "/profile/verify-email-change",
         resendUrl: "/profile/resend-email-change-otp",

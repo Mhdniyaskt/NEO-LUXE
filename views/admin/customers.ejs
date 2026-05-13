@@ -112,17 +112,23 @@
                                                 </div>
                                             </td>
                                             <td class="px-6 py-5 text-slate-400 text-xs font-light"><%= user.email %></td>
-                                            <td class="px-6 py-5 text-center">
-                                                <span class="inline-block px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter border <%= user.isBlocked ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-400/20' %>">
-                                                    <%= user.isBlocked ? 'Blocked' : 'Active' %>
-                                                </span>
-                                            </td>
-                                            <td class="px-6 md:px-8 py-5 text-right">
-                                                <button onclick="confirmToggle('<%= user._id %>', '<%= user.isBlocked %>')" 
-                                                        class="text-[9px] font-black uppercase tracking-widest border border-slate-800 px-4 py-2 rounded-lg transition-all <%= user.isBlocked ? 'hover:text-green-500 hover:border-green-500/40' : 'hover:text-red-500 hover:border-red-500/40' %>">
-                                                    <%= user.isBlocked ? 'Unblock' : 'Block' %>
-                                                </button>
-                                            </td>
+                                           <!-- Inside your customers.forEach(user => { ... }) -->
+
+<td class="px-6 py-5 text-center">
+    <!-- Added id attribute -->
+    <span id="status-badge-<%= user._id %>" class="inline-block px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter border <%= user.isBlocked ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-cyan-500/10 text-cyan-400 border-cyan-400/20' %>">
+        <%= user.isBlocked ? 'Blocked' : 'Active' %>
+    </span>
+</td>
+
+<td class="px-6 md:px-8 py-5 text-right">
+    <!-- Added id attribute -->
+    <button id="btn-<%= user._id %>" 
+            onclick="confirmToggle('<%= user._id %>', '<%= user.isBlocked %>')" 
+            class="text-[9px] font-black uppercase tracking-widest border border-slate-800 px-4 py-2 rounded-lg transition-all <%= user.isBlocked ? 'hover:text-green-500 hover:border-green-500/40' : 'hover:text-red-500 hover:border-red-500/40' %>">
+        <%= user.isBlocked ? 'Unblock' : 'Block' %>
+    </button>
+</td>
                                         </tr>
                                     <% }) %>
                                 <% } else { %>
@@ -163,45 +169,80 @@
             if (overlay) overlay.classList.toggle('hidden');
         }
 
-       function confirmToggle(userId, isBlocked) {
-    const action = isBlocked === 'true' ? 'Unblock' : 'Block';
+       function confirmToggle(userId, isBlockedStr) {
+    // Convert string 'true'/'false' from EJS to boolean
+    let isBlocked = isBlockedStr === 'true';
+    const action = isBlocked ? 'Unblock' : 'Block';
+
     Swal.fire({
         title: 'Are you sure?',
         text: `You are about to ${action.toLowerCase()} this user.`,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: isBlocked === 'true' ? '#10B981' : '#EF4444',
+        confirmButtonColor: isBlocked ? '#10B981' : '#EF4444',
         cancelButtonColor: '#1E293B',
         confirmButtonText: `Yes, ${action}!`,
         background: '#0B1120',
         color: '#fff'
     }).then((result) => {
         if (result.isConfirmed) {
-            // FIXED: Path changed from /toggle/ to /status/ to match your routes
             fetch(`/admin/customers/${userId}/status`, {
-                method: 'PATCH', 
-                headers: {
-                    'Content-Type': 'application/json'
-                }
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' }
             })
-            .then(response => {
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    Swal.fire({
-                        title: 'Error',
-                        text: 'Failed to update status',
-                        icon: 'error',
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update the UI without reloading
+                    updateUserUI(userId, data.isBlocked);
+                    
+                    // Show a quick success toast
+                    const Toast = Swal.mixin({
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 2000,
                         background: '#0B1120',
                         color: '#fff'
                     });
+                    Toast.fire({
+                        icon: 'success',
+                        title: `User ${data.isBlocked ? 'blocked' : 'unblocked'} successfully`
+                    });
                 }
             })
-            .catch(err => console.error(err));
+            .catch(err => {
+                console.error(err);
+                Swal.fire({ title: 'Error', text: 'Something went wrong', icon: 'error', background: '#0B1120', color: '#fff' });
+            });
         }
     });
-
 }
-    </script>
+
+// Helper function to swap styles and text
+function updateUserUI(userId, newIsBlockedStatus) {
+    const badge = document.getElementById(`status-badge-${userId}`);
+    const btn = document.getElementById(`btn-${userId}`);
+
+    if (newIsBlockedStatus) {
+        // Change to Blocked State
+        badge.innerText = 'Blocked';
+        badge.className = 'inline-block px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter border bg-red-500/10 text-red-500 border-red-500/20';
+        
+        btn.innerText = 'Unblock';
+        btn.className = 'text-[9px] font-black uppercase tracking-widest border border-slate-800 px-4 py-2 rounded-lg transition-all hover:text-green-500 hover:border-green-500/40';
+        // Update the onclick for the NEXT click
+        btn.setAttribute('onclick', `confirmToggle('${userId}', 'true')`);
+    } else {
+        // Change to Active State
+        badge.innerText = 'Active';
+        badge.className = 'inline-block px-3 py-1 rounded-md text-[9px] font-black uppercase tracking-tighter border bg-cyan-500/10 text-cyan-400 border-cyan-400/20';
+        
+        btn.innerText = 'Block';
+        btn.className = 'text-[9px] font-black uppercase tracking-widest border border-slate-800 px-4 py-2 rounded-lg transition-all hover:text-red-500 hover:border-red-500/40';
+        // Update the onclick for the NEXT click
+        btn.setAttribute('onclick', `confirmToggle('${userId}', 'false')`);
+    }
+}</script>
 </body>
 </html>
