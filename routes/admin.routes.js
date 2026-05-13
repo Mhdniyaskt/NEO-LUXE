@@ -9,6 +9,7 @@ import { upload, upload2 } from "../middleware/upload.middleware.js";
 import * as productController from "../controllers/admin/product.controller.js";
 import * as orderController from "../controllers/admin/order.controller.js";
 import * as stockController from "../controllers/admin/stock.controller.js";
+import { createCoupon, deleteCoupon, getAllCoupons, toggleStatus, updateCoupon } from "../controllers/admin/coupon.controller.js";
 
 const router = express.Router();
 
@@ -68,5 +69,24 @@ router.patch("/orders/:id/restock", orderController.restockReturnedItems);
 // Stock / Inventory
 router.get("/stock", noCache, stockController.getStockPage);
 router.patch("/stock/:variantId", stockController.updateStock);
+
+
+// @route    GET /admin/coupons
+// @desc     Display the Coupon Management dashboard
+router.get('/coupons', getAllCoupons);
+
+// @route    POST /admin/coupons/add
+// @desc     Create a new coupon
+router.post('/coupons/add', createCoupon);
+
+// @route    PUT /admin/coupons/update/:id
+// @desc     Update coupon details (RESTful PUT)
+router.put('/coupons/update/:id', updateCoupon);
+
+// @route    DELETE /admin/coupons/delete/:id
+// @desc     Delete a coupon (RESTful DELETE)
+router.delete('/coupons/delete/:id', deleteCoupon);
+
+router.patch('/coupons/toggle-status/:id', toggleStatus);
 
 export default router;

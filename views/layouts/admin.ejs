@@ -1,13 +1,19 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Panel</title>
+  <!-- Tailwind is required here for the flex utility to work across all pages -->
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
+<body class="bg-[#020617] text-slate-300">
 
-  <section>
-    <%- body %>
-  </section>
+  <!-- Added 'flex' to make Sidebar and Body sit side-by-side -->
+  <!-- Added 'min-h-screen' to ensure the background covers the full height -->
+  <div class="flex min-h-screen">
+      <%- body %>
+  </div>
 
   <!-- ✅ Back button fix (pageshow event) -->
   <script>

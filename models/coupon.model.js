@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const couponSchema = new mongoose.Schema({
     title: {
@@ -57,7 +57,6 @@ const couponSchema = new mongoose.Schema({
 
 /**
  * Virtual property to calculate remaining days
- * Used in your EJS table: <%= coupon.daysLeft %>
  */
 couponSchema.virtual('daysLeft').get(function() {
     const today = new Date();
@@ -67,22 +66,23 @@ couponSchema.virtual('daysLeft').get(function() {
 });
 
 /**
- * Middleware to auto-update status if expired or limit reached
+ * Middleware to auto-update status before saving
  */
-couponSchema.pre('save', function(next) {
+couponSchema.pre('save', function() {
     const today = new Date();
     
     if (this.expiryDate < today) {
         this.status = 'expired';
     } else if (this.usedCount >= this.usageLimit) {
-        this.status = 'inactive'; // Or a custom 'limit-reached' status
+        this.status = 'inactive';
     }
-    
-    next();
+    // No next() call needed here
 });
 
-// Ensure virtuals are included when converting to JSON or Object
+// Ensure virtuals are included
 couponSchema.set('toObject', { virtuals: true });
 couponSchema.set('toJSON', { virtuals: true });
 
-module.exports = mongoose.model('Coupon', couponSchema);
+// ESM Export
+const Coupon = mongoose.model('Coupon', couponSchema);
+export default Coupon;
