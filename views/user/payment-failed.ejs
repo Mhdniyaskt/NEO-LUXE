@@ -23,7 +23,7 @@
 </head>
 <body class="bg-[#05080d] text-white min-h-screen flex flex-col">
 
-  <%- include('../partials/user-header') %>
+  
 
   <div class="flex-grow flex items-center justify-center px-4 py-16">
     <div class="w-full max-w-md bg-[#0a0f18] border border-gray-800/80 rounded-3xl p-8 text-center relative overflow-hidden">
@@ -41,41 +41,52 @@
         </div>
       </div>
 
-      <h1 class="text-2xl font-bold text-white mb-2 tracking-tight">Payment Failed</h1>
+      <h1 class="text-2xl font-bold text-white mb-2 tracking-tight"><%= title %></h1>
       <p class="text-slate-400 text-sm leading-relaxed mb-7 max-w-xs mx-auto">
-        Your payment could not be completed. Please try again or use a different payment method.
+        <%= message %>
       </p>
 
       <!-- Details table -->
       <div class="bg-[#060b14] border border-gray-800/60 rounded-2xl divide-y divide-gray-800/60 mb-6 text-left">
         <div class="flex items-center justify-between px-5 py-3.5">
           <span class="text-slate-500 text-xs uppercase tracking-widest font-semibold">Payment Method</span>
-          <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-            </svg>
-            <span class="text-white text-sm font-medium">Razorpay</span>
-          </div>
+          <span class="text-white text-sm font-medium">Razorpay</span>
         </div>
         <div class="flex items-center justify-between px-5 py-3.5">
           <span class="text-slate-500 text-xs uppercase tracking-widest font-semibold">Status</span>
-          <span class="text-red-400 font-bold text-sm">Payment Not Completed</span>
+          <span class="text-red-400 font-bold text-sm">
+            <%= reason === 'outofstock' ? 'Refund Initiated' : 'Payment Not Completed' %>
+          </span>
         </div>
       </div>
 
       <!-- Action Buttons -->
       <div class="space-y-3">
-        <a href="/checkout"
-           class="w-full flex items-center justify-center gap-2 bg-cyan-400 hover:bg-cyan-300 active:bg-cyan-500 text-[#05080d] font-bold text-sm px-5 py-3.5 rounded-xl transition-all duration-200 shadow-[0_4px_20px_rgba(0,212,255,0.2)]">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-          Try Again
-        </a>
-        <a href="/cart"
-           class="w-full flex items-center justify-center gap-2 bg-[#111827] border border-gray-700 hover:border-gray-600 hover:bg-[#1a2235] text-slate-300 hover:text-white font-semibold text-sm px-5 py-3.5 rounded-xl transition-all duration-200">
-          Back to Cart
-        </a>
+        <% if (reason === 'outofstock') { %>
+          <a href="/cart"
+             class="w-full flex items-center justify-center gap-2 bg-cyan-400 hover:bg-cyan-300 active:bg-cyan-500 text-[#05080d] font-bold text-sm px-5 py-3.5 rounded-xl transition-all duration-200 shadow-[0_4px_20px_rgba(0,212,255,0.2)]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+            </svg>
+            Update Cart
+          </a>
+          <a href="/shop"
+             class="w-full flex items-center justify-center gap-2 bg-[#111827] border border-gray-700 hover:border-gray-600 hover:bg-[#1a2235] text-slate-300 hover:text-white font-semibold text-sm px-5 py-3.5 rounded-xl transition-all duration-200">
+            Continue Shopping
+          </a>
+        <% } else { %>
+          <a href="/checkout"
+             class="w-full flex items-center justify-center gap-2 bg-cyan-400 hover:bg-cyan-300 active:bg-cyan-500 text-[#05080d] font-bold text-sm px-5 py-3.5 rounded-xl transition-all duration-200 shadow-[0_4px_20px_rgba(0,212,255,0.2)]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            Try Again
+          </a>
+          <a href="/cart"
+             class="w-full flex items-center justify-center gap-2 bg-[#111827] border border-gray-700 hover:border-gray-600 hover:bg-[#1a2235] text-slate-300 hover:text-white font-semibold text-sm px-5 py-3.5 rounded-xl transition-all duration-200">
+            Back to Cart
+          </a>
+        <% } %>
       </div>
 
       <!-- Info note -->
@@ -83,7 +94,11 @@
         <svg class="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
-        Your cart is safe. No stock was deducted and no order was created.
+        <% if (reason === 'outofstock') { %>
+          If the amount was deducted, it will be automatically refunded to your original payment method within 5–7 business days.
+        <% } else { %>
+          Your cart is safe. No order was created.
+        <% } %>
       </p>
 
     </div>

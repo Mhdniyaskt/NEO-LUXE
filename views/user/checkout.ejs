@@ -281,6 +281,74 @@
           <% }) %>
         </div>
 
+        <!-- Coupon Section -->
+        <div class="border-t border-gray-800/60 pt-4 mb-4">
+          <h3 class="text-white font-bold text-xs mb-3 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            Apply Coupon
+          </h3>
+
+          <!-- Applied coupon display -->
+          <div id="appliedCouponBox" class="hidden mb-3 p-2.5 bg-green-500/10 border border-green-500/20 rounded-xl flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+              </svg>
+              <div>
+                <p class="text-green-400 text-[11px] font-bold" id="appliedCouponCode"></p>
+                <p class="text-green-300 text-[10px]" id="appliedCouponSaving"></p>
+              </div>
+            </div>
+            <button onclick="removeCouponAction()" class="text-red-400 hover:text-red-300 text-[10px] font-bold border border-red-400/30 hover:bg-red-400/10 px-2.5 py-1 rounded-lg transition">
+              Remove
+            </button>
+          </div>
+
+          <!-- Coupon input -->
+          <div id="couponInputBox" class="flex gap-2 mb-3">
+            <input type="text" id="couponCodeInput" placeholder="Enter code"
+                   class="flex-1 bg-[#111827] border border-gray-700 rounded-lg py-2 px-3 text-white text-xs uppercase focus:outline-none focus:border-cyan-400/50 transition"/>
+            <button onclick="applyCouponAction()" id="applyCouponBtn"
+                    class="bg-cyan-400 hover:bg-cyan-300 text-[#05080d] font-bold text-[10px] px-4 rounded-lg transition flex-shrink-0">
+              Apply
+            </button>
+          </div>
+          <p id="couponError" class="text-red-400 text-[10px] hidden mb-2"></p>
+
+          <!-- Available coupons toggle -->
+          <button onclick="toggleAvailableCoupons()" class="text-cyan-400 text-[11px] font-semibold hover:text-cyan-300 transition flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+            View Available Coupons (<%= typeof coupons !== 'undefined' ? coupons.length : 0 %>)
+          </button>
+
+          <!-- Available coupons list -->
+          <div id="availableCouponsList" class="hidden mt-2 space-y-2 max-h-48 overflow-y-auto pr-0.5">
+            <% if (typeof coupons !== 'undefined' && coupons.length > 0) { %>
+              <% coupons.forEach(c => { %>
+                <div class="p-2.5 bg-[#060c18] border border-gray-800/60 rounded-xl hover:border-cyan-400/20 transition cursor-pointer"
+                     onclick="selectCoupon('<%= c.code %>')">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="font-mono text-cyan-400 text-[10px] font-bold bg-cyan-400/10 px-1.5 py-0.5 rounded border border-cyan-400/20"><%= c.code %></span>
+                    <span class="text-white font-bold text-xs"><%= c.discount %>% OFF</span>
+                  </div>
+                  <p class="text-white text-[11px] font-semibold mb-1"><%= c.title %></p>
+                  <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-[9px] text-slate-500">
+                    <span>Min: ₹<%= c.minSpend.toLocaleString('en-IN') %></span>
+                    <span>Max: ₹<%= c.maxCap.toLocaleString('en-IN') %></span>
+                    <span>Left: <%= c.usageLimit - c.usedCount %></span>
+                  </div>
+                </div>
+              <% }) %>
+            <% } else { %>
+              <p class="text-slate-600 text-[10px] text-center py-3">No coupons available.</p>
+            <% } %>
+          </div>
+        </div>
+
         <!-- Divider -->
         <div class="border-t border-gray-800/60 pt-4 space-y-2 mb-4">
           <div class="flex justify-between text-xs">
@@ -307,6 +375,15 @@
             <span class="text-slate-400">Tax (18% GST)</span>
             <span class="text-white font-medium">₹<%= totals.tax.toLocaleString('en-IN') %></span>
           </div>
+          <!-- Coupon discount line (updated dynamically) -->
+          <div id="couponDiscountLine" class="flex justify-between text-xs hidden">
+            <span class="text-green-400">Coupon Discount</span>
+            <span class="text-green-400 font-semibold" id="couponDiscountAmount">−₹0</span>
+          </div>
+          <div id="couponDiscountRow" class="hidden flex justify-between text-xs">
+  <span class="text-cyan-400">Coupon Discount</span>
+  <span id="couponDiscountValue" class="text-cyan-400 font-semibold">−₹0</span>
+</div>
         </div>
 
         <!-- Total -->
@@ -315,7 +392,7 @@
             <p class="text-white font-bold text-sm">Total</p>
             <p class="text-slate-500 text-[10px]">Incl. all taxes</p>
           </div>
-          <p class="text-cyan-400 font-bold text-xl">₹<%= totals.total.toLocaleString('en-IN') %></p>
+          <p class="text-cyan-400 font-bold text-xl" data-checkout-total>₹<%= totals.total.toLocaleString('en-IN') %></p>
         </div>
 
         <!-- Place Order button -->
@@ -346,6 +423,39 @@
       </div>
     </div>
 
+  </div>
+</div>
+<!-- ── Coupon Modal ──────────────────────────────────────────────── -->
+<div id="couponModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4">
+  <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="toggleCouponModal()"></div>
+  <div class="bg-[#0a0f18] border border-gray-800 w-full max-w-sm rounded-2xl p-6 relative z-10 shadow-2xl">
+    <h3 class="text-white font-bold text-lg mb-4">Available Coupons</h3>
+    <div class="space-y-3 max-h-64 overflow-y-auto pr-2 items-scroll">
+      
+      <!-- Logic Fix: Just check for 'coupons' directly -->
+      <% if (locals.coupons && coupons.length > 0) { %>
+        <% coupons.forEach(coupon => { %>
+          <div class="p-4 border border-gray-800 rounded-xl bg-[#05080d] hover:border-cyan-400/50 transition-all cursor-pointer group"
+               onclick="selectCoupon('<%= coupon.code %>')">
+            <div class="flex justify-between items-start mb-1">
+              <span class="text-cyan-400 font-bold text-sm uppercase"><%= coupon.code %></span>
+              <!-- Database uses 'discount', not 'discountAmount' -->
+              <span class="text-green-400 text-[10px] font-bold uppercase">Save <%= coupon.discount %>%</span>
+            </div>
+            <p class="text-slate-400 text-xs line-clamp-1"><%= coupon.title || 'Special Discount' %></p>
+            <!-- Database uses 'minSpend', not 'minPurchase' -->
+            <p class="text-slate-600 text-[9px] mt-2 italic">Min. Purchase: ₹<%= coupon.minSpend %></p>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <div class="text-center py-8">
+           <p class="text-slate-500 text-sm">No coupons available right now.</p>
+           <p class="text-slate-600 text-[10px] mt-1">Check back later for new offers!</p>
+        </div>
+      <% } %>
+
+    </div>
+    <button onclick="toggleCouponModal()" class="w-full mt-5 py-3 text-slate-400 font-bold text-xs uppercase tracking-widest hover:text-white transition">Close</button>
   </div>
 </div>
 </div>
@@ -525,23 +635,22 @@
               // Payment verified + order created → go to confirmation
               window.location.href = verifyData.redirect;
             } else if (verifyData.outOfStock) {
-              // Race condition — stock ran out between payment and verification
-              // Refund has been automatically initiated on the server
+              // Race condition — stock ran out, refund initiated automatically
+              // Redirect to payment-failed page with proper message
+              window.location.href = '/payment-failed?reason=outofstock';
+            } else {
+              // Any other verification failure — show message and go to cart
               await Swal.fire({
-                title: 'Item Sold Out',
-                html: `<p class="text-slate-300 text-sm">${verifyData.message}</p>
-                       <p class="text-slate-500 text-xs mt-3">Your payment has been automatically refunded. It will appear in your account within 5–7 business days.</p>`,
-                icon: 'warning',
-                confirmButtonText: 'OK',
+                title: 'Order Could Not Be Placed',
+                html: `<p class="text-slate-300 text-sm">${verifyData.message || 'Something went wrong during verification.'}</p>
+                       <p class="text-slate-500 text-xs mt-3">If payment was deducted, it will be refunded within 5–7 business days.</p>`,
+                icon: 'error',
+                confirmButtonText: 'Go to Cart',
                 confirmButtonColor: '#06b6d4',
                 background: '#0a0f18',
                 color: '#e2e8f0',
               });
-              window.location.href = '/shop';
-            } else {
-              await Swal.fire({ title: 'Verification Failed', text: verifyData.message,
-                icon: 'error', confirmButtonColor: '#06b6d4', background: '#0a0f18', color: '#e2e8f0' });
-              window.location.href = '/payment-failed';
+              window.location.href = '/cart';
             }
           } catch {
             await Swal.fire({ title: 'Verification Error', text: 'Could not verify payment. Contact support.',
@@ -597,5 +706,149 @@
         icon: 'error', confirmButtonColor: '#06b6d4', background: '#0a0f18', color: '#e2e8f0' });
       resetBtn(btn);
     }
+  }
+  // ── Coupon Logic ──────────────────────────────────────────────────
+function toggleCouponModal() {
+  const modal = document.getElementById('couponModal');
+  modal.classList.toggle('hidden');
+}
+
+function selectCoupon(code) {
+  document.getElementById('couponCode').value = code;
+  toggleCouponModal();
+}
+
+async function applyCoupon() {
+  const code = document.getElementById('couponCode').value.trim();
+  const btn = document.getElementById('applyCouponBtn');
+  const msg = document.getElementById('couponMessage');
+
+  if (!code) return;
+
+  setLoading(btn, '...');
+  
+  try {
+    const res = await fetch('/checkout/apply-coupon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ couponCode: code, subtotal: <%= totals.subtotal %> })
+    });
+    
+    const data = await res.json();
+    resetBtn(btn);
+    btn.innerText = "Apply"; // Reset text back from "Place Order" icon
+
+    if (data.success) {
+      msg.className = "mt-2 text-[10px] font-medium text-green-400";
+      msg.innerText = `Coupon applied! You saved ₹${data.discount}`;
+      msg.classList.remove('hidden');
+      
+      // Update the UI totals
+      document.getElementById('couponDiscountRow').classList.remove('hidden');
+      document.getElementById('couponDiscountValue').innerText = `−₹${data.discount.toLocaleString('en-IN')}`;
+      
+      // Update the Grand Total (Recalculated on Server and returned)
+      // Assuming your server returns the new total
+      // document.querySelector('.text-cyan-400.text-xl').innerText = `₹${data.newTotal.toLocaleString('en-IN')}`;
+      
+      // Optional: Refresh page to get exact calculations from server
+      // window.location.reload(); 
+    } else {
+      msg.className = "mt-2 text-[10px] font-medium text-red-400";
+      msg.innerText = data.message;
+      msg.classList.remove('hidden');
+    }
+  } catch (err) {
+    resetBtn(btn);
+    btn.innerText = "Apply";
+  }
+}
+
+  // ── Coupon functions ──────────────────────────────────────────────────────
+  const SUBTOTAL = <%= totals.subtotal %>;
+  let appliedDiscount = 0;
+
+  function toggleAvailableCoupons() {
+    document.getElementById('availableCouponsList').classList.toggle('hidden');
+  }
+
+  function selectCoupon(code) {
+    document.getElementById('couponCodeInput').value = code;
+    document.getElementById('availableCouponsList').classList.add('hidden');
+    applyCouponAction();
+  }
+
+  async function applyCouponAction() {
+    const code    = document.getElementById('couponCodeInput').value.trim();
+    const errorEl = document.getElementById('couponError');
+    errorEl.classList.add('hidden');
+
+    if (!code) {
+      errorEl.textContent = 'Please enter a coupon code.';
+      errorEl.classList.remove('hidden');
+      return;
+    }
+
+    const btn = document.getElementById('applyCouponBtn');
+    btn.disabled = true; btn.textContent = '...';
+
+    try {
+      const res  = await fetch('/checkout/apply-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, subtotal: SUBTOTAL }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        appliedDiscount = data.discountAmount;
+        // Show applied box
+        document.getElementById('appliedCouponCode').textContent = data.couponCode;
+        document.getElementById('appliedCouponSaving').textContent = `You save ₹${data.discountAmount.toLocaleString('en-IN')}`;
+        document.getElementById('appliedCouponBox').classList.remove('hidden');
+        document.getElementById('couponInputBox').classList.add('hidden');
+        // Show discount in summary
+        document.getElementById('couponDiscountLine').classList.remove('hidden');
+        document.getElementById('couponDiscountAmount').textContent = '−₹' + data.discountAmount.toLocaleString('en-IN');
+        // Update total
+        updateTotalWithDiscount();
+
+        Swal.fire({ toast: true, position: 'top-end', icon: 'success',
+          title: data.message, showConfirmButton: false, timer: 2500,
+          background: '#0a0f18', color: '#e2e8f0' });
+      } else {
+        errorEl.textContent = data.message;
+        errorEl.classList.remove('hidden');
+      }
+    } catch {
+      errorEl.textContent = 'Something went wrong. Try again.';
+      errorEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Apply';
+    }
+  }
+
+  async function removeCouponAction() {
+    try {
+      await fetch('/checkout/remove-coupon', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    } catch { /* non-fatal */ }
+
+    appliedDiscount = 0;
+    document.getElementById('appliedCouponBox').classList.add('hidden');
+    document.getElementById('couponInputBox').classList.remove('hidden');
+    document.getElementById('couponCodeInput').value = '';
+    document.getElementById('couponDiscountLine').classList.add('hidden');
+    updateTotalWithDiscount();
+
+    Swal.fire({ toast: true, position: 'top-end', icon: 'info',
+      title: 'Coupon removed', showConfirmButton: false, timer: 1500,
+      background: '#0a0f18', color: '#e2e8f0' });
+  }
+
+  function updateTotalWithDiscount() {
+    const originalTotal = <%= totals.total %>;
+    const newTotal = Math.max(0, originalTotal - appliedDiscount);
+    const totalEl = document.querySelector('[data-checkout-total]');
+    if (totalEl) totalEl.textContent = '₹' + newTotal.toLocaleString('en-IN');
   }
 </script>

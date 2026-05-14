@@ -12,21 +12,29 @@ export const getAllCoupons = async () => {
  */
 export const createCoupon = async (data) => {
     const formattedCode = data.code.trim().toUpperCase();
-    
+
     const existing = await Coupon.findOne({ code: formattedCode });
     if (existing) {
         throw new Error('Coupon code already exists');
     }
 
-    // Spread the data but override fields that need strict typing
+    // Expiry date must be in the future
+    const expiry = new Date(data.expiryDate);
+    const today  = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (expiry <= today) {
+        throw new Error('Expiry date must be a future date');
+    }
+
     const couponData = {
         ...data,
-        code: formattedCode,
-        discount: Number(data.discount),
-        maxCap: Number(data.maxCap),
-        minSpend: Number(data.minSpend),
+        code:       formattedCode,
+        discount:   Number(data.discount),
+        maxCap:     Number(data.maxCap),
+        minSpend:   Number(data.minSpend),
         usageLimit: Number(data.usageLimit),
-        expiryDate: new Date(data.expiryDate) 
+        expiryDate: expiry,
+        status:     'active',
     };
 
     const coupon = new Coupon(couponData);
@@ -35,25 +43,38 @@ export const createCoupon = async (data) => {
 
 /**
  * Update coupon details
+ * - If a future expiry date is set on an expired coupon → reactivate it
+ * - Status is always re-derived from the new expiry date
  */
-// Service: couponService.js
 export const updateCoupon = async (id, data) => {
+    const expiry = new Date(data.expiryDate);
+    const today  = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Expiry must be today or future (allow today so admin can set same-day expiry)
+    if (expiry < today) {
+        throw new Error('Expiry date must be today or a future date');
+    }
+
+    // Re-derive status from the new expiry date
+    const newStatus = expiry <= new Date() ? 'expired' : 'active';
+
     const couponData = {
         ...data,
-        discount: Number(data.discount),
-        maxCap: Number(data.maxCap),
-        minSpend: Number(data.minSpend),
+        discount:   Number(data.discount),
+        maxCap:     Number(data.maxCap),
+        minSpend:   Number(data.minSpend),
         usageLimit: Number(data.usageLimit),
-        expiryDate: new Date(data.expiryDate)
+        expiryDate: expiry,
+        status:     newStatus,
     };
 
-    const coupon = await Coupon.findByIdAndUpdate(id, couponData, {
-        new: true,
-        runValidators: true
-    });
-    
+    // Use findById + save so the pre('save') hook also runs
+    const coupon = await Coupon.findById(id);
     if (!coupon) throw new Error('Coupon not found');
-    return coupon;
+
+    Object.assign(coupon, couponData);
+    return await coupon.save();
 };
 
 /**
@@ -106,16 +127,18 @@ export const validateCoupon = async (code, orderAmount) => {
 };
 
 export const updateCouponStatus = async (id, status) => {
-    // findByIdAndUpdate returns the updated document if needed
-    const updatedCoupon = await Coupon.findByIdAndUpdate(
-        id, 
-        { status }, 
-        { new: true, runValidators: true }
-    );
+    const coupon = await Coupon.findById(id);
+    if (!coupon) throw new Error('Coupon not found');
 
-    if (!updatedCoupon) {
-        throw new Error('Coupon not found');
+    // Expired coupons cannot be toggled — must be reactivated via edit
+    if (coupon.status === 'expired') {
+        throw new Error('Expired coupons cannot be toggled. Edit the coupon and set a future expiry date to reactivate it.');
     }
 
-    return updatedCoupon;
+    if (!['active', 'inactive'].includes(status)) {
+        throw new Error('Invalid status value');
+    }
+
+    coupon.status = status;
+    return await coupon.save();
 };

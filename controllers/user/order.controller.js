@@ -247,13 +247,21 @@ export const returnOrderItem = asyncHandler(async (req, res) => {
 
 // ─── GET /payment-failed ──────────────────────────────────────────────────────
 export const getPaymentFailed = asyncHandler(async (req, res) => {
-  // With the new flow, no DB order is created before payment verification
-  // so there's nothing to look up — just render the page
+  const { reason } = req.query;
+
+  let title   = 'Payment Failed';
+  let message = 'Your payment could not be completed. Please try again or use a different payment method.';
+
+  if (reason === 'outofstock') {
+    title   = 'Product Out of Stock';
+    message = 'The product went out of stock while your payment was being processed. Your payment has been automatically refunded. It will appear in your account within 5–7 business days.';
+  }
+
   res.render('user/payment-failed', {
     layout:        'layouts/user',
     path:          'orders',
-    orderId:       null,
-    amount:        null,
-    paymentMethod: 'razorpay',
+    title,
+    message,
+    reason:        reason || null,
   });
 });

@@ -1,0 +1,322 @@
+<style>
+  body { background-color: #05070A; color: #E2E8F0; font-family: 'Inter', sans-serif; }
+  .card-bg { background-color: #0B1120; border: 1px solid #1E293B; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: #05070A; }
+  ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 10px; }
+</style>
+
+<div class="flex h-screen w-full">
+  <%- include('../partials/admin-sidebar', { path: 'sales-report' }) %>
+
+  <main class="flex-1 overflow-y-auto p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+
+      <!-- Header -->
+      <header class="mb-8">
+        <nav class="flex items-center gap-1.5 text-xs text-slate-500 mb-3">
+          <a href="/admin/dashboard" class="hover:text-slate-300 transition"><i class="fas fa-home"></i></a>
+          <span class="text-slate-700">/</span>
+          <span class="text-slate-300">Reports</span>
+          <span class="text-slate-700">/</span>
+          <span class="text-cyan-400">Sales & Revenue</span>
+        </nav>
+        <h1 class="text-2xl font-bold text-white tracking-tight">Sales & Revenue Report</h1>
+        <p class="text-slate-500 text-sm mt-1">Track sales performance and revenue insights.</p>
+      </header>
+
+      <!-- Filters -->
+      <div class="card-bg rounded-2xl p-5 mb-6">
+        <form action="/admin/sales-report" method="GET" class="flex flex-wrap items-end gap-4">
+          <!-- Preset filters -->
+          <div class="flex bg-slate-900 rounded-full p-1 text-[10px] font-bold uppercase border border-slate-800">
+            <a href="?filter=today" class="px-4 py-2 rounded-full transition-all <%= filter === 'today' ? 'bg-cyan-500 text-black' : 'text-slate-400 hover:text-white' %>">Today</a>
+            <a href="?filter=week" class="px-4 py-2 rounded-full transition-all <%= filter === 'week' ? 'bg-cyan-500 text-black' : 'text-slate-400 hover:text-white' %>">This Week</a>
+            <a href="?filter=month" class="px-4 py-2 rounded-full transition-all <%= filter === 'month' ? 'bg-cyan-500 text-black' : 'text-slate-400 hover:text-white' %>">This Month</a>
+            <a href="?filter=year" class="px-4 py-2 rounded-full transition-all <%= filter === 'year' ? 'bg-cyan-500 text-black' : 'text-slate-400 hover:text-white' %>">This Year</a>
+          </div>
+
+          <!-- Custom date range -->
+          <div class="flex items-center gap-2 ml-auto">
+            <div>
+              <label class="text-[9px] text-slate-500 uppercase tracking-widest font-bold block mb-1">From</label>
+              <input type="date" name="startDate" value="<%= startDate %>"
+                     class="bg-[#05070A] border border-slate-800 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-cyan-500/50">
+            </div>
+            <div>
+              <label class="text-[9px] text-slate-500 uppercase tracking-widest font-bold block mb-1">To</label>
+              <input type="date" name="endDate" value="<%= endDate %>"
+                     class="bg-[#05070A] border border-slate-800 rounded-xl py-2 px-3 text-sm text-white focus:outline-none focus:border-cyan-500/50">
+            </div>
+            <button type="submit"
+                    class="bg-cyan-400 hover:bg-cyan-300 text-[#05070A] font-bold text-xs px-5 py-2.5 rounded-xl transition mt-5">
+              Apply Filter
+            </button>
+            <a href="/admin/sales-report"
+               class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs px-4 py-2.5 rounded-xl transition mt-5">
+              Reset
+            </a>
+          </div>
+        </form>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="card-bg p-5 rounded-xl">
+          <div class="flex justify-between items-start mb-3">
+            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Revenue</span>
+            <div class="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center">
+              <i class="fas fa-wallet text-cyan-400 text-xs"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-bold text-white">₹<%= summary.totalRevenue ? summary.totalRevenue.toLocaleString('en-IN') : '0' %></div>
+        </div>
+        <div class="card-bg p-5 rounded-xl">
+          <div class="flex justify-between items-start mb-3">
+            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Total Orders</span>
+            <div class="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center">
+              <i class="fas fa-shopping-cart text-cyan-400 text-xs"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-bold text-white"><%= summary.totalOrders || 0 %></div>
+        </div>
+        <div class="card-bg p-5 rounded-xl">
+          <div class="flex justify-between items-start mb-3">
+            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Avg. Order Value</span>
+            <div class="w-8 h-8 bg-cyan-500/10 rounded-lg flex items-center justify-center">
+              <i class="fas fa-chart-bar text-cyan-400 text-xs"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-bold text-white">₹<%= summary.avgOrderValue ? Math.round(summary.avgOrderValue).toLocaleString('en-IN') : '0' %></div>
+        </div>
+        <div class="card-bg p-5 rounded-xl">
+          <div class="flex justify-between items-start mb-3">
+            <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Discounts Given</span>
+            <div class="w-8 h-8 bg-amber-500/10 rounded-lg flex items-center justify-center">
+              <i class="fas fa-tag text-amber-400 text-xs"></i>
+            </div>
+          </div>
+          <div class="text-2xl font-bold text-white">₹<%= summary.totalDiscount ? summary.totalDiscount.toLocaleString('en-IN') : '0' %></div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Revenue Trend -->
+        <div class="lg:col-span-2 card-bg p-6 rounded-2xl">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-sm uppercase text-white flex items-center gap-2">
+              <i class="fas fa-chart-line text-cyan-400 text-xs"></i> Revenue Trend
+            </h3>
+            <span class="text-slate-500 text-[10px] uppercase tracking-widest">
+              <%= startDate %> — <%= endDate %>
+            </span>
+          </div>
+          <div class="h-56">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Sales by Category -->
+        <div class="card-bg p-6 rounded-2xl">
+          <h3 class="font-bold text-sm uppercase text-white flex items-center gap-2 mb-4">
+            <i class="fas fa-chart-pie text-cyan-400 text-xs"></i> Sales by Category
+          </h3>
+          <div class="h-40 flex justify-center mb-4">
+            <canvas id="categoryChart"></canvas>
+          </div>
+          <div class="space-y-2">
+            <% categoryData.forEach(c => { %>
+              <div class="flex justify-between text-xs">
+                <span class="text-slate-400"><%= c._id %></span>
+                <span class="text-cyan-400 font-bold">₹<%= c.totalRevenue.toLocaleString('en-IN') %></span>
+              </div>
+            <% }) %>
+            <% if (categoryData.length === 0) { %>
+              <p class="text-slate-600 text-xs text-center">No data for this period.</p>
+            <% } %>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed Sales Table -->
+      <div class="card-bg rounded-2xl overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+          <h3 class="font-bold text-sm uppercase text-white flex items-center gap-2">
+            <i class="fas fa-table text-cyan-400 text-xs"></i> Detailed Sales Report
+          </h3>
+          <span class="text-slate-500 text-xs">Showing <%= orders.length %> of <%= total %> orders</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs min-w-[900px]">
+            <thead class="text-slate-500 text-[10px] uppercase border-b border-slate-800 bg-slate-900/30 tracking-widest">
+              <tr>
+                <th class="px-6 py-4 font-bold">Order ID</th>
+                <th class="px-6 py-4 font-bold">Order Date</th>
+                <th class="px-6 py-4 font-bold">Customer</th>
+                <th class="px-6 py-4 font-bold">Items</th>
+                <th class="px-6 py-4 font-bold">Payment</th>
+                <th class="px-6 py-4 font-bold">Discount</th>
+                <th class="px-6 py-4 font-bold">Total Amount</th>
+                <th class="px-6 py-4 font-bold">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/50">
+              <% orders.forEach(order => {
+                const shortId = '#' + order._id.toString().slice(-8).toUpperCase();
+                const statusColors = {
+                  pending:'text-amber-400', confirmed:'text-cyan-400', processing:'text-blue-400',
+                  shipped:'text-purple-400', delivered:'text-green-400', cancelled:'text-red-400', returned:'text-orange-400',
+                };
+              %>
+              <tr class="hover:bg-slate-800/20 transition-colors">
+                <td class="px-6 py-4">
+                  <a href="/admin/orders/<%= order._id %>" class="text-cyan-400 font-mono font-bold text-[11px] hover:underline"><%= shortId %></a>
+                </td>
+                <td class="px-6 py-4 text-slate-400">
+                  <%= new Date(order.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) %>
+                </td>
+                <td class="px-6 py-4 text-white font-medium"><%= order.user ? order.user.name : 'Deleted' %></td>
+                <td class="px-6 py-4 text-slate-400"><%= order.items ? order.items.length : 0 %></td>
+                <td class="px-6 py-4 text-slate-400">
+                  <span class="flex items-center gap-1">
+                    <i class="<%= order.paymentMethod === 'cod' ? 'fas fa-money-bill-wave' : order.paymentMethod === 'razorpay' ? 'fas fa-bolt' : 'fas fa-wallet' %> text-[9px]"></i>
+                    <%= order.paymentMethod === 'cod' ? 'COD' : order.paymentMethod === 'razorpay' ? 'Razorpay' : 'Wallet' %>
+                  </span>
+                </td>
+                <td class="px-6 py-4">
+                  <% if (order.discount && order.discount > 0) { %>
+                    <span class="text-amber-400 font-semibold">₹<%= order.discount.toLocaleString('en-IN') %></span>
+                  <% } else { %>
+                    <span class="text-slate-600">—</span>
+                  <% } %>
+                </td>
+                <td class="px-6 py-4 text-white font-bold">₹<%= order.total.toLocaleString('en-IN') %></td>
+                <td class="px-6 py-4">
+                  <span class="<%= statusColors[order.status] || 'text-slate-400' %> font-bold text-[10px] uppercase"><%= order.status %></span>
+                </td>
+              </tr>
+              <% }) %>
+              <% if (orders.length === 0) { %>
+                <tr><td colspan="8" class="px-6 py-16 text-center text-slate-600">No orders found for this period.</td></tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <% if (totalPages > 1) { %>
+          <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-between">
+            <p class="text-slate-500 text-xs">
+              Showing page <span class="text-white font-semibold"><%= currentPage %></span> of <span class="text-white font-semibold"><%= totalPages %></span>
+            </p>
+            <div class="flex items-center gap-1">
+              <% if (currentPage > 1) { %>
+                <a href="?filter=<%= filter %>&startDate=<%= startDate %>&endDate=<%= endDate %>&page=<%= currentPage - 1 %>"
+                   class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition text-xs">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              <% } %>
+              <% for (let i = Math.max(1, currentPage - 2); i <= Math.min(totalPages, currentPage + 2); i++) { %>
+                <a href="?filter=<%= filter %>&startDate=<%= startDate %>&endDate=<%= endDate %>&page=<%= i %>"
+                   class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition
+                          <%= i === currentPage ? 'bg-cyan-400 border-cyan-400 text-[#05070A]' : 'border-slate-800 text-slate-400 hover:border-slate-600 hover:text-white' %>">
+                  <%= i %>
+                </a>
+              <% } %>
+              <% if (currentPage < totalPages) { %>
+                <a href="?filter=<%= filter %>&startDate=<%= startDate %>&endDate=<%= endDate %>&page=<%= currentPage + 1 %>"
+                   class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition text-xs">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              <% } %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <footer class="text-center pb-8">
+        <p class="text-[9px] text-slate-600 uppercase tracking-widest">© 2026 NEO-LUXE ADMIN. ALL RIGHTS RESERVED.</p>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // ── Revenue Trend Chart ─────────────────────────────────────────────────────
+  const trendData = <%- JSON.stringify(trendData) %>;
+  const trendLabels = trendData.map(d => {
+    const dt = new Date(d._id);
+    return dt.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  });
+  const trendValues = trendData.map(d => d.total);
+
+  const ctxTrend = document.getElementById('trendChart').getContext('2d');
+  const gradient = ctxTrend.createLinearGradient(0, 0, 0, 250);
+  gradient.addColorStop(0, 'rgba(34, 211, 238, 0.15)');
+  gradient.addColorStop(1, 'rgba(34, 211, 238, 0)');
+
+  new Chart(ctxTrend, {
+    type: 'line',
+    data: {
+      labels: trendLabels,
+      datasets: [{
+        data: trendValues,
+        borderColor: '#22D3EE',
+        borderWidth: 2.5,
+        backgroundColor: gradient,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 3,
+        pointBackgroundColor: '#22D3EE',
+        pointBorderColor: '#05070A',
+        pointBorderWidth: 2,
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          grid: { color: 'rgba(30,41,59,0.4)', drawBorder: false },
+          ticks: { color: '#64748b', font: { size: 10 },
+            callback: v => v >= 1000 ? '₹' + (v/1000).toFixed(0) + 'k' : '₹' + v }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#64748b', font: { size: 9 }, maxRotation: 45 }
+        }
+      }
+    }
+  });
+
+  // ── Category Doughnut Chart ─────────────────────────────────────────────────
+  const catData = <%- JSON.stringify(categoryData) %>;
+  const catLabels = catData.map(c => c._id);
+  const catValues = catData.map(c => c.totalRevenue);
+  const catColors = ['#22D3EE', '#3B82F6', '#8B5CF6', '#F59E0B', '#10B981'];
+
+  if (catData.length > 0) {
+    new Chart(document.getElementById('categoryChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: catLabels,
+        datasets: [{
+          data: catValues,
+          backgroundColor: catColors.slice(0, catData.length),
+          borderWidth: 0,
+          borderRadius: 6,
+        }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { display: false },
+          x: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 9 } } }
+        }
+      }
+    });
+  }
+</script>

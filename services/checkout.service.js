@@ -5,6 +5,7 @@ import Category from '../models/category.model.js';
 import Address from '../models/address.model.js';
 import Order from '../models/order.model.js';
 import User from '../models/user.model.js';
+import Coupon from '../models/coupon.model.js';
 import { MESSAGES } from '../constants/messages.constant.js';
 import { debitWalletService } from './wallet.service.js';
 
@@ -60,12 +61,14 @@ async function validateCartItems(cartItems) {
 }
 
 // ─── Helper: compute order totals ────────────────────────────────────────────
-function calcTotals(items) {
+// Add discount as an optional parameter (default 0)
+function calcTotals(items, discount = 0) {
   const subtotal = items.reduce((sum, { variant, qty }) => sum + variant.basePrice * qty, 0);
   const shipping = subtotal >= 5000 ? 0 : 50;
-  const tax      = Math.round(subtotal * 0.18);
-  const total    = subtotal + tax + shipping;
-  return { subtotal, shipping, tax, total };
+  const tax = Math.round((subtotal - discount) * 0.18); // Tax on discounted price
+  const total = (subtotal - discount) + tax + shipping;
+  
+  return { subtotal, shipping, tax, total, discount };
 }
 
 // ─── Get checkout page data ───────────────────────────────────────────────────
@@ -102,9 +105,16 @@ export const getCheckoutDataService = async (userId) => {
       itemTotal:    variant.basePrice * qty,
     }));
 
+    // Fetch available active coupons for the user
+    const availableCoupons = await Coupon.find({
+      status: 'active',
+      expiryDate: { $gt: new Date() },
+      $expr: { $lt: ['$usedCount', '$usageLimit'] },
+    }).select('title code discount maxCap minSpend usageLimit usedCount expiryDate').lean();
+
     return {
       success: true,
-      checkout: { items: checkoutItems, totals, addresses, issues: { blockedItems, stockErrors } },
+      checkout: { items: checkoutItems, totals, addresses, coupons: availableCoupons, issues: { blockedItems, stockErrors } },
     };
   } catch (error) {
     console.error('getCheckoutDataService error:', error);
@@ -158,7 +168,27 @@ export const validateBuyNowService = async (productId, variantId, quantity = 1) 
     return { success: false, message: MESSAGES.CHECKOUT.VALIDATE_FAILED };
   }
 };
+export const validateCouponService = async (userId, couponCode, subtotal) => {
+  try {
+    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
 
+    if (!coupon) return { success: false, message: "Invalid coupon code" };
+    if (new Date() > coupon.expiryDate) return { success: false, message: "Coupon expired" };
+    if (subtotal < coupon.minPurchase) return { success: false, message: `Minimum purchase of ₹${coupon.minPurchase} required` };
+
+    // Check if user has used this coupon before
+    const used = await Order.findOne({ user: userId, couponCode: couponCode.toUpperCase() });
+    if (used) return { success: false, message: "Coupon already used" };
+
+    return { 
+      success: true, 
+      discount: coupon.discountAmount,
+      code: coupon.code 
+    };
+  } catch (error) {
+    return { success: false, message: "Error validating coupon" };
+  }
+};
 // ─── Validate checkout (address + cart/items) — no side effects ───────────────
 export const validateCheckoutService = async (userId, addressId, items = null) => {
   try {
@@ -230,7 +260,16 @@ export const getCartTotalsService = async (userId) => {
 };
 
 // ─── COD: create order + deduct stock + clear cart ────────────────────────────
-export const processCheckoutService = async ({ userId, addressId, paymentMethod, items, isBuyNow = false }) => {
+// Add couponCode and discount to the destructuring arguments
+export const processCheckoutService = async ({ 
+  userId, 
+  addressId, 
+  paymentMethod, 
+  items, 
+  isBuyNow = false,
+  couponCode = null, // New
+  discount = 0       // New
+}) => {
   try {
     const address = await Address.findOne({ _id: addressId, userId });
     if (!address) return { success: false, message: MESSAGES.CHECKOUT.INVALID_ADDRESS };
@@ -290,14 +329,19 @@ export const processCheckoutService = async ({ userId, addressId, paymentMethod,
       if (blockedItems.length > 0)
         return { success: false, message: `${MESSAGES.CHECKOUT.ITEMS_UNAVAILABLE}: ${blockedItems.map(b => b.reason).join(', ')}` };
 
-      for (const { item, product, variant, qty } of validItems) {
+      for (const { product, variant, qty } of validItems) {
         const stockResult = await Variant.findOneAndUpdate(
           { _id: variant._id, stock: { $gte: qty } },
           { $inc: { stock: -qty } },
           { new: true }
         );
-        if (!stockResult)
-          return { success: false, message: `Failed to reserve stock for ${product.name}. Please try again.` };
+        if (!stockResult) {
+          // If one item fails, we should technically roll back previous items in this loop
+          for (const rolledBack of orderItems) {
+             await Variant.findByIdAndUpdate(rolledBack.variant, { $inc: { stock: rolledBack.quantity } });
+          }
+          return { success: false, message: `Failed to reserve stock for ${product.name}.` };
+        }
 
         orderItems.push({
           product:      product._id,
@@ -316,10 +360,14 @@ export const processCheckoutService = async ({ userId, addressId, paymentMethod,
       await cart.save();
     }
 
+    // ─── UPDATED CALCULATION LOGIC ──────────────────────────────────────────
     const subtotal = orderItems.reduce((s, i) => s + i.itemTotal, 0);
     const shipping = subtotal >= 5000 ? 0 : 50;
-    const tax      = Math.round(subtotal * 0.18);
-    const total    = subtotal + tax + shipping;
+    
+    // Tax is usually calculated on the discounted taxable value
+    const taxableAmount = Math.max(0, subtotal - discount); 
+    const tax = Math.round(taxableAmount * 0.18);
+    const total = taxableAmount + tax + shipping;
 
     const order = new Order({
       user: userId,
@@ -334,8 +382,13 @@ export const processCheckoutService = async ({ userId, addressId, paymentMethod,
         pincode:      address.pincode,
       },
       paymentMethod,
-      paymentStatus: 'pending', // COD = paid on delivery; razorpay = set to 'paid' after verify
-      subtotal, tax, shipping, total,
+      paymentStatus: 'pending',
+      subtotal,
+      discount,      // Added to Schema
+      couponCode,    // Added to Schema
+      tax,
+      shipping,
+      total,
       status: 'pending',
     });
 
@@ -345,10 +398,10 @@ export const processCheckoutService = async ({ userId, addressId, paymentMethod,
     if (paymentMethod === 'wallet') {
       const debit = await debitWalletService({
         userId,
-        amount:      total,
+        amount:       total,
         description: `Payment for order #${order._id.toString().slice(-8).toUpperCase()}`,
-        orderId:     order._id,
-        category:    'purchase',
+        orderId:      order._id,
+        category:     'purchase',
       });
       if (!debit.success) {
         // Roll back: delete order and restore stock
@@ -382,6 +435,7 @@ export const processCheckoutService = async ({ userId, addressId, paymentMethod,
 
 // ─── Razorpay: create order AFTER signature verification ─────────────────────
 // Called only when Razorpay payment is confirmed — THEN deduct stock + clear cart
+// Uses atomic findOneAndUpdate (stock >= qty) — safe without replica set
 export const processRazorpayOrderService = async ({ userId, addressId, razorpayPaymentId, razorpayOrderId }) => {
   try {
     const address = await Address.findOne({ _id: addressId, userId });
@@ -396,15 +450,37 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
 
     const { validItems, blockedItems } = await validateCartItems(cart.items);
 
-    if (validItems.length === 0)
-      return { success: false, message: MESSAGES.CHECKOUT.CART_UNAVAILABLE };
+    if (validItems.length === 0) {
+      // Check if the reason is stock-related — return outOfStock for better UX
+      const stockIssue = blockedItems.some(b => 
+        b.reason.includes('out of stock') || b.reason.includes('stock')
+      );
+      return {
+        success:    false,
+        outOfStock: stockIssue,
+        message:    stockIssue
+          ? 'Product went out of stock during payment. Please update your cart.'
+          : MESSAGES.CHECKOUT.CART_UNAVAILABLE,
+      };
+    }
 
-    if (blockedItems.length > 0)
-      return { success: false, message: `${MESSAGES.CHECKOUT.ITEMS_UNAVAILABLE}: ${blockedItems.map(b => b.reason).join(', ')}` };
+    if (blockedItems.length > 0) {
+      const stockIssue = blockedItems.some(b => 
+        b.reason.includes('out of stock') || b.reason.includes('stock')
+      );
+      return {
+        success:    false,
+        outOfStock: stockIssue,
+        message:    stockIssue
+          ? 'Some items went out of stock during payment. Please update your cart.'
+          : `${MESSAGES.CHECKOUT.ITEMS_UNAVAILABLE}: ${blockedItems.map(b => b.reason).join(', ')}`,
+      };
+    }
 
-    // Deduct stock atomically for each item
-    // Uses findOneAndUpdate with stock >= qty condition — if another user
-    // bought the last item first, this returns null and we abort with outOfStock
+    // ── Atomic stock deduction ────────────────────────────────────────────────
+    // findOneAndUpdate with { stock: { $gte: qty } } is a SINGLE atomic MongoDB
+    // operation. If two requests race, only one can succeed — the other gets null.
+    // This prevents overselling WITHOUT needing transactions/replica sets.
     const orderItems = [];
     for (const { item, product, variant, qty } of validItems) {
       const stockResult = await Variant.findOneAndUpdate(
@@ -412,15 +488,18 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
         { $inc: { stock: -qty } },
         { new: true }
       );
+
       if (!stockResult) {
-        // Restore any stock already deducted in this loop before failing
+        // Stock insufficient — rollback any items already deducted in this loop
         for (const deducted of orderItems) {
-          await Variant.findByIdAndUpdate(deducted.variant, { $inc: { stock: deducted.quantity } });
+          await Variant.findByIdAndUpdate(deducted.variant, {
+            $inc: { stock: deducted.quantity }
+          });
         }
         return {
           success:    false,
           outOfStock: true,
-          message:    `Sorry, "${product.name}" just sold out. Your payment will be refunded automatically within 5–7 business days.`,
+          message:    `"${product.name}" went out of stock during payment. Please update your cart.`,
         };
       }
 
@@ -437,10 +516,11 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
       });
     }
 
-    // Clear cart
+    // ── Clear cart ────────────────────────────────────────────────────────────
     cart.items = [];
     await cart.save();
 
+    // ── Create order ─────────────────────────────────────────────────────────
     const subtotal = orderItems.reduce((s, i) => s + i.itemTotal, 0);
     const shipping = subtotal >= 5000 ? 0 : 50;
     const tax      = Math.round(subtotal * 0.18);

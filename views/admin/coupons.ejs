@@ -101,11 +101,11 @@
                         </td>
                         <td class="px-8 py-7 text-center">
                             <% if(coupon.status === 'active') { %>
-                                <span class="px-3 py-1 bg-cyan-500/10 text-cyan-400 text-[9px] font-black uppercase rounded-full border border-cyan-500/20">Active</span>
+                                <span data-status-badge class="px-3 py-1 bg-cyan-500/10 text-cyan-400 text-[9px] font-black uppercase rounded-full border border-cyan-500/20">Active</span>
                             <% } else if(coupon.status === 'inactive') { %>
-                                <span class="px-3 py-1 bg-slate-800 text-slate-500 text-[9px] font-black uppercase rounded-full border border-white/5">Inactive</span>
+                                <span data-status-badge class="px-3 py-1 bg-slate-800 text-slate-500 text-[9px] font-black uppercase rounded-full border border-white/5">Inactive</span>
                             <% } else { %>
-                                <span class="px-3 py-1 bg-rose-500/10 text-rose-500 text-[9px] font-black uppercase rounded-full border border-rose-500/20">Expired</span>
+                                <span data-status-badge class="px-3 py-1 bg-rose-500/10 text-rose-500 text-[9px] font-black uppercase rounded-full border border-rose-500/20">Expired</span>
                             <% } %>
                         </td>
                        <td class="px-8 py-7 text-right">
@@ -123,7 +123,7 @@
                     <input type="checkbox" 
                            class="sr-only peer" 
                            <%= coupon.status === 'active' ? 'checked' : '' %>
-                           onchange="toggleCouponStatus('<%= coupon._id %>', '<%= coupon.status %>')">
+                           onchange="toggleCouponStatus('<%= coupon._id %>', '<%= coupon.status %>', this)">
                     <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer 
                                 peer-checked:after:translate-x-full peer-checked:after:border-white 
                                 after:content-[''] after:absolute after:top-[2px] after:left-[2px] 
@@ -169,7 +169,7 @@
                 <button onclick="toggleModal('addCouponModal')" class="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 text-slate-500 hover:text-white transition-colors"><i class="fas fa-times"></i></button>
             </div>
             
-            <form action="/admin/coupons/add" method="POST" class="space-y-6">
+            <form id="addCouponForm" action="/admin/coupons/add" method="POST" class="space-y-6" onsubmit="return validateAddForm(event)">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-2">
                         <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Title (Display Name)</label>
@@ -196,7 +196,10 @@
                     </div>
                     <div class="space-y-2">
                         <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Expiry Date</label>
-                        <input type="date" name="expiryDate" required class="w-full bg-slate-900/50 border border-white/5 rounded-2xl px-5 py-4 focus:outline-none text-white text-sm">
+                        <input type="date" id="add_expiryDate" name="expiryDate" required
+                               class="w-full bg-slate-900/50 border border-white/5 rounded-2xl px-5 py-4 focus:outline-none text-white text-sm"
+                               onchange="validateDateInput(this)">
+                        <p class="text-[9px] text-slate-600 font-bold uppercase italic">Must be a future date</p>
                     </div>
                 </div>
 
@@ -232,6 +235,14 @@
                 <button onclick="toggleModal('editCouponModal')" class="text-slate-500 hover:text-white transition-colors"><i class="fas fa-times text-xl"></i></button>
             </div>
 
+            <!-- Expired coupon notice — shown only when editing an expired coupon -->
+            <div id="edit_expired_notice" class="hidden mb-6 flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+                <i class="fas fa-exclamation-triangle text-amber-400 mt-0.5 flex-shrink-0"></i>
+                <p class="text-amber-300 text-xs leading-relaxed">
+                    This coupon is <span class="font-black uppercase">expired</span>. To reactivate it, set a future expiry date and save.
+                </p>
+            </div>
+
             <form id="editCouponForm" method="POST" class="space-y-6">
                 <div class="grid grid-cols-2 gap-6">
                     <div class="space-y-2">
@@ -255,7 +266,10 @@
                     </div>
                     <div class="space-y-2">
                         <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Expiry</label>
-                        <input type="date" name="expiryDate" id="edit_expiryDate" class="w-full bg-slate-900/50 border border-white/10 rounded-2xl px-5 py-4 text-white focus:outline-none">
+                        <input type="date" name="expiryDate" id="edit_expiryDate"
+                               class="w-full bg-slate-900/50 border border-white/10 rounded-2xl px-5 py-4 text-white focus:outline-none"
+                               onchange="validateDateInput(this)">
+                        <p id="edit_expiry_hint" class="text-[9px] font-bold uppercase italic hidden"></p>
                     </div>
                 </div>
 
@@ -281,124 +295,297 @@
     </div>
 </div>
 <script>
-    /**
-     * Handle the PUT request for updating a coupon
-     */
-    async function handleEditSubmit(event) {
-    event.preventDefault();
-    
-    const form = event.target;
-    const couponId = form.getAttribute('data-id'); 
-    
-    // Safety check: ensure ID exists to prevent 404
-    if (!couponId) {
-        console.error("Coupon ID is missing from form attribute");
-        return;
+    // ── Compute tomorrow's date string (YYYY-MM-DD) ───────────────────────────
+    function getTomorrowStr() {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        return d.toISOString().split('T')[0];
     }
 
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
-
-    try {
-        const response = await fetch(`/admin/coupons/update/${couponId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-
-        // Even if the backend sends a 302 redirect, fetch will follow it. 
-        // Checking response.ok ensures we only reload on a successful status (200-299).
-        if (response.ok) {
-            window.location.href = '/admin/coupons'; // Manually redirect after success
-        } else {
-            alert('Update failed. Check console for details.');
-        }
-    } catch (error) {
-        console.error('Error:', error);
-    }
-}
-
-    /**
-     * Handle the DELETE request for removing a coupon
-     */
-    async function deleteCoupon(couponId) {
-    const result = await Swal.fire({
-        title: 'Are you sure?',
-        text: "This coupon will be permanently removed from the engine.",
-        icon: 'warning',
-        showCancelButton: true,
-        background: '#030712',
-        color: '#f8fafc',
-        confirmButtonColor: '#06b6d4', // Cyan 500
-        cancelButtonColor: '#1e293b',  // Slate 800
-        confirmButtonText: 'Yes, delete it!',
-        cancelButtonText: 'Cancel',
-        customClass: {
-            popup: 'rounded-[2rem] border border-white/10',
-            confirmButton: 'rounded-xl px-6 py-3 uppercase text-xs font-black tracking-widest',
-            cancelButton: 'rounded-xl px-6 py-3 uppercase text-xs font-black tracking-widest'
-        }
+    // ── Set min="tomorrow" on all date inputs when page loads ─────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+        const tomorrow = getTomorrowStr();
+        document.getElementById('add_expiryDate').min = tomorrow;
+        document.getElementById('edit_expiryDate').min = tomorrow;
     });
 
-    if (result.isConfirmed) {
+    // ── Validate a date input on change — show Swal if today or past ──────────
+    function validateDateInput(input) {
+        const selected = input.value;
+        if (!selected) return;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const selectedDate = new Date(selected);
+
+        if (selectedDate <= today) {
+            // Clear the invalid value
+            input.value = '';
+            Swal.fire({
+                icon: 'warning',
+                title: 'Invalid Date',
+                text: 'Expiry date must be a future date (from tomorrow onwards).',
+                background: '#030712',
+                color: '#f8fafc',
+                confirmButtonColor: '#06b6d4',
+                customClass: { popup: 'rounded-[2rem] border border-white/10' }
+            });
+        }
+    }
+
+    // ── Toggle status — NO page reload, update DOM in-place ──────────────────
+    async function toggleCouponStatus(id, currentStatus, checkboxEl) {
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+
         try {
-            const response = await fetch(`/admin/coupons/delete/${couponId}`, {
-                method: 'DELETE'
+            const response = await fetch(`/admin/coupons/toggle-status/${id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
             });
 
-            if (response.ok) {
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // ── Update the status badge in the Status column ──────────────
+                const row   = checkboxEl.closest('tr');
+                const badge = row.querySelector('[data-status-badge]');
+                if (badge) {
+                    if (newStatus === 'active') {
+                        badge.className = 'px-3 py-1 bg-cyan-500/10 text-cyan-400 text-[9px] font-black uppercase rounded-full border border-cyan-500/20';
+                        badge.textContent = 'Active';
+                    } else {
+                        badge.className = 'px-3 py-1 bg-slate-800 text-slate-500 text-[9px] font-black uppercase rounded-full border border-white/5';
+                        badge.textContent = 'Inactive';
+                    }
+                }
+
+                // ── Update the onchange attribute so next toggle uses new status
+                checkboxEl.setAttribute('onchange', `toggleCouponStatus('${id}', '${newStatus}', this)`);
+
+                // ── Toast ─────────────────────────────────────────────────────
+                Swal.mixin({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 1800,
+                    timerProgressBar: true,
+                    background: '#030712',
+                    color: '#fff'
+                }).fire({
+                    icon: 'success',
+                    title: `Coupon ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`
+                });
+
+            } else {
+                // Revert checkbox visual state
+                checkboxEl.checked = currentStatus === 'active';
                 Swal.fire({
+                    icon: 'error',
+                    title: 'Action Failed',
+                    text: data.message || 'Could not update coupon status.',
+                    background: '#030712',
+                    color: '#f8fafc',
+                    confirmButtonColor: '#06b6d4',
+                    customClass: { popup: 'rounded-[2rem] border border-white/10' }
+                });
+            }
+        } catch (error) {
+            checkboxEl.checked = currentStatus === 'active';
+            Swal.fire({
+                icon: 'error',
+                title: 'Network Error',
+                text: 'Could not reach the server.',
+                background: '#030712',
+                color: '#f8fafc',
+                confirmButtonColor: '#06b6d4',
+                customClass: { popup: 'rounded-[2rem] border border-white/10' }
+            });
+        }
+    }
+
+    // ── Edit modal — open and populate ────────────────────────────────────────
+    function openEditModal(couponData) {
+        const coupon = JSON.parse(couponData);
+        const form   = document.getElementById('editCouponForm');
+
+        form.setAttribute('data-id', coupon._id);
+        form.onsubmit = handleEditSubmit;
+
+        document.getElementById('edit_title').value     = coupon.title;
+        document.getElementById('edit_code').value      = coupon.code;
+        document.getElementById('edit_discount').value  = coupon.discount;
+        document.getElementById('edit_maxCap').value    = coupon.maxCap;
+        document.getElementById('edit_minSpend').value  = coupon.minSpend;
+        document.getElementById('edit_usageLimit').value = coupon.usageLimit;
+
+        // Set min to tomorrow
+        document.getElementById('edit_expiryDate').min = getTomorrowStr();
+
+        if (coupon.expiryDate) {
+            const date = new Date(coupon.expiryDate).toISOString().split('T')[0];
+            document.getElementById('edit_expiryDate').value = date;
+        }
+
+        // Show/hide expired notice
+        const notice = document.getElementById('edit_expired_notice');
+        if (coupon.status === 'expired') {
+            notice.classList.remove('hidden');
+        } else {
+            notice.classList.add('hidden');
+        }
+
+        toggleModal('editCouponModal');
+    }
+
+    // ── Edit form submit ──────────────────────────────────────────────────────
+    async function handleEditSubmit(event) {
+        event.preventDefault();
+
+        const form     = event.target;
+        const couponId = form.getAttribute('data-id');
+        if (!couponId) return;
+
+        // Client-side date validation before sending
+        const expiryVal = document.getElementById('edit_expiryDate').value;
+        if (expiryVal) {
+            const today    = new Date(); today.setHours(0, 0, 0, 0);
+            const selected = new Date(expiryVal);
+            if (selected <= today) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Invalid Date',
+                    text: 'Expiry date must be a future date (from tomorrow onwards).',
+                    background: '#030712',
+                    color: '#f8fafc',
+                    confirmButtonColor: '#06b6d4',
+                    customClass: { popup: 'rounded-[2rem] border border-white/10' }
+                });
+                return;
+            }
+        }
+
+        const data = Object.fromEntries(new FormData(form).entries());
+
+        try {
+            const response = await fetch(`/admin/coupons/update/${couponId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                toggleModal('editCouponModal');
+                await Swal.fire({
+                    icon: 'success',
+                    title: 'Updated!',
+                    text: result.message || 'Coupon updated successfully.',
+                    background: '#030712',
+                    color: '#f8fafc',
+                    confirmButtonColor: '#06b6d4',
+                    timer: 1800,
+                    showConfirmButton: false,
+                    customClass: { popup: 'rounded-[2rem] border border-white/10' }
+                });
+                window.location.reload();
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Update Failed',
+                    text: result.message || 'Could not update the coupon.',
+                    background: '#030712',
+                    color: '#f8fafc',
+                    confirmButtonColor: '#06b6d4',
+                    customClass: { popup: 'rounded-[2rem] border border-white/10' }
+                });
+            }
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Network Error',
+                text: 'Could not reach the server.',
+                background: '#030712',
+                color: '#f8fafc',
+                confirmButtonColor: '#06b6d4',
+                customClass: { popup: 'rounded-[2rem] border border-white/10' }
+            });
+        }
+    }
+
+    // ── Add form — client-side date validation before POST ────────────────────
+    function validateAddForm(event) {
+        const expiryVal = document.getElementById('add_expiryDate').value;
+        if (!expiryVal) return true; // let HTML required handle it
+
+        const today    = new Date(); today.setHours(0, 0, 0, 0);
+        const selected = new Date(expiryVal);
+
+        if (selected <= today) {
+            event.preventDefault();
+            Swal.fire({
+                icon: 'warning',
+                title: 'Invalid Date',
+                text: 'Expiry date must be a future date (from tomorrow onwards).',
+                background: '#030712',
+                color: '#f8fafc',
+                confirmButtonColor: '#06b6d4',
+                customClass: { popup: 'rounded-[2rem] border border-white/10' }
+            });
+            return false;
+        }
+        return true;
+    }
+
+    // ── Delete coupon ─────────────────────────────────────────────────────────
+    async function deleteCoupon(couponId) {
+        const result = await Swal.fire({
+            title: 'Are you sure?',
+            text: 'This coupon will be permanently removed from the engine.',
+            icon: 'warning',
+            showCancelButton: true,
+            background: '#030712',
+            color: '#f8fafc',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#1e293b',
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel',
+            customClass: {
+                popup: 'rounded-[2rem] border border-white/10',
+                confirmButton: 'rounded-xl px-6 py-3 uppercase text-xs font-black tracking-widest',
+                cancelButton:  'rounded-xl px-6 py-3 uppercase text-xs font-black tracking-widest'
+            }
+        });
+
+        if (!result.isConfirmed) return;
+
+        try {
+            const response = await fetch(`/admin/coupons/delete/${couponId}`, { method: 'DELETE' });
+            if (response.ok) {
+                await Swal.fire({
                     title: 'Deleted!',
                     text: 'The coupon has been removed.',
                     icon: 'success',
                     background: '#030712',
                     color: '#f8fafc',
                     confirmButtonColor: '#06b6d4',
+                    timer: 1500,
+                    showConfirmButton: false,
                     customClass: { popup: 'rounded-[2rem] border border-white/10' }
-                }).then(() => {
-                    window.location.reload();
                 });
+                window.location.reload();
             } else {
-                Swal.fire('Error!', 'Failed to delete the coupon.', 'error');
+                Swal.fire({ icon: 'error', title: 'Error!', text: 'Failed to delete the coupon.',
+                    background: '#030712', color: '#f8fafc', confirmButtonColor: '#06b6d4' });
             }
-        } catch (error) {
-            console.error('Error:', error);
-            Swal.fire('Error!', 'A server error occurred.', 'error');
+        } catch {
+            Swal.fire({ icon: 'error', title: 'Error!', text: 'A server error occurred.',
+                background: '#030712', color: '#f8fafc', confirmButtonColor: '#06b6d4' });
         }
-    }
-}
-    /**
-     * Open Modal and populate with data
-     */
-    function openEditModal(couponData) {
-        const coupon = JSON.parse(couponData);
-        const form = document.getElementById('editCouponForm');
-        
-        // Store the ID in a data attribute for the submit handler
-        form.setAttribute('data-id', coupon._id);
-        
-        // Assign the submit event handler
-        form.onsubmit = handleEditSubmit;
-        
-        // Fill form values
-        document.getElementById('edit_title').value = coupon.title;
-        document.getElementById('edit_code').value = coupon.code;
-        document.getElementById('edit_discount').value = coupon.discount;
-        document.getElementById('edit_maxCap').value = coupon.maxCap;
-        document.getElementById('edit_minSpend').value = coupon.minSpend;
-        document.getElementById('edit_usageLimit').value = coupon.usageLimit;
-        
-        if (coupon.expiryDate) {
-            const date = new Date(coupon.expiryDate).toISOString().split('T')[0];
-            document.getElementById('edit_expiryDate').value = date;
-        }
-        
-        toggleModal('editCouponModal');
     }
 
-    /**
-     * Modal Toggle Logic
-     */
+    // ── Modal toggle ──────────────────────────────────────────────────────────
     function toggleModal(id) {
         const modal = document.getElementById(id);
         if (modal) {
@@ -407,72 +594,21 @@
         }
     }
 
-    /**
-     * Random Code Generator
-     */
+    // ── Random code generator ─────────────────────────────────────────────────
     function generateCode(inputId) {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let result = '';
-        for (let i = 0; i < 8; i++) {
-            result += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
+        for (let i = 0; i < 8; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
         document.getElementById(inputId).value = result;
     }
 
-    /**
-     * Accessibility: Close modals on Escape key
-     */
+    // ── Escape key closes modals ──────────────────────────────────────────────
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             document.querySelectorAll('[id$="Modal"]').forEach(m => m.classList.add('hidden'));
             document.body.classList.remove('modal-active');
         }
     });
-
-    async function toggleCouponStatus(id, currentStatus) {
-    // Determine the target status based on current status
-    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    
-    try {
-        const response = await fetch(`/admin/coupons/toggle-status/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus })
-        });
-
-        if (response.ok) {
-            // Smooth toast notification
-            const Toast = Swal.mixin({
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 1500,
-                timerProgressBar: true,
-                background: '#030712',
-                color: '#fff'
-            });
-            
-            await Toast.fire({
-                icon: 'success',
-                title: `Coupon ${newStatus === 'active' ? 'Activated' : 'Deactivated'}`
-            });
-            
-            window.location.reload();
-        } else {
-            throw new Error('Failed to update');
-        }
-    } catch (error) {
-        console.error("Toggle error:", error);
-        Swal.fire({
-            icon: 'error',
-            title: 'Action Failed',
-            text: 'Could not update coupon status.',
-            background: '#030712',
-            color: '#fff'
-        });
-        window.location.reload(); // Reload to reset the toggle visual state
-    }
-}
 </script>
 </body>
 </html>

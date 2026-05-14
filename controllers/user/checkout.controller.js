@@ -11,6 +11,8 @@ import {
 } from "../../services/checkout.service.js";
 import { getUserAddressesService } from "../../services/address.service.js";
 import { getOrderByIdService } from "../../services/order.service.js";
+import { validateCoupon } from "../../services/coupon.service.js";
+import Coupon from "../../models/coupon.model.js";
 import User from "../../models/user.model.js";
 import PDFDocument from "pdfkit";
 
@@ -43,7 +45,7 @@ export const getCheckout = asyncHandler(async (req, res) => {
     path: "checkout",
     checkoutItems: checkout.items,
     addresses: checkout.addresses,
-    totals: checkout.totals,
+    totals: checkout.totals,coupons: checkout.coupons,
     blockedItems: checkout.issues.blockedItems,
     stockErrors: checkout.issues.stockErrors,
     razorpayKeyId: process.env.RAZORPAY_KEY_ID,
@@ -253,6 +255,49 @@ export const handleRazorpayFailure = asyncHandler(async (req, res) => {
   // Clear any pending session data
   delete req.session.razorpayPending;
   return res.json({ success: true });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POST /checkout/apply-coupon
+// ═══════════════════════════════════════════════════════════════════════════════
+export const applyCoupon = asyncHandler(async (req, res) => {
+  const { code, subtotal } = req.body;
+
+  if (!code || !subtotal) {
+    return res.status(400).json({ success: false, message: 'Coupon code and subtotal are required' });
+  }
+
+  try {
+    const result = await validateCoupon(code, Number(subtotal));
+
+    // Store applied coupon in session to use during order placement
+    req.session.appliedCoupon = {
+      couponId:       result.coupon._id,
+      code:           result.coupon.code,
+      title:          result.coupon.title,
+      discount:       result.coupon.discount,
+      discountAmount: Math.round(result.discountAmount),
+      maxCap:         result.coupon.maxCap,
+    };
+
+    return res.json({
+      success:        true,
+      message:        `Coupon "${result.coupon.code}" applied! You save ₹${Math.round(result.discountAmount).toLocaleString('en-IN')}`,
+      discountAmount: Math.round(result.discountAmount),
+      couponCode:     result.coupon.code,
+      couponTitle:    result.coupon.title,
+    });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// POST /checkout/remove-coupon
+// ═══════════════════════════════════════════════════════════════════════════════
+export const removeCoupon = asyncHandler(async (req, res) => {
+  delete req.session.appliedCoupon;
+  return res.json({ success: true, message: 'Coupon removed' });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

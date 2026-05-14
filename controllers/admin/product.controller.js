@@ -52,7 +52,7 @@ export const getaddProducts = asyncHandler(async (req, res) => {
 });
 
 export const postAddProducts = asyncHandler(async (req, res) => {
-  const result = await createProductService(req.body);
+  const result = await createProductService(req.body, req.files || []);
   
   if (result.success) {
     return res.status(201).json({

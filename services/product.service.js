@@ -1,7 +1,7 @@
 import Product from '../models/product.model.js';
 import Variant from '../models/variant.model.js';
 import Category from '../models/category.model.js';
-import { v2 as cloudinary } from 'cloudinary';
+import cloudinary from '../config/cloudinary.config.js';
 import { MESSAGES } from '../constants/messages.constant.js';
 
 // ─── Get products with filtering, pagination and search ──────────────────────
@@ -204,7 +204,7 @@ export const getProductByIdService = async (productId, isAdmin = false) => {
 };
 
 // ─── Create new product ───────────────────────────────────────────────────────
-export const createProductService = async (productData) => {
+export const createProductService = async (productData, files = []) => {
   try {
     const {
       name,
@@ -246,13 +246,24 @@ export const createProductService = async (productData) => {
       return { success: false, message: MESSAGES.PRODUCT.ALREADY_EXISTS };
     }
 
+    // Parse variants — may come as object map from multipart form
+    let parsedVariants = variants;
+    if (!Array.isArray(parsedVariants)) {
+      // Convert object map { '0': { color, basePrice, ... }, '1': { ... } } to array
+      if (typeof parsedVariants === 'object' && parsedVariants !== null) {
+        parsedVariants = Object.values(parsedVariants);
+      } else {
+        parsedVariants = [];
+      }
+    }
+
     // Validate variants
-    if (!Array.isArray(variants) || variants.length === 0) {
+    if (parsedVariants.length === 0) {
       return { success: false, message: MESSAGES.PRODUCT.VARIANT_REQUIRED };
     }
 
-    for (let i = 0; i < variants.length; i++) {
-      const variant = variants[i];
+    for (let i = 0; i < parsedVariants.length; i++) {
+      const variant = parsedVariants[i];
       if (!variant.color || !variant.basePrice || !variant.stock) {
         return { success: false, message: `Variant ${i + 1}: Color, price and stock are required` };
       }
@@ -267,26 +278,50 @@ export const createProductService = async (productData) => {
       brand: brand.trim(),
       category,
       description: description.trim(),
-      caseSize: caseSize.trim(),
-      strapType: strapType.trim(),
-      movementType: movementType.trim(),
-      isActive: isListed,
-      images: []
+      specifications: {
+        caseSize:     caseSize?.trim()     || '',
+        strapType:    strapType?.trim()    || '',
+        movementType: movementType?.trim() || '',
+      },
+      isActive: isListed === 'on' || isListed === 'true' || isListed === true,
     });
 
     await product.save();
 
-    // Create variants
+    // Group uploaded files by variant index
+    const filesByVariant = {};
+    for (const file of files) {
+      const match = file.fieldname.match(/^variantImages_(.+)$/);
+      if (!match) continue;
+      const idx = match[1];
+      if (!filesByVariant[idx]) filesByVariant[idx] = [];
+      filesByVariant[idx].push(file);
+    }
+
+    // Create variants with their images
     const createdVariants = [];
-    for (const variantData of variants) {
+    // Get the original variant keys to match file indices
+    const variantKeys = Object.keys(
+      typeof variants === 'object' && !Array.isArray(variants) ? variants : {}
+    );
+
+    for (let i = 0; i < parsedVariants.length; i++) {
+      const variantData = parsedVariants[i];
+      // The file fieldname uses the original form index key (e.g., '0', '1', or timestamp for dynamic)
+      const fileKey = variantKeys[i] || i.toString();
+      const variantFiles = filesByVariant[fileKey] || [];
+      const images = variantFiles.map((f, idx) => ({
+        url: f.path, // CloudinaryStorage puts the URL in file.path
+        isPrimary: idx === 0,
+      }));
+
       const variant = new Variant({
         product: product._id,
         color: variantData.color.trim(),
         basePrice: parseFloat(variantData.basePrice),
-        finalPrice: parseFloat(variantData.finalPrice) || parseFloat(variantData.basePrice),
-        offerPercentage: parseFloat(variantData.offerPercentage) || 0,
+        regularPrice: parseFloat(variantData.regularPrice) || parseFloat(variantData.basePrice),
         stock: parseInt(variantData.stock),
-        images: variantData.images || []
+        images,
       });
       await variant.save();
       createdVariants.push(variant);
@@ -374,7 +409,6 @@ export const updateProductService = async (productId, updateData, files = []) =>
       if (filesByVariant[idx]) {
         for (const file of filesByVariant[idx]) {
           try {
-            // memoryStorage gives file.buffer — upload via stream
             const uploadResult = await new Promise((resolve, reject) => {
               const stream = cloudinary.uploader.upload_stream(
                 {
@@ -403,19 +437,30 @@ export const updateProductService = async (productId, updateData, files = []) =>
         const variant = await Variant.findById(_id);
         if (!variant || variant.isDeleted) continue;
 
-        const updatedImages = [...variant.images, ...newImages];
-        // Ensure at least one primary image
-        if (updatedImages.length > 0 && !updatedImages.find(i => i.isPrimary)) {
-          updatedImages[0].isPrimary = true;
-        }
-
-        await Variant.findByIdAndUpdate(_id, {
+        // Build the update object
+        const updateFields = {
           color:        color.trim(),
           basePrice:    parsedBase,
           regularPrice: parsedRegular,
           stock:        parsedStock,
-          images:       updatedImages,
-        });
+        };
+
+        // If there are new images, append them using $push
+        if (newImages.length > 0) {
+          await Variant.findByIdAndUpdate(_id, {
+            ...updateFields,
+            $push: { images: { $each: newImages } }
+          });
+        } else {
+          await Variant.findByIdAndUpdate(_id, updateFields);
+        }
+
+        // Ensure at least one primary image
+        const updated = await Variant.findById(_id);
+        if (updated && updated.images.length > 0 && !updated.images.some(i => i.isPrimary)) {
+          updated.images[0].isPrimary = true;
+          await updated.save();
+        }
       } else {
         // ── New variant — create it ───────────────────────────────────
         if (newImages.length > 0) newImages[0].isPrimary = true;

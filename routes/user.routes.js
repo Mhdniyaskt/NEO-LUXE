@@ -37,6 +37,8 @@ import {
   createRazorpayOrder,
   verifyRazorpayPayment,
   handleRazorpayFailure,
+  applyCoupon,
+  removeCoupon,
 } from "../controllers/user/checkout.controller.js";
 import {
   getOrders,
@@ -169,6 +171,8 @@ router.post("/checkout/place-order", requireAuth, placeOrder);
 router.post("/checkout/razorpay/create-order", requireAuth, createRazorpayOrder);
 router.post("/checkout/razorpay/verify", requireAuth, verifyRazorpayPayment);
 router.post("/checkout/razorpay/failed", requireAuth, handleRazorpayFailure);
+router.post("/checkout/apply-coupon", requireAuth, applyCoupon);
+router.post("/checkout/remove-coupon", requireAuth, removeCoupon);
 router.get("/buy-now/:productId/:variantId", requireAuth, noCache, getBuyNow);
 router.post("/buy-now/place-order", requireAuth, placeBuyNowOrder);
 router.get("/payment-failed", requireAuth, noCache, getPaymentFailed);

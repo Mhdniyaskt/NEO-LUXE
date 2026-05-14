@@ -10,6 +10,7 @@ import * as productController from "../controllers/admin/product.controller.js";
 import * as orderController from "../controllers/admin/order.controller.js";
 import * as stockController from "../controllers/admin/stock.controller.js";
 import { createCoupon, deleteCoupon, getAllCoupons, toggleStatus, updateCoupon } from "../controllers/admin/coupon.controller.js";
+import { getSalesReport } from "../controllers/admin/sales-report.controller.js";
 
 const router = express.Router();
 
@@ -26,6 +27,7 @@ router.use(isAdmin);
 router.post("/logout", adminAuthController.handleAdminLogout);
 
 router.get("/dashboard", noCache, dashboardController.showAdminDashboard);
+router.get("/dashboard/chart-data", dashboardController.getChartData);
 
 router.get("/customers", noCache, customersController.showCustomers);
 router.patch("/customers/:id/status", customersController.toggleCustomerStatus);
@@ -88,5 +90,8 @@ router.put('/coupons/update/:id', updateCoupon);
 router.delete('/coupons/delete/:id', deleteCoupon);
 
 router.patch('/coupons/toggle-status/:id', toggleStatus);
+
+// Sales Report
+router.get('/sales-report', getSalesReport);
 
 export default router;
