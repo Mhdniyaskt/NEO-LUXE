@@ -61,6 +61,16 @@
             <% } %>
         </a>
 
+        <a href="/referral" class="group px-6 py-4 flex items-center gap-4 text-sm transition-all duration-300 <%= (locals.activePage === 'referral') ? 'active-nav-item' : 'text-gray-400 hover:text-white hover:bg-white/5' %>">
+            <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke-width="2"></path>
+            </svg>
+            <span class="font-medium">Refer & Earn</span>
+            <% if (locals.activePage === 'referral') { %>
+                <div class="ml-auto w-1.5 h-1.5 rounded-full bg-[#00a3ff] shadow-[0_0_8px_#00a3ff]"></div>
+            <% } %>
+        </a>
+
         <div class="mt-8 px-6 pt-8 border-t border-gray-800/50">
             <form action="/logout" method="POST">
                 <button type="submit" class="group w-full flex items-center gap-4 text-sm text-red-500/80 hover:text-red-500 transition-all duration-300 py-2">

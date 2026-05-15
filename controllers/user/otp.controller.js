@@ -61,8 +61,21 @@ export const verifyOTP = asyncHandler(async (req, res) => {
 
 
     if (purpose === "SIGNUP") {
-        await User.findOneAndUpdate({ email }, { isEmailVerified: true });
+        const user = await User.findOneAndUpdate({ email }, { isEmailVerified: true }, { new: true });
         await OTP.deleteMany({ email, purpose });
+
+        // Process referral if a code was provided during signup
+        if (req.session.pendingReferralCode && user) {
+          const { processReferral, generateReferralCode } = await import('../../services/referral.service.js');
+          await processReferral(user._id, req.session.pendingReferralCode);
+          await generateReferralCode(user._id);
+          delete req.session.pendingReferralCode;
+        } else if (user) {
+          // Generate referral code for new user even without referral
+          const { generateReferralCode } = await import('../../services/referral.service.js');
+          await generateReferralCode(user._id);
+        }
+
         return res.json({ success: true, redirect: "/login", message: "Email verified!" });
     }
 

@@ -57,6 +57,7 @@ import {
   getWishlistIds,
 } from "../controllers/user/wishlist.controller.js";
 import { getWallet, createTopupOrder, verifyTopup } from "../controllers/user/wallet.controller.js";
+import { getReferralPage } from "../controllers/user/referral.controller.js";
 
 const router = express.Router();
 
@@ -199,6 +200,9 @@ router.get("/user/wishlist/ids", getWishlistIds);
 router.post("/user/wishlist/toggle", toggleWishlist);
 router.post("/user/wishlist/move-to-cart", requireAuth, moveToCart);
 router.delete("/user/wishlist/:variantId", requireAuth, removeFromWishlist);
+
+// Referral
+router.get("/referral", requireAuth, noCache, getReferralPage);
 
 // Wallet
 router.get("/wallet", requireAuth, noCache, getWallet);

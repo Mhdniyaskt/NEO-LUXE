@@ -98,6 +98,11 @@ export const handleSignup = asyncHandler(async (req, res) => {
   req.session.email = result.email;
   req.session.otpPurpose = result.otpPurpose;
 
+  // Store referral code in session for processing after OTP verification
+  if (req.body.referralCode && req.body.referralCode.trim()) {
+    req.session.pendingReferralCode = req.body.referralCode.trim().toUpperCase();
+  }
+
   return res.json({ success: true, redirect: "/verify-otp" });
 });
 

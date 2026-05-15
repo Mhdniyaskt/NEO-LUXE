@@ -12,7 +12,6 @@ import {
 import { getUserAddressesService } from "../../services/address.service.js";
 import { getOrderByIdService } from "../../services/order.service.js";
 import { validateCoupon } from "../../services/coupon.service.js";
-import Coupon from "../../models/coupon.model.js";
 import User from "../../models/user.model.js";
 import PDFDocument from "pdfkit";
 

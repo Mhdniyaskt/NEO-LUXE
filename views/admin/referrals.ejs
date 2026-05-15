@@ -1,0 +1,139 @@
+<style>
+  body { background-color: #05070A; color: #E2E8F0; font-family: 'Inter', sans-serif; }
+  .card-bg { background-color: #0B1120; border: 1px solid #1E293B; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: #05070A; }
+  ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 10px; }
+</style>
+
+<div class="flex h-screen w-full">
+  <%- include('../partials/admin-sidebar', { path: 'referrals' }) %>
+
+  <main class="flex-1 overflow-y-auto p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+
+      <!-- Header -->
+      <header class="mb-8">
+        <h1 class="text-2xl font-bold text-white tracking-tight">Referral Management</h1>
+        <p class="text-slate-500 text-sm mt-1">Track user referrals and rewards program performance.</p>
+      </header>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="card-bg p-5 rounded-xl">
+          <p class="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">Codes Generated</p>
+          <p class="text-2xl font-bold text-white"><%= stats.totalGenerated.toLocaleString('en-IN') %></p>
+        </div>
+        <div class="card-bg p-5 rounded-xl">
+          <p class="text-[9px] text-green-400 uppercase tracking-widest font-bold mb-2">Successful Referrals</p>
+          <p class="text-2xl font-bold text-white"><%= stats.successfulTotal.toLocaleString('en-IN') %></p>
+        </div>
+        <div class="card-bg p-5 rounded-xl">
+          <p class="text-[9px] text-cyan-400 uppercase tracking-widest font-bold mb-2">Rewards Given</p>
+          <p class="text-2xl font-bold text-cyan-400">₹<%= stats.totalRewardsGiven.toLocaleString('en-IN') %></p>
+        </div>
+        <div class="card-bg p-5 rounded-xl">
+          <p class="text-[9px] text-amber-400 uppercase tracking-widest font-bold mb-2">Pending Rewards</p>
+          <p class="text-2xl font-bold text-amber-400">₹<%= stats.pendingRewards.toLocaleString('en-IN') %></p>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="card-bg rounded-2xl p-5 mb-6">
+        <form action="/admin/referrals" method="GET" class="flex gap-3">
+          <div class="relative flex-1">
+            <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-600 text-xs"></i>
+            <input type="text" name="search" value="<%= search %>" placeholder="Search by name or email..."
+                   class="w-full bg-[#05070A] border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-cyan-500/50 transition">
+          </div>
+          <button type="submit" class="bg-cyan-400 hover:bg-cyan-300 text-[#05070A] font-bold text-xs px-5 rounded-xl transition">Search</button>
+          <% if (search) { %>
+            <a href="/admin/referrals" class="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white text-xs px-4 rounded-xl transition flex items-center">Clear</a>
+          <% } %>
+        </form>
+      </div>
+
+      <!-- Table -->
+      <div class="card-bg rounded-2xl overflow-hidden mb-8">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs min-w-[800px]">
+            <thead class="text-slate-500 text-[10px] uppercase border-b border-slate-800 bg-slate-900/30 tracking-widest">
+              <tr>
+                <th class="px-6 py-4 font-bold">Referrer</th>
+                <th class="px-6 py-4 font-bold">Referrer Email</th>
+                <th class="px-6 py-4 font-bold">Referred User</th>
+                <th class="px-6 py-4 font-bold">Signup Date</th>
+                <th class="px-6 py-4 font-bold text-center">Order Status</th>
+                <th class="px-6 py-4 font-bold">Reward</th>
+                <th class="px-6 py-4 font-bold text-center">Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/50">
+              <% referrals.forEach(r => { %>
+                <tr class="hover:bg-slate-800/20 transition-colors">
+                  <td class="px-6 py-4 text-white font-medium"><%= r.referrer?.name || 'Unknown' %></td>
+                  <td class="px-6 py-4 text-slate-400"><%= r.referrer?.email || '—' %></td>
+                  <td class="px-6 py-4 text-white font-medium"><%= r.referred?.name || 'Unknown' %></td>
+                  <td class="px-6 py-4 text-slate-400">
+                    <%= r.referred?.createdAt ? new Date(r.referred.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—' %>
+                  </td>
+                  <td class="px-6 py-4 text-center">
+                    <span class="px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider border
+                      <%= r.status === 'completed' ? 'bg-green-500/10 text-green-400 border-green-500/20' : r.status === 'cancelled' ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20' %>">
+                      <%= r.status %>
+                    </span>
+                  </td>
+                  <td class="px-6 py-4 text-cyan-400 font-bold">₹<%= r.reward %></td>
+                  <td class="px-6 py-4 text-center">
+                    <span class="px-2.5 py-1 rounded text-[9px] font-black uppercase tracking-wider border
+                      <%= r.rewardStatus === 'paid' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20' %>">
+                      <%= r.rewardStatus %>
+                    </span>
+                  </td>
+                </tr>
+              <% }) %>
+              <% if (referrals.length === 0) { %>
+                <tr><td colspan="7" class="px-6 py-16 text-center text-slate-600">No referrals found.</td></tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <% if (pagination.totalPages > 1) { %>
+          <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-between">
+            <p class="text-slate-500 text-xs">
+              Showing <span class="text-white font-semibold"><%= referrals.length %></span> of
+              <span class="text-white font-semibold"><%= pagination.total %></span> results
+            </p>
+            <div class="flex items-center gap-1">
+              <% if (pagination.currentPage > 1) { %>
+                <a href="?page=<%= pagination.currentPage - 1 %>&search=<%= encodeURIComponent(search) %>"
+                   class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition text-xs">
+                  <i class="fas fa-chevron-left"></i>
+                </a>
+              <% } %>
+              <% for (let i = Math.max(1, pagination.currentPage - 2); i <= Math.min(pagination.totalPages, pagination.currentPage + 2); i++) { %>
+                <a href="?page=<%= i %>&search=<%= encodeURIComponent(search) %>"
+                   class="w-8 h-8 flex items-center justify-center rounded-lg border text-xs font-bold transition
+                          <%= i === pagination.currentPage ? 'bg-cyan-400 border-cyan-400 text-[#05070A]' : 'border-slate-800 text-slate-400 hover:border-slate-600 hover:text-white' %>">
+                  <%= i %>
+                </a>
+              <% } %>
+              <% if (pagination.currentPage < pagination.totalPages) { %>
+                <a href="?page=<%= pagination.currentPage + 1 %>&search=<%= encodeURIComponent(search) %>"
+                   class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-800 text-slate-400 hover:text-white hover:border-slate-600 transition text-xs">
+                  <i class="fas fa-chevron-right"></i>
+                </a>
+              <% } %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <footer class="text-center pb-8">
+        <p class="text-[9px] text-slate-600 uppercase tracking-widest">© 2026 NEO-LUXE ADMIN. ALL RIGHTS RESERVED.</p>
+      </footer>
+    </div>
+  </main>
+</div>

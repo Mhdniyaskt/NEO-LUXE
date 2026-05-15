@@ -11,6 +11,7 @@ import * as orderController from "../controllers/admin/order.controller.js";
 import * as stockController from "../controllers/admin/stock.controller.js";
 import { createCoupon, deleteCoupon, getAllCoupons, toggleStatus, updateCoupon } from "../controllers/admin/coupon.controller.js";
 import { getSalesReport } from "../controllers/admin/sales-report.controller.js";
+import { getAdminReferrals } from "../controllers/admin/referral.controller.js";
 
 const router = express.Router();
 
@@ -93,5 +94,8 @@ router.patch('/coupons/toggle-status/:id', toggleStatus);
 
 // Sales Report
 router.get('/sales-report', getSalesReport);
+
+// Referrals
+router.get('/referrals', getAdminReferrals);
 
 export default router;
