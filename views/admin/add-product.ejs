@@ -183,7 +183,7 @@ function addVariant() {
         </div>
 
         <div>
-            <label class="label-style text-cyan-400">Gallery (Minimum 3 images)</label>
+            <label class="label-style text-cyan-400">Gallery (1 to 5 images)</label>
             <input type="file" accept="image/*" multiple onchange="handleImageSelection(this, ${id})" class="input-field text-xs">
             
             <div id="preview_grid_${id}" class="grid grid-cols-4 gap-4 mt-6">
@@ -302,10 +302,13 @@ async function handleFormSubmit(e) {
 
     const variantIds = Object.keys(variantImagesData);
     
-    // Check minimum 3 images per variant
+    // Check 1-5 images per variant
     for (let vId of variantIds) {
-        if (variantImagesData[vId].length < 3) {
-            return Swal.fire('Images Required', `Variant #${parseInt(vId) + 1} needs at least 3 images.`, 'warning');
+        if (variantImagesData[vId].length < 1) {
+            return Swal.fire('Images Required', `Variant #${parseInt(vId) + 1} needs at least 1 image.`, 'warning');
+        }
+        if (variantImagesData[vId].length > 5) {
+            return Swal.fire('Too Many Images', `Variant #${parseInt(vId) + 1} can have maximum 5 images.`, 'warning');
         }
 
         // Map the blobs into the FormData correctly using the loop index

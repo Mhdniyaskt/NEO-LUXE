@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neo-Luxe | Edit Product</title>
@@ -19,38 +18,14 @@
         .custom-glow { box-shadow: 0 0 15px rgba(6, 182, 212, 0.4); }
         .custom-scroll::-webkit-scrollbar { width: 5px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-        /* Prevent scroll wheel from changing number inputs */
         input[type=number] { -moz-appearance: textfield; }
         input[type=number]::-webkit-outer-spin-button,
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        /* Cropper Modal Styles *//* Ensure the modal covers the full screen and centers content */
-/* Fix for Cropper.js overflow */
-.cropper-container {
-    max-height: 90vh; 
-    display: flex;
-    flex-direction: column;
-}
-
-#cropperImage {
-    display: block;
-    max-width: 100%;
-    /* Changed to min-height for better responsiveness */
-    min-height: 300px; 
-    max-height: 60vh; 
-    object-fit: contain;
-}
-
-#cropperModal {
-    display: none;
-    position: fixed;
-    z-index: 10000; 
-    inset: 0;
-    background: rgba(2, 6, 23, 0.95); /* Matches your slate-950 theme */
-    backdrop-filter: blur(8px);
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-}
+        .cropper-container { max-height: 90vh; display: flex; flex-direction: column; }
+        #cropperImage { display: block; max-width: 100%; min-height: 300px; max-height: 60vh; object-fit: contain; }
+        #cropperModal { display: none; position: fixed; z-index: 10000; inset: 0; background: rgba(2, 6, 23, 0.95); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 20px; }
+        .marked-for-deletion { opacity: 0.3; pointer-events: none; position: relative; }
+        .marked-for-deletion::after { content: 'REMOVING'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8px; font-weight: bold; color: #ef4444; background: rgba(0,0,0,0.7); padding: 2px 4px; border-radius: 4px; }
     </style>
 </head>
 <body class="font-sans antialiased overflow-hidden">
@@ -60,20 +35,14 @@
         <div class="p-4 border-b border-slate-800">
             <h3 class="text-white font-bold">Crop Your Image</h3>
         </div>
-
         <div class="p-4 bg-black flex-grow flex items-center justify-center overflow-hidden">
             <img id="cropperImage" src="" alt="To crop" style="max-width: 100%; display: block;">
         </div>
-
         <div class="p-4 border-t border-slate-800 flex justify-end gap-3 bg-[#0b1120] rounded-b-xl">
-            <button type="button" onclick="closeCropper()" 
-                class="px-5 py-2 text-sm font-semibold text-slate-400 hover:text-white transition">
-                Cancel
-            </button>
-            <button type="button" id="cropButton" 
-                class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 px-6 py-2 rounded-lg font-bold text-sm transition shadow-lg">
-                Crop & Save
-            </button>
+            <button type="button" onclick="closeCropper()"
+                class="px-5 py-2 text-sm font-semibold text-slate-400 hover:text-white transition">Cancel</button>
+            <button type="button" id="cropButton"
+                class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 px-6 py-2 rounded-lg font-bold text-sm transition shadow-lg">Crop & Save</button>
         </div>
     </div>
 </div>
@@ -101,8 +70,7 @@
                             <div class="space-y-6">
                                 <div>
                                     <label class="label-style">Product Name *</label>
-                                    <input type="text" name="name" id="productName" value="<%= product.name %>" required class="input-field"
-                                           oninput="checkNameAvailability(this.value)">
+                                    <input type="text" name="name" id="productName" value="<%= product.name %>" required class="input-field" oninput="checkNameAvailability(this.value)">
                                     <p id="nameStatus" class="mt-1.5 text-[11px] font-semibold hidden"></p>
                                 </div>
                                 <div class="grid grid-cols-2 gap-6">
@@ -131,16 +99,16 @@
                             <div class="card-bg rounded-2xl p-8 relative" data-variant-index="<%= index %>">
                                 <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest mb-6">Variant #<%= index + 1 %></h4>
                                 <input type="hidden" name="variants[<%=index%>][_id]" value="<%= variant._id %>">
-                                
+
                                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                                     <div>
                                         <label class="label-style">Color</label>
                                         <input type="text" name="variants[<%=index%>][color]" value="<%= variant.color %>" class="input-field">
                                     </div>
-                                   <div>
-    <label class="label-style">Regular Price (MRP)</label>
-    <input type="number" name="variants[<%=index%>][regularPrice]" value="<%= variant.regularPrice %>" class="input-field" required>
-</div>
+                                    <div>
+                                        <label class="label-style">Regular Price (MRP)</label>
+                                        <input type="number" name="variants[<%=index%>][regularPrice]" value="<%= variant.regularPrice %>" class="input-field" required>
+                                    </div>
                                     <div>
                                         <label class="label-style">Sale Price</label>
                                         <input type="number" name="variants[<%=index%>][basePrice]" value="<%= variant.basePrice %>" class="input-field">
@@ -151,7 +119,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Offer fields -->
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                     <div>
                                         <label class="label-style text-amber-400">Offer % (0 = no offer)</label>
@@ -166,45 +133,34 @@
                                 <div>
                                     <div class="flex items-center justify-between mb-2">
                                         <label class="label-style text-cyan-500 mb-0">Gallery Management</label>
-                                        <span id="existing_count_<%= index %>"
-                                              class="text-[11px] font-semibold <%= variant.images.length >= 3 ? 'text-green-400' : 'text-amber-400' %>">
-                                            <%= variant.images.length %> / 3 images
+                                        <span id="existing_count_<%= index %>" class="text-[11px] font-semibold <%= (variant.images.length >= 1 && variant.images.length <= 5) ? 'text-green-400' : 'text-amber-400' %>">
+                                            <%= variant.images.length %> / 5 images
                                         </span>
                                     </div>
                                     <div class="flex flex-wrap gap-3 mb-4" id="existing_container_<%=index%>">
                                         <% variant.images.forEach((img, imgIdx) => { %>
-                                            <div class="relative group" id="imgWrap_<%=index%>_<%=imgIdx%>">
-                                                <input type="hidden" name="existingImages_<%=index%>" value="<%= img.url %>">
+                                            <div class="relative group" id="imgWrap_<%=index%>_<%=imgIdx%>" data-image-url="<%= img.url %>">
                                                 <img src="<%= img.url %>" class="w-20 h-20 rounded-xl object-cover border border-slate-700" id="imgThumb_<%=index%>_<%=imgIdx%>">
-                                                <!-- Delete button -->
                                                 <button type="button"
-                                                        onclick="deleteExistingImage(this, '<%= product._id %>', '<%= variant._id %>', '<%= img.url %>', <%= index %>)"
-                                                        class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg z-10">
+                                                        onclick="markImageForDeletion(<%= index %>, <%= imgIdx %>, '<%= img.url %>')"
+                                                        class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg z-10 delete-btn">
                                                     <i class="fas fa-times"></i>
-                                                </button>
-                                                <!-- Replace button -->
-                                                <button type="button"
-                                                        onclick="replaceImage('<%= product._id %>', '<%= variant._id %>', '<%= img.url %>', <%= index %>, <%= imgIdx %>)"
-                                                        class="absolute -bottom-2 -right-2 bg-cyan-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg z-10">
-                                                    <i class="fas fa-sync-alt"></i>
                                                 </button>
                                             </div>
                                         <% }) %>
                                     </div>
-                                    
+
                                     <label class="label-style">Add New Images (Click to Crop)</label>
                                     <input type="file" multiple accept="image/*" class="input-field text-xs mb-2" onchange="initCropProcess(this, '<%=index%>')">
-                                    
+                                    <p id="img_count_<%=index%>" class="text-[11px] mt-1 text-slate-500" style="display:none;"></p>
                                     <div id="new_preview_<%=index%>" class="flex gap-2 flex-wrap mt-2"></div>
                                 </div>
                             </div>
                             <% }) %>
-                            <div id="variantsContainer" class="space-y-6 mt-6">
-                                <%# New variants added via JS will appear here %>
-                            </div>
+                            <div id="variantsContainer" class="space-y-6 mt-6"></div>
 
                             <div class="mt-6">
-                                <button type="button" onclick="addNewVariant()" 
+                                <button type="button" onclick="addNewVariant()"
                                     class="w-full py-4 border-2 border-dashed border-slate-700 rounded-2xl text-slate-500 hover:text-cyan-400 hover:border-cyan-400/50 transition flex items-center justify-center gap-2 group">
                                     <i class="fas fa-plus-circle group-hover:scale-110 transition"></i>
                                     <span class="font-bold text-xs uppercase tracking-widest">Add Another Variant</span>
@@ -229,10 +185,10 @@
                                     <label class="label-style">Movement</label>
                                     <input type="text" name="movementType" value="<%= product.specifications.movementType %>" class="input-field">
                                 </div>
-                              <div class="flex items-center gap-2">
-    <input type="checkbox" name="isActive" id="isActive" value="true" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
-    <label for="isActive" class="text-sm">Active / Listed in Store</label>
-</div>
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" name="isActive" id="isActive" value="true" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
+                                    <label for="isActive" class="text-sm">Active / Listed in Store</label>
+                                </div>
                             </div>
                             <button type="submit" class="w-full mt-8 bg-cyan-500 text-slate-900 py-4 rounded-xl font-black text-xs uppercase tracking-widest custom-glow hover:bg-cyan-400">
                                 Update Product
@@ -246,110 +202,106 @@
 </div>
 
 <script>
-    // 1. Core State
-   let variantCount = parseInt("<%= variants.length %>") || 0;
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+    let variantCount = parseInt("<%= variants.length %>") || 0;
     let cropper;
-    const variantImagesData = {}; // Stores cropped blobs keyed by variant index/ID
+    const variantImagesData = {};       // { variantIdx: [{ id, blob }] } — new cropped images
+    const markedForDeletion = {};       // { variantIdx: ['url1', 'url2'] } — existing images to remove on submit
 
-    // ── Name availability check (excludes current product) ───────────────────
     const CURRENT_PRODUCT_ID = '<%= product._id %>';
     let nameCheckTimer;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // NAME AVAILABILITY CHECK
+    // ═══════════════════════════════════════════════════════════════════════════
     async function checkNameAvailability(value) {
         const statusEl = document.getElementById('nameStatus');
-        const trimmed  = value.trim();
-
+        const trimmed = value.trim();
         clearTimeout(nameCheckTimer);
-
-        if (!trimmed) {
-            statusEl.classList.add('hidden');
-            return;
-        }
+        if (!trimmed) { statusEl.classList.add('hidden'); return; }
 
         nameCheckTimer = setTimeout(async () => {
             try {
-                const res  = await fetch(`/admin/products/check-name?name=${encodeURIComponent(trimmed)}&excludeId=${CURRENT_PRODUCT_ID}`);
+                const res = await fetch(`/admin/products/check-name?name=${encodeURIComponent(trimmed)}&excludeId=${CURRENT_PRODUCT_ID}`);
                 const data = await res.json();
-
                 statusEl.classList.remove('hidden', 'text-red-400', 'text-green-400');
                 if (data.exists) {
-                    statusEl.textContent = '✕ A product with this name already exists.';
+                    statusEl.textContent = '\u2715 A product with this name already exists.';
                     statusEl.classList.add('text-red-400');
                 } else {
-                    statusEl.textContent = '✓ Name is available.';
+                    statusEl.textContent = '\u2713 Name is available.';
                     statusEl.classList.add('text-green-400');
                 }
-            } catch {
-                statusEl.classList.add('hidden');
-            }
+            } catch { statusEl.classList.add('hidden'); }
         }, 400);
     }
 
-    // 2. Add New Variant Function
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ADD NEW VARIANT
+    // ═══════════════════════════════════════════════════════════════════════════
     function addNewVariant() {
         const container = document.getElementById('variantsContainer');
-        // Use a timestamp for the index to ensure it's always unique, even if others are removed
-        const index = Date.now(); 
-
-       const variantHtml = `
-    <div class="card-bg rounded-2xl p-8 relative border-t-2 border-cyan-500 animate-fade-in mt-6" id="variant_card_${index}">
-        <div class="flex justify-between items-center mb-6">
-            <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest">New Variant</h4>
-            <button type="button" onclick="document.getElementById('variant_card_${index}').remove()" class="text-rose-500 hover:text-rose-400 text-xs font-bold uppercase tracking-tighter">
-                <i class="fas fa-trash mr-1"></i> Remove Variant
-            </button>
-        </div>
-        
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div>
-                <label class="label-style">Color</label>
-                <input type="text" name="variants[${index}][color]" placeholder="e.g. Midnight Blue" class="input-field" required>
+        const index = variantCount;  // sequential index so multer's append-field can parse it
+        variantCount++;
+        const variantHtml = `
+        <div class="card-bg rounded-2xl p-8 relative border-t-2 border-cyan-500 animate-fade-in mt-6" id="variant_card_${index}">
+            <div class="flex justify-between items-center mb-6">
+                <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest">New Variant</h4>
+                <button type="button" onclick="document.getElementById('variant_card_${index}').remove()" class="text-rose-500 hover:text-rose-400 text-xs font-bold uppercase tracking-tighter">
+                    <i class="fas fa-trash mr-1"></i> Remove Variant
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div><label class="label-style">Color</label><input type="text" name="variants[${index}][color]" placeholder="e.g. Midnight Blue" class="input-field" required></div>
+                <div><label class="label-style">Regular Price</label><input type="number" name="variants[${index}][regularPrice]" class="input-field" required></div>
+                <div><label class="label-style">Sale Price</label><input type="number" name="variants[${index}][basePrice]" class="input-field" required></div>
+                <div><label class="label-style">Stock</label><input type="number" name="variants[${index}][stock]" value="0" class="input-field" required></div>
             </div>
             <div>
-                <label class="label-style">Regular Price</label>
-                <input type="number" name="variants[${index}][regularPrice]" class="input-field" required>
+                <label class="label-style text-cyan-500">Gallery Management</label>
+                <label class="label-style">Add Images (1 to 5 required)</label>
+                <input type="file" multiple accept="image/*" class="input-field text-xs mb-2" onchange="initCropProcess(this, '${index}')">
+                <p id="img_count_${index}" class="text-[11px] mt-1 text-slate-500">0 / 5 images added</p>
+                <div id="new_preview_${index}" class="flex gap-2 flex-wrap mt-2"></div>
             </div>
-            <div>
-                <label class="label-style">Sale Price</label>
-                <input type="number" name="variants[${index}][basePrice]" class="input-field" required>
-            </div>
-            <div>
-                <label class="label-style">Stock</label>
-                <input type="number" name="variants[${index}][stock]" value="0" class="input-field" required>
-            </div>
-        </div>
-
-        <div>
-            <label class="label-style text-cyan-500">Gallery Management</label>
-            <label class="label-style">Add Images (Minimum 3 required)</label>
-            <input type="file" multiple accept="image/*" class="input-field text-xs mb-2" 
-                onchange="initCropProcess(this, '${index}')">
-            <p id="img_count_${index}" class="text-[11px] mt-1 text-slate-500">0 / 3 images added</p>
-            <div id="new_preview_${index}" class="flex gap-2 flex-wrap mt-2"></div>
-        </div>
-    </div>
-`;
-
+        </div>`;
         container.insertAdjacentHTML('beforeend', variantHtml);
     }
 
-    // 3. Image Selection & Cropping Logic
+    // ═══════════════════════════════════════════════════════════════════════════
+    // IMAGE CROPPING
+    // ═══════════════════════════════════════════════════════════════════════════
     function initCropProcess(input, variantIndex) {
         if (!input.files || input.files.length === 0) return;
-        
         if (!variantImagesData[variantIndex]) variantImagesData[variantIndex] = [];
-        
+
+        // Check if adding these files would exceed max 5
+        const currentTotal = getFinalImageCount(variantIndex);
+        if (currentTotal >= 5) {
+            input.value = "";
+            Swal.fire({ toast: true, position: 'top-end', icon: 'warning',
+                title: 'Maximum 5 images allowed per variant',
+                showConfirmButton: false, timer: 2500,
+                background: '#0b1120', color: '#94a3b8' });
+            return;
+        }
+
         const files = Array.from(input.files);
         let fileIdx = 0;
-
         const processNext = () => {
-            if (fileIdx >= files.length) {
-                input.value = ""; 
+            if (fileIdx >= files.length) { input.value = ""; return; }
+            // Stop if we've reached 5 total
+            if (getFinalImageCount(variantIndex) >= 5) {
+                input.value = "";
+                Swal.fire({ toast: true, position: 'top-end', icon: 'warning',
+                    title: 'Maximum 5 images reached for this variant',
+                    showConfirmButton: false, timer: 2500,
+                    background: '#0b1120', color: '#94a3b8' });
                 return;
             }
-            openCropper(files[fileIdx], variantIndex, () => {
-                fileIdx++;
-                processNext();
-            });
+            openCropper(files[fileIdx], variantIndex, () => { fileIdx++; processNext(); });
         };
         processNext();
     }
@@ -359,30 +311,18 @@
         reader.onload = (e) => {
             const modal = document.getElementById('cropperModal');
             const image = document.getElementById('cropperImage');
-            
             image.src = e.target.result;
-            
-            // SHOW MODAL FIRST
             modal.style.display = 'flex';
-
             if (cropper) cropper.destroy();
-
-            // Initialize Cropper AFTER modal is visible
             cropper = new Cropper(image, {
-                aspectRatio: 1,
-                viewMode: 1,
-                guides: true,
-                background: false,
-                autoCropArea: 1,
-                responsive: true
+                aspectRatio: 1, viewMode: 1, guides: true,
+                background: false, autoCropArea: 1, responsive: true
             });
-
             document.getElementById('cropButton').onclick = () => {
                 const canvas = cropper.getCroppedCanvas({ width: 800, height: 800 });
                 canvas.toBlob((blob) => {
-                    const imgId = Date.now(); 
+                    const imgId = Date.now();
                     variantImagesData[variantIndex].push({ id: imgId, blob: blob });
-                    
                     renderPreview(variantIndex, imgId, canvas.toDataURL('image/jpeg'));
                     closeCropper();
                     callback();
@@ -393,10 +333,7 @@
     }
 
     function closeCropper() {
-        if (cropper) {
-            cropper.destroy();
-            cropper = null;
-        }
+        if (cropper) { cropper.destroy(); cropper = null; }
         document.getElementById('cropperModal').style.display = 'none';
     }
 
@@ -407,343 +344,296 @@
         div.id = `img_container_${imgId}`;
         div.innerHTML = `
             <img src="${dataUrl}" class="w-16 h-16 rounded-lg object-cover border border-cyan-500 shadow-lg">
-            <button type="button" onclick="removeNewImage('${variantIndex}', ${imgId})" 
+            <span class="absolute bottom-0 left-0 right-0 text-center text-[7px] text-cyan-300 bg-black/60 rounded-b-lg py-0.5">NEW</span>
+            <button type="button" onclick="removeNewImage('${variantIndex}', ${imgId})"
                 class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-[8px] hover:bg-rose-600 transition">
                 <i class="fas fa-times"></i>
-            </button>
-        `;
+            </button>`;
         container.appendChild(div);
-        updateImgCount(variantIndex);
-        updateExistingCount(variantIndex); // refresh combined total on existing variant counter
+        updateCounters(variantIndex);
     }
 
     function removeNewImage(variantIndex, imgId) {
         variantImagesData[variantIndex] = variantImagesData[variantIndex].filter(img => img.id !== imgId);
         const el = document.getElementById(`img_container_${imgId}`);
         if (el) el.remove();
-        updateImgCount(variantIndex);
-        updateExistingCount(variantIndex); // refresh combined total on existing variant counter
+        updateCounters(variantIndex);
+    }
+</script>
+
+<script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MARK EXISTING IMAGE FOR DELETION (DEFERRED — only on submit)
+    // ═══════════════════════════════════════════════════════════════════════════
+    function markImageForDeletion(variantIndex, imgIdx, imageUrl) {
+        Swal.fire({
+            title: 'Remove this image?',
+            text: 'It will be deleted only after you click Update Product.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, mark for removal',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#334155',
+            background: '#0b1120',
+            color: '#94a3b8',
+        }).then((result) => {
+            if (!result.isConfirmed) return;
+
+            // Track in state
+            if (!markedForDeletion[variantIndex]) markedForDeletion[variantIndex] = [];
+            if (!markedForDeletion[variantIndex].includes(imageUrl)) {
+                markedForDeletion[variantIndex].push(imageUrl);
+            }
+
+            // Visually mark the image
+            const wrapper = document.getElementById(`imgWrap_${variantIndex}_${imgIdx}`);
+            if (wrapper) {
+                wrapper.classList.add('marked-for-deletion');
+                // Hide the delete button
+                const btn = wrapper.querySelector('.delete-btn');
+                if (btn) btn.style.display = 'none';
+            }
+
+            updateCounters(variantIndex);
+
+            Swal.fire({
+                toast: true, position: 'top-end', icon: 'info',
+                title: 'Image will be deleted after submit',
+                showConfirmButton: false, timer: 2200,
+                background: '#0b1120', color: '#94a3b8',
+            });
+        });
     }
 
-    function updateImgCount(variantIndex) {
-        const counter = document.getElementById(`img_count_${variantIndex}`);
-        if (!counter) return;
-        const count = (variantImagesData[variantIndex] || []).length;
-        counter.textContent = `${count} / 3 images added`;
-        counter.className = count >= 3
-            ? 'text-[11px] mt-1 text-green-400'
-            : 'text-[11px] mt-1 text-amber-400';
+    // ═══════════════════════════════════════════════════════════════════════════
+    // UNDO DELETION MARK (optional — click on greyed image to undo)
+    // ═══════════════════════════════════════════════════════════════════════════
+    // Not implemented to keep it simple — user can cancel and re-edit
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // COUNTER UPDATES
+    // ═══════════════════════════════════════════════════════════════════════════
+    function updateCounters(variantIndex) {
+        // Count existing images NOT marked for deletion
+        const container = document.getElementById(`existing_container_${variantIndex}`);
+        let existingCount = 0;
+        if (container) {
+            const allWraps = container.querySelectorAll('[id^="imgWrap_"]');
+            const deletedUrls = markedForDeletion[variantIndex] || [];
+            allWraps.forEach(wrap => {
+                const url = wrap.dataset.imageUrl;
+                if (!deletedUrls.includes(url)) existingCount++;
+            });
+        }
+
+        // Count new images
+        const newCount = (variantImagesData[variantIndex] || []).length;
+        const total = existingCount + newCount;
+
+        // Update the existing_count badge
+        const badge = document.getElementById(`existing_count_${variantIndex}`);
+        if (badge) {
+            badge.textContent = `${total} / 5 images`;
+            badge.className = (total >= 1 && total <= 5)
+                ? 'text-[11px] font-semibold text-green-400'
+                : 'text-[11px] font-semibold text-amber-400';
+        }
+
+        // Update the new image counter (for new variants)
+        const newCounter = document.getElementById(`img_count_${variantIndex}`);
+        if (newCounter) {
+            newCounter.style.display = newCount > 0 ? 'block' : 'none';
+            newCounter.textContent = `${newCount} new image(s) added`;
+            newCounter.className = 'text-[11px] mt-1 ' + ((total >= 1 && total <= 5) ? 'text-green-400' : 'text-amber-400');
+        }
     }
 
-    // 4. Submission Logic
+    // ═══════════════════════════════════════════════════════════════════════════
+    // GET FINAL IMAGE COUNT FOR A VARIANT (used in validation)
+    // ═══════════════════════════════════════════════════════════════════════════
+    function getFinalImageCount(variantIndex) {
+        const container = document.getElementById(`existing_container_${variantIndex}`);
+        let existingCount = 0;
+        if (container) {
+            const allWraps = container.querySelectorAll('[id^="imgWrap_"]');
+            const deletedUrls = markedForDeletion[variantIndex] || [];
+            allWraps.forEach(wrap => {
+                const url = wrap.dataset.imageUrl;
+                if (!deletedUrls.includes(url)) existingCount++;
+            });
+        }
+        const newCount = (variantImagesData[variantIndex] || []).length;
+        return existingCount + newCount;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FORM SUBMISSION
+    // ═══════════════════════════════════════════════════════════════════════════
     async function handleEditSubmit(e, productId) {
         e.preventDefault();
-
         const form = e.target;
 
-        // ── Helper ────────────────────────────────────────────────────
         function err(msg) {
             Swal.fire({ title: 'Validation Error', text: msg, icon: 'warning',
                 background: '#0b1120', color: '#94a3b8', confirmButtonColor: '#06b6d4' });
         }
 
         // ── 1. Product name ───────────────────────────────────────────
-        const nameInput   = document.getElementById('productName');
+        const nameInput = document.getElementById('productName');
         const trimmedName = nameInput.value.trim();
-        if (!trimmedName)                    return err('Product name is required.');
-        if (trimmedName.length < 3)          return err('Product name must be at least 3 characters.');
-        if (trimmedName.length > 100)        return err('Product name must be under 100 characters.');
+        if (!trimmedName) return err('Product name is required.');
+        if (trimmedName.length < 3) return err('Product name must be at least 3 characters.');
+        if (trimmedName.length > 100) return err('Product name must be under 100 characters.');
 
         // ── 2. Brand ──────────────────────────────────────────────────
         const brand = form.querySelector('[name="brand"]').value.trim();
-        if (!brand)             return err('Brand is required.');
-        if (brand.length < 2)   return err('Brand must be at least 2 characters.');
+        if (!brand) return err('Brand is required.');
+        if (brand.length < 2) return err('Brand must be at least 2 characters.');
 
         // ── 3. Description ────────────────────────────────────────────
         const description = form.querySelector('[name="description"]').value.trim();
-        if (!description)              return err('Description is required.');
-        if (description.length < 10)   return err('Description must be at least 10 characters.');
+        if (!description) return err('Description is required.');
+        if (description.length < 10) return err('Description must be at least 10 characters.');
 
         // ── 4. Specifications ─────────────────────────────────────────
-        const caseSize    = form.querySelector('[name="caseSize"]').value.trim();
-        const strapType   = form.querySelector('[name="strapType"]').value.trim();
+        const caseSize = form.querySelector('[name="caseSize"]').value.trim();
+        const strapType = form.querySelector('[name="strapType"]').value.trim();
         const movementType = form.querySelector('[name="movementType"]').value.trim();
-        if (!caseSize)     return err('Case size is required.');
-        if (!strapType)    return err('Strap type is required.');
+        if (!caseSize) return err('Case size is required.');
+        if (!strapType) return err('Strap type is required.');
         if (!movementType) return err('Movement type is required.');
 
-        // ── 5. Duplicate name check (server) ──────────────────────────
+        // ── 5. Duplicate name check ───────────────────────────────────
         try {
-            const checkRes  = await fetch(`/admin/products/check-name?name=${encodeURIComponent(trimmedName)}&excludeId=${productId}`);
+            const checkRes = await fetch(`/admin/products/check-name?name=${encodeURIComponent(trimmedName)}&excludeId=${productId}`);
             const checkData = await checkRes.json();
             if (checkData.exists) {
                 return Swal.fire({ title: 'Duplicate Name',
                     text: `Another product named "${trimmedName}" already exists.`,
                     icon: 'error', background: '#0b1120', color: '#94a3b8', confirmButtonColor: '#06b6d4' });
             }
-        } catch {
-            return err('Could not verify product name. Please try again.');
-        }
+        } catch { return err('Could not verify product name. Please try again.'); }
 
-        // ── 6. Existing variant field validation ──────────────────────
+        // ── 6. Existing variant validation ────────────────────────────
         const existingVariantCards = document.querySelectorAll('[data-variant-index]');
         const seenColors = [];
-        for (const card of existingVariantCards) {
-            const idx          = card.dataset.variantIndex;
-            const color        = card.querySelector(`[name="variants[${idx}][color]"]`)?.value.trim() || '';
-            const regularPrice = Number(card.querySelector(`[name="variants[${idx}][regularPrice]"]`)?.value);
-            const basePrice    = Number(card.querySelector(`[name="variants[${idx}][basePrice]"]`)?.value);
-            const stock        = Number(card.querySelector(`[name="variants[${idx}][stock]"]`)?.value);
-            const label        = color || `Variant ${parseInt(idx) + 1}`;
 
-            if (!color)                                  return err(`${label}: Color is required.`);
+        for (const card of existingVariantCards) {
+            const idx = card.dataset.variantIndex;
+            const color = card.querySelector(`[name="variants[${idx}][color]"]`)?.value.trim() || '';
+            const regularPrice = Number(card.querySelector(`[name="variants[${idx}][regularPrice]"]`)?.value);
+            const basePrice = Number(card.querySelector(`[name="variants[${idx}][basePrice]"]`)?.value);
+            const stock = Number(card.querySelector(`[name="variants[${idx}][stock]"]`)?.value);
+            const label = color || `Variant ${parseInt(idx) + 1}`;
+
+            if (!color) return err(`${label}: Color is required.`);
             if (seenColors.includes(color.toLowerCase())) return err(`Duplicate color "${color}". Each variant must have a unique color.`);
             seenColors.push(color.toLowerCase());
 
             if (isNaN(regularPrice) || regularPrice <= 0) return err(`${label}: Regular price must be greater than 0.`);
-            if (isNaN(basePrice)    || basePrice <= 0)    return err(`${label}: Sale price must be greater than 0.`);
-            if (basePrice > regularPrice)                 return err(`${label}: Sale price cannot exceed regular price.`);
-            if (isNaN(stock) || stock < 0)                return err(`${label}: Stock cannot be negative.`);
+            if (isNaN(basePrice) || basePrice <= 0) return err(`${label}: Sale price must be greater than 0.`);
+            if (basePrice > regularPrice) return err(`${label}: Sale price cannot exceed regular price.`);
+            if (isNaN(stock) || stock < 0) return err(`${label}: Stock cannot be negative.`);
 
-            // Image count — temporarily relaxed for debugging
-            const container = document.getElementById(`existing_container_${idx}`);
-            const existing  = container ? Array.from(container.querySelectorAll('[id^="imgWrap_"]')).filter(el => el.style.opacity !== '0.3').length : 0;
-            const newImgs   = (variantImagesData[idx] || []).length;
-            console.log(`[Validation] Variant ${idx}: existing=${existing}, new=${newImgs}, total=${existing+newImgs}`);
-            // Skip the 3-image requirement for now
-            /*
-            if (existing + newImgs < 3)
-                return Swal.fire({ title: 'Images Required',
-                    html: `<b>${label}</b> must have at least 3 images (currently ${existing + newImgs}).`,
+            // ── IMAGE VALIDATION: Each variant must have 1-5 images ──
+            const finalCount = getFinalImageCount(idx);
+            if (finalCount < 1 || finalCount > 5) {
+                return Swal.fire({ title: 'Each variant must have at least 1 image and maximum 5 images',
+                    html: `<b>${label}</b> currently has ${finalCount} image(s).`,
                     icon: 'warning', background: '#0b1120', color: '#94a3b8', confirmButtonColor: '#06b6d4' });
-            */
+            }
         }
 
-        // ── 7. New variant field validation ───────────────────────────
+        // ── 7. New variant validation ─────────────────────────────────
         const newVariantCards = document.querySelectorAll('#variantsContainer [id^="variant_card_"]');
         for (const card of newVariantCards) {
             const idMatch = card.id.match(/variant_card_(\d+)/);
             if (!idMatch) continue;
-            const idx          = idMatch[1];
-            const color        = card.querySelector(`[name="variants[${idx}][color]"]`)?.value.trim() || '';
+            const idx = idMatch[1];
+            const color = card.querySelector(`[name="variants[${idx}][color]"]`)?.value.trim() || '';
             const regularPrice = Number(card.querySelector(`[name="variants[${idx}][regularPrice]"]`)?.value);
-            const basePrice    = Number(card.querySelector(`[name="variants[${idx}][basePrice]"]`)?.value);
-            const stock        = Number(card.querySelector(`[name="variants[${idx}][stock]"]`)?.value);
-            const label        = color || `New Variant`;
+            const basePrice = Number(card.querySelector(`[name="variants[${idx}][basePrice]"]`)?.value);
+            const stock = Number(card.querySelector(`[name="variants[${idx}][stock]"]`)?.value);
+            const label = color || 'New Variant';
 
-            if (!color)                                  return err(`New variant: Color is required.`);
+            if (!color) return err('New variant: Color is required.');
             if (seenColors.includes(color.toLowerCase())) return err(`Duplicate color "${color}". Each variant must have a unique color.`);
             seenColors.push(color.toLowerCase());
 
             if (isNaN(regularPrice) || regularPrice <= 0) return err(`${label}: Regular price must be greater than 0.`);
-            if (isNaN(basePrice)    || basePrice <= 0)    return err(`${label}: Sale price must be greater than 0.`);
-            if (basePrice > regularPrice)                 return err(`${label}: Sale price cannot exceed regular price.`);
-            if (isNaN(stock) || stock < 0)                return err(`${label}: Stock cannot be negative.`);
+            if (isNaN(basePrice) || basePrice <= 0) return err(`${label}: Sale price must be greater than 0.`);
+            if (basePrice > regularPrice) return err(`${label}: Sale price cannot exceed regular price.`);
+            if (isNaN(stock) || stock < 0) return err(`${label}: Stock cannot be negative.`);
 
             const count = (variantImagesData[idx] || []).length;
-            if (count < 3)
-                return Swal.fire({ title: 'Images Required',
-                    text: `${label} needs at least 3 images (currently ${count}).`,
+            if (count < 1 || count > 5) {
+                return Swal.fire({ title: 'Each variant must have at least 1 image and maximum 5 images',
+                    text: `${label} has ${count} image(s).`,
                     icon: 'warning', background: '#0b1120', color: '#94a3b8', confirmButtonColor: '#06b6d4' });
+            }
         }
 
-        // ── 8. Build FormData and submit ──────────────────────────────
+        // ── 8. Build FormData ─────────────────────────────────────────
         const formData = new FormData(form);
 
+        // Append new cropped image blobs
         Object.keys(variantImagesData).forEach(variantIdx => {
-            console.log(`[Submit] variantImagesData[${variantIdx}]: ${variantImagesData[variantIdx].length} blobs`);
             variantImagesData[variantIdx].forEach((imgObj, i) => {
-                console.log(`  blob[${i}]: size=${imgObj.blob?.size}, type=${imgObj.blob?.type}`);
                 formData.append(`variantImages_${variantIdx}`, imgObj.blob, `variant_${variantIdx}_${i}.jpg`);
             });
         });
 
-        // Log total file entries to verify blobs are in FormData
-        const fileEntries = [...formData.entries()].filter(([k, v]) => v instanceof Blob);
-        console.log(`[Submit] Total Blob entries in FormData: ${fileEntries.length}`);
-        fileEntries.forEach(([key, blob]) => {
-            console.log(`  FormData blob: key="${key}", size=${blob.size}, type=${blob.type}`);
+        // Append images marked for deletion
+        Object.keys(markedForDeletion).forEach(variantIdx => {
+            markedForDeletion[variantIdx].forEach(url => {
+                formData.append(`deleteImages_${variantIdx}`, url);
+            });
         });
 
-        console.log('[Submit] Total FormData entries with variantImages:', [...formData.keys()].filter(k => k.startsWith('variantImages')).length);
-
-        // Ensure isActive is always sent correctly based on checkbox state
+        // Normalise isActive checkbox
         formData.delete('isActive');
         formData.append('isActive', document.getElementById('isActive').checked ? 'true' : 'false');
 
+        // ── 9. Submit ─────────────────────────────────────────────────
         try {
+            Swal.fire({ title: 'Updating...', allowOutsideClick: false, didOpen: () => Swal.showLoading(),
+                background: '#0b1120', color: '#94a3b8' });
+
             const response = await fetch(`/admin/products/edit/${productId}`, {
                 method: 'PUT',
-                body: formData
+                body: formData,
             });
 
             const result = await response.json();
             if (result.success) {
-                const imgNote = result.filesReceived > 0 
-                    ? `(${result.filesReceived} image(s) uploaded)` 
-                    : variantImagesData && Object.values(variantImagesData).some(arr => arr.length > 0)
-                        ? '⚠️ WARNING: Images were selected but server received 0 files!'
-                        : '';
-                Swal.fire({ title: 'Updated!', text: `Inventory refined successfully ${imgNote}`, icon: 'success',
-                    background: '#0b1120', color: '#fff', confirmButtonColor: '#06b6d4'
+                const parts = [];
+                if (result.uploadedCount) parts.push(`${result.uploadedCount} image(s) uploaded`);
+                if (result.deletedCount) parts.push(`${result.deletedCount} image(s) removed`);
+                const note = parts.length ? ` (${parts.join(', ')})` : '';
+
+                Swal.fire({
+                    title: 'Updated!',
+                    text: `Product updated successfully${note}`,
+                    icon: 'success',
+                    background: '#0b1120',
+                    color: '#fff',
+                    confirmButtonColor: '#06b6d4',
                 }).then(() => window.location.href = '/admin/products');
             } else {
-                Swal.fire('Error', result.message, 'error');
+                Swal.fire('Error', result.message || 'Update failed', 'error');
             }
         } catch {
-            Swal.fire('Error', 'Submission failed', 'error');
+            Swal.fire('Error', 'Submission failed. Please try again.', 'error');
         }
     }
 
-    // Prevent scroll wheel from changing number input values
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PREVENT SCROLL ON NUMBER INPUTS
+    // ═══════════════════════════════════════════════════════════════════════════
     document.addEventListener('wheel', (e) => {
-        if (document.activeElement?.type === 'number') {
-            document.activeElement.blur();
-        }
+        if (document.activeElement?.type === 'number') document.activeElement.blur();
     }, { passive: true });
-
-    // ── Track images marked for deletion (deferred until form submit) ──────────
-    const pendingImageDeletions = []; // { productId, variantId, imageUrl, variantIndex }
-
-    // ── Delete existing image (deferred — only removes on form submit) ────────
-    async function deleteExistingImage(btn, productId, variantId, imageUrl, variantIndex) {
-        const confirmed = await Swal.fire({
-            title:              'Remove image?',
-            text:               'Image will be removed when you save changes.',
-            icon:               'warning',
-            showCancelButton:   true,
-            confirmButtonText:  'Yes, mark for removal',
-            cancelButtonText:   'Cancel',
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor:  '#334155',
-            background:         '#0b1120',
-            color:              '#94a3b8',
-        });
-        if (!confirmed.isConfirmed) return;
-
-        // Track for deletion on submit
-        pendingImageDeletions.push({ productId, variantId, imageUrl, variantIndex });
-
-        // Visually hide the image (strikethrough effect) but don't remove from DOM
-        const wrapper = btn.closest('.relative.group');
-        wrapper.style.opacity = '0.3';
-        wrapper.style.pointerEvents = 'none';
-        wrapper.classList.add('line-through');
-
-        // Add a hidden input to track deletions in the form
-        const form = document.getElementById('editProductForm');
-        const hiddenDel = document.createElement('input');
-        hiddenDel.type = 'hidden';
-        hiddenDel.name = `deleteImages_${variantIndex}`;
-        hiddenDel.value = imageUrl;
-        form.appendChild(hiddenDel);
-
-        // Update the live counter
-        updateExistingCount(variantIndex);
-
-        Swal.fire({
-            toast: true, position: 'top-end', icon: 'info',
-            title: 'Image marked for removal (save to confirm)', showConfirmButton: false, timer: 2500,
-            background: '#0b1120', color: '#94a3b8',
-        });
-    }
-
-    // ── Replace existing image ────────────────────────────────────────────────
-    function replaceImage(productId, variantId, oldImageUrl, variantIndex, imgIdx) {
-        // Create a hidden file input
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = () => {
-            if (!input.files[0]) return;
-            // Open cropper with the selected file
-            openReplaceCropper(input.files[0], productId, variantId, oldImageUrl, variantIndex, imgIdx);
-        };
-        input.click();
-    }
-
-    function openReplaceCropper(file, productId, variantId, oldImageUrl, variantIndex, imgIdx) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const modal = document.getElementById('cropperModal');
-            const image = document.getElementById('cropperImage');
-            image.src = e.target.result;
-            modal.style.display = 'flex';
-
-            if (cropper) cropper.destroy();
-            cropper = new Cropper(image, {
-                aspectRatio: 1,
-                viewMode: 1,
-                guides: true,
-                background: false,
-                autoCropArea: 1,
-                responsive: true
-            });
-
-            document.getElementById('cropButton').onclick = () => {
-                const canvas = cropper.getCroppedCanvas({ width: 800, height: 800 });
-                canvas.toBlob(async (blob) => {
-                    closeCropper();
-                    // Upload replacement via API
-                    await uploadReplacementImage(blob, productId, variantId, oldImageUrl, variantIndex, imgIdx);
-                }, 'image/jpeg', 0.9);
-            };
-        };
-        reader.readAsDataURL(file);
-    }
-
-    async function uploadReplacementImage(blob, productId, variantId, oldImageUrl, variantIndex, imgIdx) {
-        const formData = new FormData();
-        formData.append('image', blob, 'replacement.jpg');
-        formData.append('oldImageUrl', oldImageUrl);
-
-        try {
-            Swal.fire({ title: 'Replacing...', allowOutsideClick: false, didOpen: () => Swal.showLoading(),
-                background: '#0b1120', color: '#94a3b8' });
-
-            const res = await fetch(`/admin/products/${productId}/variants/${variantId}/replace-image`, {
-                method: 'PUT',
-                body: formData,
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                // Update the thumbnail in the DOM
-                const thumb = document.getElementById(`imgThumb_${variantIndex}_${imgIdx}`);
-                if (thumb) thumb.src = data.newUrl;
-                // Update the hidden input
-                const wrap = document.getElementById(`imgWrap_${variantIndex}_${imgIdx}`);
-                if (wrap) {
-                    const hiddenInput = wrap.querySelector('input[type="hidden"]');
-                    if (hiddenInput) hiddenInput.value = data.newUrl;
-                }
-
-                Swal.fire({ toast: true, position: 'top-end', icon: 'success',
-                    title: 'Image replaced', showConfirmButton: false, timer: 1800,
-                    background: '#0b1120', color: '#94a3b8' });
-            } else {
-                Swal.fire('Error', data.message || 'Could not replace image', 'error');
-            }
-        } catch {
-            Swal.fire('Error', 'Something went wrong', 'error');
-        }
-    }
-
-    // ── Live counter for existing variant images ──────────────────────────────
-    function updateExistingCount(variantIndex) {
-        const counter   = document.getElementById(`existing_count_${variantIndex}`);
-        if (!counter) return;
-        const container = document.getElementById(`existing_container_${variantIndex}`);
-        // Count visible images (exclude ones marked for deletion with opacity 0.3)
-        const existingVisible = container
-          ? Array.from(container.querySelectorAll('[id^="imgWrap_"]')).filter(el => el.style.opacity !== '0.3').length
-          : 0;
-        const newImgs   = (variantImagesData[variantIndex] || []).length;
-        const total     = existingVisible + newImgs;
-        counter.textContent = `${total} / 3 images`;
-        counter.className   = total >= 3 ? 'text-[11px] font-semibold text-green-400'
-                                         : 'text-[11px] font-semibold text-amber-400';
-    }
 </script>
 </body>
 </html>

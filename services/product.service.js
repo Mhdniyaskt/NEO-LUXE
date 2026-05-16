@@ -255,6 +255,8 @@ export const createProductService = async (productData, files = []) => {
         parsedVariants = [];
       }
     }
+    // Filter out null/undefined entries (sparse arrays from multer 2.x append-field)
+    parsedVariants = parsedVariants.filter(v => v !== null && v !== undefined);
 
     // Validate variants
     if (parsedVariants.length === 0) {
@@ -339,6 +341,13 @@ export const createProductService = async (productData, files = []) => {
 };
 
 // ─── Update product (full: basic fields + variants + images) ─────────────────
+//
+// Image flow:
+//   • Existing images stay untouched unless their URL appears in deleteImages_<idx>.
+//   • New cropped images arrive as files with fieldname `variantImages_<idx>`.
+//   • Cloudinary deletion happens ONLY after the variant is successfully saved
+//     (so a failed save leaves the original images intact).
+//
 export const updateProductService = async (productId, updateData, files = []) => {
   try {
     const product = await Product.findById(productId);
@@ -349,7 +358,7 @@ export const updateProductService = async (productId, updateData, files = []) =>
     // ── 1. Update basic product fields ────────────────────────────────
     const {
       name, brand, category, description,
-      caseSize, strapType, movementType, isActive
+      caseSize, strapType, movementType, isActive,
     } = updateData;
 
     if (!name?.trim() || !brand?.trim() || !category || !description?.trim()) {
@@ -366,185 +375,201 @@ export const updateProductService = async (productId, updateData, files = []) =>
         strapType:    strapType?.trim()    || '',
         movementType: movementType?.trim() || '',
       },
-      // checkbox sends 'true' when checked, 'false' when unchecked
       isActive: isActive === 'on' || isActive === 'true' || isActive === true,
     });
 
     // ── 2. Parse variants from form data ──────────────────────────────
-    // Form sends: variants[0][_id], variants[0][color], variants[0][basePrice], etc.
-    // Build a map: index → { _id, color, basePrice, regularPrice, stock }
-    const variantMap = {};
-    for (const [key, value] of Object.entries(updateData)) {
-      const match = key.match(/^variants\[([^\]]+)\]\[([^\]]+)\]$/);
-      if (!match) continue;
-      const [, idx, field] = match;
-      if (!variantMap[idx]) variantMap[idx] = {};
-      variantMap[idx][field] = value;
+    // Multer 2.x with append-field parses variants[idx][field] into nested
+    // structure: updateData.variants = [ { color, _id, ... }, ... ] or object
+    let parsedVariants = updateData.variants || [];
+    if (!Array.isArray(parsedVariants)) {
+      // If it's an object map { '0': {...}, '1': {...} }, convert to entries
+      if (typeof parsedVariants === 'object' && parsedVariants !== null) {
+        parsedVariants = Object.values(parsedVariants);
+      } else {
+        parsedVariants = [];
+      }
     }
+    // Filter out null entries (sparse array from append-field)
+    const variantEntries = parsedVariants
+      .map((v, i) => [String(i), v])
+      .filter(([, v]) => v !== null && v !== undefined);
 
     // ── 3. Group uploaded files by variant index ──────────────────────
     const filesByVariant = {};
     for (const file of files) {
-      // fieldname pattern: variantImages_<index>
       const match = file.fieldname.match(/^variantImages_(.+)$/);
       if (!match) continue;
       const idx = match[1];
       if (!filesByVariant[idx]) filesByVariant[idx] = [];
       filesByVariant[idx].push(file);
     }
-    console.log(`[UPDATE] Files received: ${files.length}, grouped variants: ${Object.keys(filesByVariant).join(', ') || 'none'}`);
-    console.log(`[UPDATE] Variant map keys: ${Object.keys(variantMap).join(', ')}`);
-    for (const [idx, vData] of Object.entries(variantMap)) {
-      console.log(`[UPDATE] variantMap[${idx}]: _id=${vData._id || 'NEW'}, color=${vData.color}`);
-    }
 
-    // ── 3b. Process deferred image deletions ──────────────────────────
-    // Form sends deleteImages_0, deleteImages_1, etc. with URLs to remove
+    // ── 4. Collect images marked for deletion (per variant index) ─────
+    // deleteImages_<idx> stays as flat key (no brackets) so it's in updateData directly
+    const deletionsByVariant = {};
     for (const [key, value] of Object.entries(updateData)) {
-      const match = key.match(/^deleteImages_(\d+)$/);
+      const match = key.match(/^deleteImages_(.+)$/);
       if (!match) continue;
-      // value can be a single URL string or an array of URLs
+      const idx = match[1];
       const urls = Array.isArray(value) ? value : [value];
-      const variantIdx = match[1];
-      const variantData = variantMap[variantIdx];
-      console.log(`[UPDATE] Deleting images for variant idx=${variantIdx}, variantId=${variantData?._id}, urls=${urls.length}`);
-      for (const url of urls) {
-        if (variantData && variantData._id) {
-          await Variant.findByIdAndUpdate(variantData._id, {
-            $pull: { images: { url } }
-          });
-        }
-      }
+      deletionsByVariant[idx] = urls.filter(Boolean);
     }
 
-    // ── 4. Process each variant ───────────────────────────────────────
-    let uploadWarnings = [];
-    for (const [idx, vData] of Object.entries(variantMap)) {
-      const { _id, color, basePrice, regularPrice, stock, offerPercentage, offerExpiryDate } = vData;
+    let uploadedCount = 0;
+    let deletedCount = 0;
+    const cloudinaryPublicIdsToRemove = [];
 
-      if (!color?.trim()) continue; // skip incomplete entries
+    // ── 5. Process each variant ───────────────────────────────────────
+    for (const [idx, vData] of variantEntries) {
+      const { _id, color, basePrice, regularPrice, stock, offerPercentage, offerExpiryDate } = vData;
+      if (!color?.trim()) continue;
 
       const parsedBase    = parseFloat(basePrice)    || 0;
       const parsedRegular = parseFloat(regularPrice) || parsedBase;
-      const parsedStock   = parseInt(stock)          || 0;
-      const parsedOffer   = parseInt(offerPercentage) || 0;
-      const parsedOfferExpiry = offerExpiryDate ? new Date(offerExpiryDate) : null;
+      const parsedStock   = parseInt(stock, 10)      || 0;
+      const parsedOffer   = parseInt(offerPercentage, 10) || 0;
+      const parsedExpiry  = offerExpiryDate ? new Date(offerExpiryDate) : null;
 
-      // Upload new images for this variant
+      // ── 5a. Upload new cropped images to Cloudinary ────────────────
       const newImages = [];
-      if (filesByVariant[idx]) {
-        console.log(`[UPDATE] Variant idx=${idx}: uploading ${filesByVariant[idx].length} new images`);
-        for (const file of filesByVariant[idx]) {
-          // Safety check: ensure buffer exists
-          if (!file.buffer || file.buffer.length === 0) {
-            console.error(`[UPDATE] ⚠️ File has no buffer! fieldname=${file.fieldname}, size=${file.size}, buffer=${file.buffer}`);
-            uploadWarnings.push(`File ${file.fieldname} has no buffer data`);
-            continue;
-          }
-          try {
-            console.log(`[UPDATE] Uploading file: fieldname=${file.fieldname}, size=${file.size}, bufferLen=${file.buffer.length}, mimetype=${file.mimetype}`);
-            const uploadResult = await new Promise((resolve, reject) => {
-              const stream = cloudinary.uploader.upload_stream(
-                {
-                  folder: 'neo-luxe/variants',
-                  transformation: [
-                    { width: 800, height: 800, crop: 'fill' },
-                    { quality: 'auto', fetch_format: 'auto' }
-                  ]
-                },
-                (error, result) => {
-                  if (error) reject(error);
-                  else resolve(result);
-                }
-              );
-              stream.end(file.buffer);
-            });
-            console.log(`[UPDATE] ✓ Upload success: ${uploadResult.secure_url}`);
-            newImages.push({ url: uploadResult.secure_url, isPrimary: false });
-          } catch (uploadErr) {
-            console.error('[UPDATE] ✗ Cloudinary upload FAILED:', uploadErr.message || uploadErr);
-            // Retry without transformation as fallback
-            try {
-              console.log('[UPDATE] Retrying upload without transformation...');
-              const retryResult = await new Promise((resolve, reject) => {
-                const stream = cloudinary.uploader.upload_stream(
-                  { folder: 'neo-luxe/variants' },
-                  (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result);
-                  }
-                );
-                stream.end(file.buffer);
-              });
-              console.log(`[UPDATE] ✓ Retry upload success: ${retryResult.secure_url}`);
-              newImages.push({ url: retryResult.secure_url, isPrimary: false });
-            } catch (retryErr) {
-              console.error('[UPDATE] ✗ Retry also FAILED:', retryErr.message || retryErr);
-              uploadWarnings.push(`Failed to upload image for variant ${idx}: ${retryErr.message}`);
-            }
-          }
+      const variantFiles = filesByVariant[idx] || [];
+      for (const file of variantFiles) {
+        if (!file.buffer || file.buffer.length === 0) continue;
+        try {
+          const result = await uploadBufferToCloudinary(file.buffer);
+          newImages.push({ url: result.secure_url, isPrimary: false });
+          uploadedCount++;
+        } catch (err) {
+          console.error(`[updateProduct] Cloudinary upload failed for variant ${idx}:`, err.message);
         }
       }
 
+      const urlsToDelete = deletionsByVariant[idx] || [];
+
       if (_id) {
-        // ── Existing variant — update fields + append new images ──────
+        // ── Existing variant — modify in place ──────────────────────
         const variant = await Variant.findById(_id);
         if (!variant || variant.isDeleted) continue;
 
-        console.log(`[UPDATE] Existing variant _id=${_id}, current images=${variant.images.length}, newImages=${newImages.length}`);
-
-        // Update fields first
-        variant.color = color.trim();
-        variant.basePrice = parsedBase;
-        variant.regularPrice = parsedRegular;
-        variant.stock = parsedStock;
+        // Update scalar fields
+        variant.color           = color.trim();
+        variant.basePrice       = parsedBase;
+        variant.regularPrice    = parsedRegular;
+        variant.stock           = parsedStock;
         variant.offerPercentage = parsedOffer;
-        variant.offerExpiryDate = parsedOfferExpiry;
+        variant.offerExpiryDate = parsedExpiry;
 
-        // Append new images directly to the document
-        if (newImages.length > 0) {
-          for (const img of newImages) {
-            variant.images.push(img);
-          }
+        // Calculate final image count BEFORE modifying to validate
+        const remainingAfterDelete = variant.images.filter(img => !urlsToDelete.includes(img.url));
+        const finalImageCount = remainingAfterDelete.length + newImages.length;
+
+        if (finalImageCount < 1 || finalImageCount > 5) {
+          return {
+            success: false,
+            message: `Variant "${color.trim()}" must have at least 1 image and maximum 5 images (would have ${finalImageCount} after update).`
+          };
         }
 
-        // Ensure at least one primary image
+        // Remove images marked for deletion (from the doc array)
+        if (urlsToDelete.length > 0) {
+          const removed = variant.images.filter(img => urlsToDelete.includes(img.url));
+          variant.images = variant.images.filter(img => !urlsToDelete.includes(img.url));
+          // Track Cloudinary public_ids so we can purge AFTER save succeeds
+          removed.forEach(img => {
+            const pid = extractCloudinaryPublicId(img.url);
+            if (pid) cloudinaryPublicIdsToRemove.push(pid);
+          });
+          deletedCount += removed.length;
+        }
+
+        // Append new images
+        if (newImages.length > 0) {
+          newImages.forEach(img => variant.images.push(img));
+        }
+
+        // Guarantee a primary image
         if (variant.images.length > 0 && !variant.images.some(i => i.isPrimary)) {
           variant.images[0].isPrimary = true;
         }
 
         variant.markModified('images');
         await variant.save();
-        console.log(`[UPDATE] Variant saved. Total images now: ${variant.images.length}`);
       } else {
-        // ── New variant — create it ───────────────────────────────────
-        if (newImages.length > 0) newImages[0].isPrimary = true;
+        // ── New variant — create with uploaded images ───────────────
+        if (newImages.length < 1 || newImages.length > 5) {
+          return {
+            success: false,
+            message: `New variant "${color.trim()}" must have at least 1 image and maximum 5 images (got ${newImages.length}).`
+          };
+        }
+
+        newImages[0].isPrimary = true;
 
         await Variant.create({
-          product:      productId,
-          color:        color.trim(),
-          basePrice:    parsedBase,
-          regularPrice: parsedRegular,
-          stock:        parsedStock,
-          images:       newImages,
-          isActive:     true,
-          isDeleted:    false,
+          product:         productId,
+          color:           color.trim(),
+          basePrice:       parsedBase,
+          regularPrice:    parsedRegular,
+          stock:           parsedStock,
+          offerPercentage: parsedOffer,
+          offerExpiryDate: parsedExpiry,
+          images:          newImages,
+          isActive:        true,
+          isDeleted:       false,
         });
       }
     }
 
-    if (uploadWarnings.length > 0) {
-      console.warn('[UPDATE] Upload warnings:', uploadWarnings);
-      // Still return success but include warning
-      return { success: true, message: MESSAGES.PRODUCT.UPDATE_SUCCESS + ' (Warning: some images failed to upload)' };
+    // ── 6. Purge Cloudinary assets for deleted images (post-save) ────
+    // Done last so the DB is the source of truth — if anything failed above,
+    // we don't lose the original Cloudinary asset.
+    for (const publicId of cloudinaryPublicIdsToRemove) {
+      try {
+        await cloudinary.uploader.destroy(publicId);
+      } catch (err) {
+        console.warn(`[updateProduct] Could not purge Cloudinary asset ${publicId}:`, err.message);
+      }
     }
 
-    return { success: true, message: MESSAGES.PRODUCT.UPDATE_SUCCESS };
+    return {
+      success: true,
+      message: MESSAGES.PRODUCT.UPDATE_SUCCESS,
+      uploadedCount,
+      deletedCount,
+    };
   } catch (error) {
     console.error('Update product service error:', error);
     return { success: false, message: MESSAGES.PRODUCT.UPDATE_FAILED };
   }
 };
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function uploadBufferToCloudinary(buffer) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'neo-luxe/variants',
+        transformation: [
+          { width: 800, height: 800, crop: 'fill' },
+          { quality: 'auto' },
+        ],
+      },
+      (error, result) => (error ? reject(error) : resolve(result)),
+    );
+    stream.end(buffer);
+  });
+}
+
+// Extract the Cloudinary public_id from a secure_url
+//   https://res.cloudinary.com/<cloud>/image/upload/v1700000000/neo-luxe/variants/abc123.jpg
+//   → "neo-luxe/variants/abc123"
+function extractCloudinaryPublicId(url) {
+  if (!url || typeof url !== 'string') return null;
+  const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)\.[a-zA-Z]+$/);
+  return match ? match[1] : null;
+}
 
 // ─── Soft delete product ──────────────────────────────────────────────────────
 export const deleteProductService = async (productId) => {
