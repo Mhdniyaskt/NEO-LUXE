@@ -45,6 +45,13 @@ router.delete(
   "/products/:productId/variants/:variantId/images",
   productController.deleteVariantImage,
 );
+
+// Route for replacing a specific image in a variant
+router.put(
+  "/products/:productId/variants/:variantId/replace-image",
+  upload.single('image'),
+  productController.replaceVariantImage,
+);
 // Products
 router.get("/products", noCache, productController.getProductPage);
 router.get("/products/check-name", productController.checkProductName);
@@ -57,7 +64,34 @@ router
 router
   .route("/products/edit/:id")
   .get(noCache, productController.geteditProduct)
-  .put(upload.any(), productController.postEditProduct);
+  .put(
+    upload.any(),
+    (req, res, next) => {
+      // ═══ DEFINITIVE DEBUG: Log everything multer produced ═══
+      const fileCount = (req.files || []).length;
+      const bodyKeys = Object.keys(req.body || {});
+      const variantKeys = bodyKeys.filter(k => k.startsWith('variants['));
+      const imageKeys = bodyKeys.filter(k => k.includes('Image') || k.includes('image'));
+      
+      console.log(`\n${'═'.repeat(70)}`);
+      console.log(`[MULTER DEBUG] PUT /admin/products/edit/${req.params.id}`);
+      console.log(`[MULTER DEBUG] Content-Type: ${req.headers['content-type']?.substring(0, 60)}...`);
+      console.log(`[MULTER DEBUG] Content-Length: ${req.headers['content-length']} bytes`);
+      console.log(`[MULTER DEBUG] Files: ${fileCount}`);
+      if (fileCount > 0) {
+        req.files.forEach((f, i) => {
+          console.log(`[MULTER DEBUG]   ✓ file[${i}]: fieldname="${f.fieldname}", size=${f.size}, mime=${f.mimetype}, buffer=${f.buffer ? f.buffer.length + ' bytes' : 'MISSING!'}`);
+        });
+      } else {
+        console.log(`[MULTER DEBUG]   ⚠️  NO FILES — blobs did not reach the server!`);
+      }
+      console.log(`[MULTER DEBUG] Body fields: ${bodyKeys.length} total, ${variantKeys.length} variant fields`);
+      console.log(`[MULTER DEBUG] Variant IDs: ${variantKeys.filter(k => k.includes('[_id]')).map(k => req.body[k]).join(', ') || 'none'}`);
+      console.log(`${'═'.repeat(70)}\n`);
+      next();
+    },
+    productController.postEditProduct
+  );
 
 router.patch("/products/delete/:id", productController.softDeleteProduct);
 router.patch("/products/toggle/:id", productController.toggleProductStatus);

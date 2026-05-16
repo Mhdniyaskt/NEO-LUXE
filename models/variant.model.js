@@ -24,6 +24,17 @@ const variantSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    // Product-specific offer
+    offerPercentage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 90,
+    },
+    offerExpiryDate: {
+      type: Date,
+      default: null,
+    },
     images: [
       {
         url: {

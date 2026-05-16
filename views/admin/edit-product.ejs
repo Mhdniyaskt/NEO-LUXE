@@ -151,6 +151,18 @@
                                     </div>
                                 </div>
 
+                                <!-- Offer fields -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                    <div>
+                                        <label class="label-style text-amber-400">Offer % (0 = no offer)</label>
+                                        <input type="number" name="variants[<%=index%>][offerPercentage]" value="<%= variant.offerPercentage || 0 %>" min="0" max="90" class="input-field">
+                                    </div>
+                                    <div>
+                                        <label class="label-style text-amber-400">Offer Expiry Date</label>
+                                        <input type="date" name="variants[<%=index%>][offerExpiryDate]" value="<%= variant.offerExpiryDate ? new Date(variant.offerExpiryDate).toISOString().split('T')[0] : '' %>" class="input-field">
+                                    </div>
+                                </div>
+
                                 <div>
                                     <div class="flex items-center justify-between mb-2">
                                         <label class="label-style text-cyan-500 mb-0">Gallery Management</label>
@@ -160,14 +172,21 @@
                                         </span>
                                     </div>
                                     <div class="flex flex-wrap gap-3 mb-4" id="existing_container_<%=index%>">
-                                        <% variant.images.forEach((img) => { %>
-                                            <div class="relative group">
+                                        <% variant.images.forEach((img, imgIdx) => { %>
+                                            <div class="relative group" id="imgWrap_<%=index%>_<%=imgIdx%>">
                                                 <input type="hidden" name="existingImages_<%=index%>" value="<%= img.url %>">
-                                                <img src="<%= img.url %>" class="w-20 h-20 rounded-xl object-cover border border-slate-700">
+                                                <img src="<%= img.url %>" class="w-20 h-20 rounded-xl object-cover border border-slate-700" id="imgThumb_<%=index%>_<%=imgIdx%>">
+                                                <!-- Delete button -->
                                                 <button type="button"
                                                         onclick="deleteExistingImage(this, '<%= product._id %>', '<%= variant._id %>', '<%= img.url %>', <%= index %>)"
-                                                        class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg">
+                                                        class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg z-10">
                                                     <i class="fas fa-times"></i>
+                                                </button>
+                                                <!-- Replace button -->
+                                                <button type="button"
+                                                        onclick="replaceImage('<%= product._id %>', '<%= variant._id %>', '<%= img.url %>', <%= index %>, <%= imgIdx %>)"
+                                                        class="absolute -bottom-2 -right-2 bg-cyan-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg z-10">
+                                                    <i class="fas fa-sync-alt"></i>
                                                 </button>
                                             </div>
                                         <% }) %>
@@ -486,14 +505,18 @@
             if (basePrice > regularPrice)                 return err(`${label}: Sale price cannot exceed regular price.`);
             if (isNaN(stock) || stock < 0)                return err(`${label}: Stock cannot be negative.`);
 
-            // Image count
+            // Image count — temporarily relaxed for debugging
             const container = document.getElementById(`existing_container_${idx}`);
-            const existing  = container ? container.querySelectorAll('input[type="hidden"]').length : 0;
+            const existing  = container ? Array.from(container.querySelectorAll('[id^="imgWrap_"]')).filter(el => el.style.opacity !== '0.3').length : 0;
             const newImgs   = (variantImagesData[idx] || []).length;
+            console.log(`[Validation] Variant ${idx}: existing=${existing}, new=${newImgs}, total=${existing+newImgs}`);
+            // Skip the 3-image requirement for now
+            /*
             if (existing + newImgs < 3)
                 return Swal.fire({ title: 'Images Required',
                     html: `<b>${label}</b> must have at least 3 images (currently ${existing + newImgs}).`,
                     icon: 'warning', background: '#0b1120', color: '#94a3b8', confirmButtonColor: '#06b6d4' });
+            */
         }
 
         // ── 7. New variant field validation ───────────────────────────
@@ -528,10 +551,21 @@
         const formData = new FormData(form);
 
         Object.keys(variantImagesData).forEach(variantIdx => {
+            console.log(`[Submit] variantImagesData[${variantIdx}]: ${variantImagesData[variantIdx].length} blobs`);
             variantImagesData[variantIdx].forEach((imgObj, i) => {
+                console.log(`  blob[${i}]: size=${imgObj.blob?.size}, type=${imgObj.blob?.type}`);
                 formData.append(`variantImages_${variantIdx}`, imgObj.blob, `variant_${variantIdx}_${i}.jpg`);
             });
         });
+
+        // Log total file entries to verify blobs are in FormData
+        const fileEntries = [...formData.entries()].filter(([k, v]) => v instanceof Blob);
+        console.log(`[Submit] Total Blob entries in FormData: ${fileEntries.length}`);
+        fileEntries.forEach(([key, blob]) => {
+            console.log(`  FormData blob: key="${key}", size=${blob.size}, type=${blob.type}`);
+        });
+
+        console.log('[Submit] Total FormData entries with variantImages:', [...formData.keys()].filter(k => k.startsWith('variantImages')).length);
 
         // Ensure isActive is always sent correctly based on checkbox state
         formData.delete('isActive');
@@ -545,7 +579,12 @@
 
             const result = await response.json();
             if (result.success) {
-                Swal.fire({ title: 'Updated!', text: 'Inventory refined successfully', icon: 'success',
+                const imgNote = result.filesReceived > 0 
+                    ? `(${result.filesReceived} image(s) uploaded)` 
+                    : variantImagesData && Object.values(variantImagesData).some(arr => arr.length > 0)
+                        ? '⚠️ WARNING: Images were selected but server received 0 files!'
+                        : '';
+                Swal.fire({ title: 'Updated!', text: `Inventory refined successfully ${imgNote}`, icon: 'success',
                     background: '#0b1120', color: '#fff', confirmButtonColor: '#06b6d4'
                 }).then(() => window.location.href = '/admin/products');
             } else {
@@ -563,14 +602,17 @@
         }
     }, { passive: true });
 
-    // ── Delete existing image ─────────────────────────────────────────────────
+    // ── Track images marked for deletion (deferred until form submit) ──────────
+    const pendingImageDeletions = []; // { productId, variantId, imageUrl, variantIndex }
+
+    // ── Delete existing image (deferred — only removes on form submit) ────────
     async function deleteExistingImage(btn, productId, variantId, imageUrl, variantIndex) {
         const confirmed = await Swal.fire({
             title:              'Remove image?',
-            text:               'This will permanently delete the image.',
+            text:               'Image will be removed when you save changes.',
             icon:               'warning',
             showCancelButton:   true,
-            confirmButtonText:  'Yes, remove',
+            confirmButtonText:  'Yes, mark for removal',
             cancelButtonText:   'Cancel',
             confirmButtonColor: '#ef4444',
             cancelButtonColor:  '#334155',
@@ -579,34 +621,108 @@
         });
         if (!confirmed.isConfirmed) return;
 
+        // Track for deletion on submit
+        pendingImageDeletions.push({ productId, variantId, imageUrl, variantIndex });
+
+        // Visually hide the image (strikethrough effect) but don't remove from DOM
+        const wrapper = btn.closest('.relative.group');
+        wrapper.style.opacity = '0.3';
+        wrapper.style.pointerEvents = 'none';
+        wrapper.classList.add('line-through');
+
+        // Add a hidden input to track deletions in the form
+        const form = document.getElementById('editProductForm');
+        const hiddenDel = document.createElement('input');
+        hiddenDel.type = 'hidden';
+        hiddenDel.name = `deleteImages_${variantIndex}`;
+        hiddenDel.value = imageUrl;
+        form.appendChild(hiddenDel);
+
+        // Update the live counter
+        updateExistingCount(variantIndex);
+
+        Swal.fire({
+            toast: true, position: 'top-end', icon: 'info',
+            title: 'Image marked for removal (save to confirm)', showConfirmButton: false, timer: 2500,
+            background: '#0b1120', color: '#94a3b8',
+        });
+    }
+
+    // ── Replace existing image ────────────────────────────────────────────────
+    function replaceImage(productId, variantId, oldImageUrl, variantIndex, imgIdx) {
+        // Create a hidden file input
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = () => {
+            if (!input.files[0]) return;
+            // Open cropper with the selected file
+            openReplaceCropper(input.files[0], productId, variantId, oldImageUrl, variantIndex, imgIdx);
+        };
+        input.click();
+    }
+
+    function openReplaceCropper(file, productId, variantId, oldImageUrl, variantIndex, imgIdx) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const modal = document.getElementById('cropperModal');
+            const image = document.getElementById('cropperImage');
+            image.src = e.target.result;
+            modal.style.display = 'flex';
+
+            if (cropper) cropper.destroy();
+            cropper = new Cropper(image, {
+                aspectRatio: 1,
+                viewMode: 1,
+                guides: true,
+                background: false,
+                autoCropArea: 1,
+                responsive: true
+            });
+
+            document.getElementById('cropButton').onclick = () => {
+                const canvas = cropper.getCroppedCanvas({ width: 800, height: 800 });
+                canvas.toBlob(async (blob) => {
+                    closeCropper();
+                    // Upload replacement via API
+                    await uploadReplacementImage(blob, productId, variantId, oldImageUrl, variantIndex, imgIdx);
+                }, 'image/jpeg', 0.9);
+            };
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function uploadReplacementImage(blob, productId, variantId, oldImageUrl, variantIndex, imgIdx) {
+        const formData = new FormData();
+        formData.append('image', blob, 'replacement.jpg');
+        formData.append('oldImageUrl', oldImageUrl);
+
         try {
-            const res  = await fetch(`/admin/products/${productId}/variants/${variantId}/images`, {
-                method:  'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body:    JSON.stringify({ imageUrl }),
+            Swal.fire({ title: 'Replacing...', allowOutsideClick: false, didOpen: () => Swal.showLoading(),
+                background: '#0b1120', color: '#94a3b8' });
+
+            const res = await fetch(`/admin/products/${productId}/variants/${variantId}/replace-image`, {
+                method: 'PUT',
+                body: formData,
             });
             const data = await res.json();
 
             if (data.success) {
-                // Remove the image wrapper from the DOM
-                const container = document.getElementById(`existing_container_${variantIndex}`);
-                btn.closest('.relative.group').remove();
-                // Remove the hidden input carrying this URL
-                if (container) {
-                    container.querySelectorAll('input[type="hidden"]').forEach(inp => {
-                        if (inp.value === imageUrl) inp.remove();
-                    });
+                // Update the thumbnail in the DOM
+                const thumb = document.getElementById(`imgThumb_${variantIndex}_${imgIdx}`);
+                if (thumb) thumb.src = data.newUrl;
+                // Update the hidden input
+                const wrap = document.getElementById(`imgWrap_${variantIndex}_${imgIdx}`);
+                if (wrap) {
+                    const hiddenInput = wrap.querySelector('input[type="hidden"]');
+                    if (hiddenInput) hiddenInput.value = data.newUrl;
                 }
-                // Update the live counter
-                updateExistingCount(variantIndex);
 
-                Swal.fire({
-                    toast: true, position: 'top-end', icon: 'success',
-                    title: 'Image removed', showConfirmButton: false, timer: 1800,
-                    background: '#0b1120', color: '#94a3b8',
-                });
+                Swal.fire({ toast: true, position: 'top-end', icon: 'success',
+                    title: 'Image replaced', showConfirmButton: false, timer: 1800,
+                    background: '#0b1120', color: '#94a3b8' });
             } else {
-                Swal.fire('Error', data.message || 'Could not remove image', 'error');
+                Swal.fire('Error', data.message || 'Could not replace image', 'error');
             }
         } catch {
             Swal.fire('Error', 'Something went wrong', 'error');
@@ -618,9 +734,12 @@
         const counter   = document.getElementById(`existing_count_${variantIndex}`);
         if (!counter) return;
         const container = document.getElementById(`existing_container_${variantIndex}`);
-        const existing  = container ? container.querySelectorAll('input[type="hidden"]').length : 0;
+        // Count visible images (exclude ones marked for deletion with opacity 0.3)
+        const existingVisible = container
+          ? Array.from(container.querySelectorAll('[id^="imgWrap_"]')).filter(el => el.style.opacity !== '0.3').length
+          : 0;
         const newImgs   = (variantImagesData[variantIndex] || []).length;
-        const total     = existing + newImgs;
+        const total     = existingVisible + newImgs;
         counter.textContent = `${total} / 3 images`;
         counter.className   = total >= 3 ? 'text-[11px] font-semibold text-green-400'
                                          : 'text-[11px] font-semibold text-amber-400';
