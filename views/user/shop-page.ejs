@@ -407,9 +407,8 @@
                             const v        = product.variant;
                             const salePrice = v ? (v.basePrice    ?? 0) : 0;
                             const regPrice  = v ? (v.regularPrice ?? salePrice) : 0;
-                            const discPct   = (regPrice > salePrice && regPrice > 0)
-                                                ? Math.round((regPrice - salePrice) / regPrice * 100)
-                                                : 0;
+                            const discPct   = v ? (v.appliedOffer ?? 0) : 0;
+                            const finalPrice = v ? (v.finalPrice ?? salePrice) : 0;
                             const stock     = v ? (v.stock ?? 0) : 0;
                             const isOOS     = stock === 0;
                             const isLowStock = !isOOS && stock <= 5;
@@ -482,11 +481,11 @@
                                 <div class="flex items-center justify-between mb-6">
                                     <div class="flex flex-col gap-0.5">
                                         <span class="<%= isOOS ? 'text-slate-500' : 'text-white' %> font-bold text-xl tracking-tight">
-                                            ₹<%= salePrice.toLocaleString('en-IN') %>
+                                            ₹<%= finalPrice.toLocaleString('en-IN') %>
                                         </span>
-                                        <% if (!isOOS && regPrice > salePrice) { %>
+                                        <% if (!isOOS && discPct > 0) { %>
                                             <span class="text-slate-500 text-xs line-through">
-                                                ₹<%= regPrice.toLocaleString('en-IN') %>
+                                                ₹<%= salePrice.toLocaleString('en-IN') %>
                                             </span>
                                         <% } %>
                                     </div>

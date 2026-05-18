@@ -70,12 +70,6 @@
                         </div>
 
                         <div class="flex flex-col">
-                            <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Referral Code</label>
-                            <input id="referral" name="referralCode" type="text" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 text-sm focus:outline-none focus:border-brand-accent transition" placeholder="Optional">
-                            <div class="min-h-[20px] mt-1"></div>
-                        </div>
-
-                        <div class="flex flex-col">
                             <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-wider mb-2">Password</label>
                             <div class="relative">
                                 <input id="password" name="password" type="password" class="w-full bg-brand-input border border-gray-800 rounded-xl py-3.5 px-4 pr-12 text-sm focus:outline-none focus:border-brand-accent transition">
@@ -140,11 +134,10 @@
     const submitBtn = document.getElementById("submit-btn");
     const btnText = document.getElementById("btn-text");
 
-    // --- New Show/Hide Logic ---
+    // --- Show/Hide Password ---
     function togglePassword(inputId, button) {
         const input = document.getElementById(inputId);
         const icon = button.querySelector('i');
-        
         if (input.type === "password") {
             input.type = "text";
             icon.classList.remove('fa-eye-slash');
@@ -156,7 +149,7 @@
         }
     }
 
-    // --- Error Handling Logic ---
+    // --- Error Handling ---
     function showError(id, message) {
         const el = document.getElementById(id);
         if (el) {
@@ -177,15 +170,86 @@
         document.getElementById("mainError").classList.add("hidden");
     }
 
+    function showMainError(msg) {
+        document.getElementById("mainErrorText").innerText = msg;
+        document.getElementById("mainError").classList.remove("hidden");
+    }
+
+    // --- Frontend Validation ---
+    function validateForm(payload) {
+        const { name, email, phoneNumber, password, confirmPassword } = payload;
+
+        if (!name || !name.trim()) {
+            showError('nameError', 'Full name is required');
+            return false;
+        }
+        if (name.trim().length < 3) {
+            showError('nameError', 'Name must be at least 3 characters');
+            return false;
+        }
+        if (!/^[A-Za-z ]+$/.test(name.trim())) {
+            showError('nameError', 'Name must contain only letters');
+            return false;
+        }
+
+        if (!email || !email.trim()) {
+            showError('emailError', 'Email address is required');
+            return false;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+            showError('emailError', 'Please enter a valid email address');
+            return false;
+        }
+
+        if (!phoneNumber || !phoneNumber.trim()) {
+            showError('phoneError', 'Phone number is required');
+            return false;
+        }
+        if (!/^[6-9]\d{9}$/.test(phoneNumber.trim())) {
+            showError('phoneError', 'Enter a valid 10-digit phone number');
+            return false;
+        }
+
+        if (!password) {
+            showError('passwordError', 'Password is required');
+            return false;
+        }
+        if (password.length < 8) {
+            showError('passwordError', 'Password must be at least 8 characters');
+            return false;
+        }
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])/.test(password)) {
+            showError('passwordError', 'Must have uppercase, lowercase, number & special char');
+            return false;
+        }
+
+        if (!confirmPassword) {
+            showError('confirmPasswordError', 'Please confirm your password');
+            return false;
+        }
+        if (password !== confirmPassword) {
+            showError('confirmPasswordError', 'Passwords do not match');
+            return false;
+        }
+
+        return true;
+    }
+
+    // --- Form Submit ---
     form.addEventListener("submit", async function (e) {
         e.preventDefault();
         clearErrors();
 
-        submitBtn.disabled = true;
-        btnText.innerText = "Verifying...";
-
         const formData = new FormData(form);
         const payload = Object.fromEntries(formData.entries());
+
+        // Frontend validation first
+        if (!validateForm(payload)) {
+            return;
+        }
+
+        submitBtn.disabled = true;
+        btnText.innerText = "Verifying...";
 
         try {
             const response = await fetch(form.action, {
@@ -197,6 +261,7 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
+                btnText.innerText = "Redirecting...";
                 window.location.href = data.redirect;
             } else {
                 submitBtn.disabled = false;
@@ -207,15 +272,13 @@
                         showError(`${key}Error`, data.errors[key]);
                     });
                 } else {
-                    document.getElementById("mainErrorText").innerText = data.message || "Signup failed";
-                    document.getElementById("mainError").classList.remove("hidden");
+                    showMainError(data.message || "Signup failed. Please try again.");
                 }
             }
         } catch (error) {
             submitBtn.disabled = false;
             btnText.innerText = "Create Account";
-            document.getElementById("mainErrorText").innerText = "Connection error.";
-            document.getElementById("mainError").classList.remove("hidden");
+            showMainError("Connection error. Please check your internet.");
         }
     });
 </script>

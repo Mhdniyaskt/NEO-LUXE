@@ -61,12 +61,12 @@
   <% if (typeof blockedItems !== 'undefined' && blockedItems.length) { %>
     <div class="bg-red-500/10 border border-red-500/30 rounded-2xl px-5 py-4 mb-6 space-y-1.5">
       <p class="text-red-400 text-xs font-bold uppercase tracking-widest mb-2">Items Removed</p>
-      <% blockedItems.forEach(reason => { %>
+      <% blockedItems.forEach(item => { %>
         <p class="text-red-300 text-sm flex items-start gap-2">
           <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
           </svg>
-          <%= reason %>
+          <%= typeof item === 'string' ? item : (item.reason || 'Item unavailable') %>
         </p>
       <% }) %>
     </div>
@@ -246,8 +246,8 @@
         <!-- Items list -->
         <div class="space-y-3 mb-4 max-h-52 overflow-y-auto items-scroll pr-0.5">
           <% checkoutItems.forEach(item => {
-               const discPct = (item.regularPrice > item.basePrice && item.regularPrice > 0)
-                 ? Math.round((item.regularPrice - item.basePrice) / item.regularPrice * 100) : 0;
+               const discPct = item.offerPercentage || 0;
+               const saveAmount = discPct > 0 ? (item.basePrice * discPct / 100) * item.quantity : 0;
           %>
             <div class="flex gap-3 items-start">
               <!-- Thumbnail -->
@@ -269,7 +269,7 @@
                 <p class="text-slate-500 text-[10px] mt-0.5"><%= item.color %> · Qty <%= item.quantity %></p>
                 <% if (discPct > 0) { %>
                   <p class="text-[10px] mt-0.5 text-green-400 font-medium">
-                    Save ₹<%= ((item.regularPrice - item.basePrice) * item.quantity).toLocaleString('en-IN') %>
+                    Save ₹<%= Math.round(saveAmount).toLocaleString('en-IN') %>
                   </p>
                 <% } %>
               </div>
@@ -356,13 +356,18 @@
             <span class="text-white font-medium">₹<%= totals.subtotal.toLocaleString('en-IN') %></span>
           </div>
           <%
-            const totalRegular = checkoutItems.reduce((s, i) => s + i.regularPrice * i.quantity, 0);
-            const totalSaving  = totalRegular - totals.subtotal;
+            // Only show offer discount — NOT regularPrice vs salePrice difference
+            const totalOfferSaving = checkoutItems.reduce((s, i) => {
+              if (i.offerPercentage > 0) {
+                return s + Math.round(i.basePrice * i.offerPercentage / 100) * i.quantity;
+              }
+              return s;
+            }, 0);
           %>
-          <% if (totalSaving > 0) { %>
+          <% if (totalOfferSaving > 0) { %>
             <div class="flex justify-between text-xs">
-              <span class="text-green-400">Discount</span>
-              <span class="text-green-400 font-semibold">−₹<%= totalSaving.toLocaleString('en-IN') %></span>
+              <span class="text-green-400">Offer Discount</span>
+              <span class="text-green-400 font-semibold">−₹<%= totalOfferSaving.toLocaleString('en-IN') %></span>
             </div>
           <% } %>
           <div class="flex justify-between text-xs">
@@ -545,10 +550,16 @@
   async function handleCodOrder(btn) {
     setLoading(btn, selectedPayment === 'wallet' ? 'Processing Payment…' : 'Placing Order…');
     try {
+      const couponCode = document.getElementById('appliedCouponCode')?.textContent || '';
       const res  = await fetch('/checkout/place-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addressId: selectedAddressId, paymentMethod: selectedPayment }),
+        body: JSON.stringify({ 
+          addressId: selectedAddressId, 
+          paymentMethod: selectedPayment,
+          couponCode: couponCode || undefined,
+          discount: appliedDiscount || 0,
+        }),
       });
       const data = await res.json();
 
@@ -585,10 +596,15 @@
 
     try {
       // Step 1 — validate cart + create Razorpay order (NO DB order, NO stock deduction)
+      const couponCode = document.getElementById('appliedCouponCode')?.textContent || '';
       const res  = await fetch('/checkout/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ addressId: selectedAddressId }),
+        body: JSON.stringify({ 
+          addressId: selectedAddressId,
+          couponCode: couponCode || undefined,
+          discount: appliedDiscount || 0,
+        }),
       });
       const data = await res.json();
 

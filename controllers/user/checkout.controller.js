@@ -45,7 +45,7 @@ export const getCheckout = asyncHandler(async (req, res) => {
     checkoutItems: checkout.items,
     addresses: checkout.addresses,
     totals: checkout.totals,coupons: checkout.coupons,
-    blockedItems: checkout.issues.blockedItems,
+    blockedItems: checkout.issues.blockedItems.map(b => b.reason),
     stockErrors: checkout.issues.stockErrors,
     razorpayKeyId: process.env.RAZORPAY_KEY_ID,
     walletBalance: userDoc?.walletBalance || 0,
@@ -57,7 +57,7 @@ export const getCheckout = asyncHandler(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 export const placeOrder = asyncHandler(async (req, res) => {
   const userId = req.session.user.id;
-  const { addressId, paymentMethod } = req.body;
+  const { addressId, paymentMethod, couponCode, discount } = req.body;
 
   if (!addressId || !paymentMethod)
     return res
@@ -84,6 +84,8 @@ export const placeOrder = asyncHandler(async (req, res) => {
     addressId,
     paymentMethod,
     isBuyNow: false,
+    couponCode: couponCode || null,
+    discount: parseInt(discount) || 0,
   });
 
   if (result.success) {
@@ -108,7 +110,7 @@ export const placeOrder = asyncHandler(async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 export const createRazorpayOrder = asyncHandler(async (req, res) => {
   const userId = req.session.user.id;
-  const { addressId } = req.body;
+  const { addressId, couponCode, discount } = req.body;
 
   if (!addressId)
     return res
@@ -123,11 +125,15 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
   const totalsResult = await getCartTotalsService(userId);
   if (!totalsResult.success) return res.status(400).json(totalsResult);
 
+  // Apply coupon discount to the total
+  const couponDiscount = parseInt(discount) || 0;
+  const finalAmount = Math.max(0, totalsResult.totals.total - couponDiscount);
+
   // Create Razorpay order (amount in paise)
   let rzpOrder;
   try {
     rzpOrder = await razorpay.orders.create({
-      amount: Math.round(totalsResult.totals.total * 100),
+      amount: Math.round(finalAmount * 100),
       currency: "INR",
       receipt: `ord_${userId.toString().slice(-8)}_${Date.now().toString().slice(-8)}`,
     });
@@ -140,8 +146,13 @@ export const createRazorpayOrder = asyncHandler(async (req, res) => {
     });
   }
 
-  // Store addressId in session so verify endpoint can use it
-  req.session.razorpayPending = { addressId, razorpayOrderId: rzpOrder.id };
+  // Store addressId and coupon in session so verify endpoint can use it
+  req.session.razorpayPending = { 
+    addressId, 
+    razorpayOrderId: rzpOrder.id,
+    couponCode: couponCode || null,
+    discount: couponDiscount,
+  };
 
   return res.json({
     success: true,
@@ -202,6 +213,8 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
     addressId: pending.addressId,
     razorpayPaymentId: razorpay_payment_id,
     razorpayOrderId: razorpay_order_id,
+    couponCode: pending.couponCode || null,
+    discount: pending.discount || 0,
   });
 
   // Clear pending session data regardless of outcome
@@ -313,14 +326,16 @@ export const getBuyNow = asyncHandler(async (req, res) => {
     quantity,
   );
   if (!validation.success) {
-    return res
-      .status(400)
-      .render("error", { message: validation.message, layout: "layouts/user" });
+    // Return JSON so frontend fetch can show proper error message
+    return res.status(400).json({ success: false, message: validation.message });
   }
 
   const addressResult = await getUserAddressesService(userId, 1, 50);
   const addresses = addressResult.success ? addressResult.addresses : [];
   const { buyNow } = validation;
+
+  // Get wallet balance
+  const userDoc = await User.findById(userId).select("walletBalance").lean();
 
   const buyNowCheckoutItem = {
     productId: buyNow.item.product._id,
@@ -337,7 +352,9 @@ export const getBuyNow = asyncHandler(async (req, res) => {
     regularPrice:
       buyNow.item.variant.regularPrice ?? buyNow.item.variant.basePrice,
     finalPrice: buyNow.item.variant.finalPrice ?? buyNow.item.variant.basePrice,
-    itemTotal: buyNow.item.variant.basePrice * buyNow.item.quantity,
+    offerPercentage: buyNow.item.variant.offerPercentage || 0,
+    offerSource: buyNow.item.variant.offerSource || 'none',
+    itemTotal: buyNow.item.variant.finalPrice * buyNow.item.quantity,
   };
 
   res.render("user/checkout", {
@@ -350,6 +367,8 @@ export const getBuyNow = asyncHandler(async (req, res) => {
     blockedItems: [],
     stockErrors: [],
     razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+    walletBalance: userDoc?.walletBalance || 0,
+    coupons: [],
     buyNowData: { productId, variantId, quantity: parseInt(quantity) },
   });
 });
@@ -435,17 +454,40 @@ export const downloadInvoice = asyncHandler(async (req, res) => {
 
   const { order } = result;
 
-  if (order.status !== "delivered")
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Invoice is only available for delivered orders",
-      });
+  // Cancelled or returned orders — no invoice
+  if (order.status === 'cancelled' || order.status === 'returned') {
+    return res.status(400).json({
+      success: false,
+      message: "Invoice is not available for cancelled or returned orders",
+    });
+  }
+
+  // For COD orders — only allow after delivery
+  if (order.paymentMethod === 'cod' && order.status !== 'delivered') {
+    return res.status(400).json({
+      success: false,
+      message: "Invoice for COD orders is available only after delivery",
+    });
+  }
+
+  // For online/wallet — allow if payment is confirmed (paid)
+  if ((order.paymentMethod === 'razorpay' || order.paymentMethod === 'wallet') && order.paymentStatus !== 'paid') {
+    return res.status(400).json({
+      success: false,
+      message: "Invoice is available only for paid orders",
+    });
+  }
 
   const deliveredItems = order.items.filter(
     (i) => i.status !== "cancelled" && i.returnStatus !== "approved",
   );
+
+  if (deliveredItems.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: "No active items in this order to generate invoice",
+    });
+  }
 
   const subtotal = deliveredItems.reduce(
     (sum, i) => sum + (i.itemTotal || i.basePrice * i.quantity || 0),
@@ -530,11 +572,12 @@ export const downloadInvoice = asyncHandler(async (req, res) => {
       220,
       y,
     );
+  const statusColor = order.status === 'delivered' ? '#16a34a' : order.status === 'cancelled' ? '#dc2626' : '#0891b2';
   doc
-    .fillColor("#16a34a")
+    .fillColor(statusColor)
     .fontSize(10)
     .font("Helvetica-Bold")
-    .text("DELIVERED", 390, y);
+    .text(order.status.toUpperCase(), 390, y);
   y += 30;
 
   doc.fillColor("#1e293b").rect(50, y, 495, 1).fill();

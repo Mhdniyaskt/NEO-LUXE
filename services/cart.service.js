@@ -3,6 +3,7 @@ import Variant from '../models/variant.model.js';
 import Product from '../models/product.model.js';
 import Wishlist from '../models/wishlist.model.js';
 import { MESSAGES } from '../constants/messages.constant.js';
+import { calculateOfferPrice } from '../utils/offerPrice.util.js';
 
 const MAX_QTY = 10;   // max quantity per variant line
 const MAX_ITEMS = 5;  // max distinct products in cart
@@ -11,7 +12,11 @@ const MAX_ITEMS = 5;  // max distinct products in cart
 function calcSummary(items) {
   let subtotal = 0;
   for (const item of items) {
-    subtotal += item.variant.basePrice * item.quantity;
+    const product  = item.product;
+    const variant  = item.variant;
+    const category = product?.category;
+    const offerResult = calculateOfferPrice(variant, category, product);
+    subtotal += offerResult.finalPrice * item.quantity;
   }
   const shipping = subtotal >= 5000 ? 0 : 50;
   const tax = Math.round(subtotal * 0.18);
@@ -79,8 +84,22 @@ export const getCartService = async (userId) => {
       await cart.save();
     }
 
-    const summary = calcSummary(validItems);
-    return { success: true, cart: { items: validItems, summary }, cartIssues };
+    // Enrich items with offer pricing for the view
+    const enrichedItems = validItems.map(item => {
+      const product  = item.product;
+      const variant  = item.variant;
+      const category = product?.category;
+      const offerResult = calculateOfferPrice(variant, category, product);
+      // Attach offer data directly to the variant object for EJS access
+      item.variant.finalPrice      = offerResult.finalPrice;
+      item.variant.salePrice       = offerResult.salePrice;
+      item.variant.appliedOffer    = offerResult.offerPercentage;
+      item.variant.offerSource     = offerResult.offerSource;
+      return item;
+    });
+
+    const summary = calcSummary(enrichedItems);
+    return { success: true, cart: { items: enrichedItems, summary }, cartIssues };
   } catch (error) {
     console.error('Cart service error:', error);
     return { success: false, message: MESSAGES.CART.FETCH_FAILED };

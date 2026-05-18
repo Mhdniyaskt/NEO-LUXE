@@ -574,10 +574,6 @@
 </div>
 
 <script>
-  function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('-translate-x-full');
-  }
-
   async function updateStatus(orderId) {
     const status = document.getElementById('statusSelect').value;
     const result = await Swal.fire({

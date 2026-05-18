@@ -112,27 +112,41 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
-  const allowed = ['pending','confirmed','processing','shipped','delivered','cancelled','returned'];
+  // Define the allowed progression order (forward only)
+  const statusOrder = ['pending', 'confirmed', 'processing', 'shipped', 'delivered'];
+  const allowed = [...statusOrder, 'cancelled', 'returned'];
+
   if (!allowed.includes(status)) {
     return res.status(400).json({ success: false, message: 'Invalid status.' });
   }
 
-  // Fetch current order to check if it's in a terminal state
   const order = await Order.findById(id);
   if (!order) return res.status(404).json({ success: false, message: 'Order not found.' });
 
-  // Cancelled, returned, and delivered orders are terminal — status cannot be changed
+  // Terminal states — cannot be changed
   if (['cancelled', 'returned', 'delivered'].includes(order.status)) {
     return res.status(400).json({
       success: false,
-      message: `Order is ${order.status} and cannot be updated further.`,
+      message: `Order is already "${order.status}" and cannot be updated further.`,
     });
+  }
+
+  // Prevent rollback — new status must be forward in the progression
+  // (Exception: cancellation is always allowed from any non-terminal state)
+  if (status !== 'cancelled') {
+    const currentIdx = statusOrder.indexOf(order.status);
+    const newIdx = statusOrder.indexOf(status);
+    if (newIdx >= 0 && currentIdx >= 0 && newIdx <= currentIdx) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot move order from "${order.status}" back to "${status}". Status can only move forward.`,
+      });
+    }
   }
 
   order.status = status;
 
   // Keep paymentStatus in sync with order lifecycle
-  // When admin marks as delivered → COD payment is now collected
   if (status === 'delivered' && order.paymentMethod === 'cod') {
     order.paymentStatus = 'paid';
   }

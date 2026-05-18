@@ -91,6 +91,15 @@ app.use("/admin", adminRoutes);
 app.use("/auth",  googleAuthRoutes);
 app.use("/",      userRoutes);
 
+// ─── 404 handler for user routes (catch-all) ──────────────────────────────────
+app.use((req, res, next) => {
+  // Skip if it's an API-like request expecting JSON
+  if (req.headers.accept && req.headers.accept.includes('application/json')) {
+    return res.status(404).json({ success: false, message: 'Route not found' });
+  }
+  res.status(404).render("user/404", { layout: "layouts/user" });
+});
+
 // ─── Global error handler ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message, "| URL:", req.url);

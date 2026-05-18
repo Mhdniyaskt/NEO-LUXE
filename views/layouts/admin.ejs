@@ -4,18 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Panel</title>
-  <!-- Tailwind is required here for the flex utility to work across all pages -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    /* Mobile top padding to account for fixed topbar */
+    @media (max-width: 1023px) {
+      .admin-main-content { padding-top: 56px; }
+    }
+  </style>
 </head>
 <body class="bg-[#020617] text-slate-300">
 
-  <!-- Added 'flex' to make Sidebar and Body sit side-by-side -->
-  <!-- Added 'min-h-screen' to ensure the background covers the full height -->
-  <div class="flex min-h-screen">
+  <div class="flex min-h-screen admin-main-content">
       <%- body %>
   </div>
 
-  <!-- ✅ Back button fix (pageshow event) -->
   <script>
     window.addEventListener("pageshow", function (event) {
       if (event.persisted) {

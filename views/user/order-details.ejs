@@ -7,13 +7,15 @@
   const progressOrder = ['pending','confirmed','processing','shipped','delivered'];
   const currentIdx    = progressOrder.indexOf(order.status);
 
-  // Order summary math
+  // Order summary — use saved snapshot values, not recalculated
   const cancelledSubtotal = order.items.filter(i=>i.status==='cancelled').reduce((s,i)=>s+(i.itemTotal||0),0);
   const refundAmount      = order.items.filter(i=>i.returnStatus==='approved').reduce((s,i)=>s+(i.itemTotal||0),0);
-  const displaySubtotal   = (order.subtotal||0) - cancelledSubtotal;
-  const displayShipping   = displaySubtotal >= 5000 ? 0 : (displaySubtotal > 0 ? 50 : 0);
-  const displayTax        = Math.round(displaySubtotal * 0.18);
-  const displayTotal      = Math.max(0, displaySubtotal + displayShipping + displayTax - refundAmount);
+  const displaySubtotal   = order.subtotal || 0;
+  const displayShipping   = order.shipping || 0;
+  const displayTax        = order.tax || 0;
+  const displayDiscount   = order.discount || 0;
+  const displayTotal      = order.total || 0;
+  const couponCode        = order.couponCode || '';
 
   const statusGradient = {
     pending:    'from-amber-500/20 to-transparent',
@@ -314,6 +316,12 @@
               <span class="text-slate-400">Tax (18% GST)</span>
               <span class="text-white font-medium">₹<%= displayTax.toLocaleString('en-IN') %></span>
             </div>
+            <% if (displayDiscount > 0) { %>
+              <div class="flex justify-between text-green-400">
+                <span>Coupon Discount<%= couponCode ? ' (' + couponCode + ')' : '' %></span>
+                <span class="font-semibold">−₹<%= displayDiscount.toLocaleString('en-IN') %></span>
+              </div>
+            <% } %>
             <% if (cancelledSubtotal > 0) { %>
               <div class="flex justify-between text-red-400">
                 <span>Cancelled items</span>
@@ -414,7 +422,16 @@
         </div>
 
         <!-- Actions -->
-        <% if (order.status === 'delivered') { %>
+        <%
+          const canDownloadInvoice = (
+            order.status !== 'cancelled' && order.status !== 'returned' &&
+            (
+              (order.paymentMethod === 'razorpay' || order.paymentMethod === 'wallet') && order.paymentStatus === 'paid'
+              || order.status === 'delivered'
+            )
+          );
+        %>
+        <% if (canDownloadInvoice) { %>
           <button onclick="downloadInvoice()"
                   class="w-full bg-cyan-400 hover:bg-cyan-300 active:bg-cyan-500 text-[#05080d] font-bold text-sm py-3.5 rounded-xl transition-all shadow-[0_4px_20px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

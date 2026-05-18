@@ -78,12 +78,13 @@
           const product  = item.product;
           const variant  = item.variant;
           const img      = variant.images?.[0]?.url || '';
-          const isOOS    = variant.stock === 0 || !variant.isActive || !product.isActive;
+          const isUnlisted = !product.isActive || !variant.isActive;
+          const isOOS    = !isUnlisted && variant.stock === 0;
+          const isUnavailable = isUnlisted || isOOS;
           const price    = variant.basePrice;
-          const regPrice = variant.regularPrice;
-          const discPct  = (regPrice > price && regPrice > 0)
-                             ? Math.round((regPrice - price) / regPrice * 100) : 0;
-          const saving   = discPct > 0 ? (regPrice - price) : 0;
+          const offerPct = variant.appliedOffer || 0;
+          const saving   = offerPct > 0 ? Math.round(price * offerPct / 100) : 0;
+          const finalPrice = offerPct > 0 ? price - saving : price;
         %>
         <div id="wrow-<%= variant._id %>"
              class="card-anim bg-[#0a0f18] border border-gray-800/70 rounded-2xl overflow-hidden
@@ -106,12 +107,18 @@
                   </svg>
                 </div>
               <% } %>
-              <% if (discPct > 0 && !isOOS) { %>
+              <% if (offerPct > 0 && !isUnavailable) { %>
                 <div class="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow">
-                  −<%= discPct %>%
+                  −<%= offerPct %>%
                 </div>
               <% } %>
-              <% if (isOOS) { %>
+              <% if (isUnlisted) { %>
+                <div class="absolute inset-0 flex items-center justify-center bg-black/40">
+                  <span class="bg-slate-600/90 text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    Unavailable
+                  </span>
+                </div>
+              <% } else if (isOOS) { %>
                 <div class="absolute inset-0 flex items-center justify-center bg-black/40">
                   <span class="bg-red-500/90 text-white text-[9px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
                     Out of Stock
@@ -134,7 +141,12 @@
                 </p>
 
                 <!-- Stock status -->
-                <% if (isOOS) { %>
+                <% if (isUnlisted) { %>
+                  <span class="inline-flex items-center gap-1 text-[10px] bg-slate-500/15 text-slate-400 border border-slate-500/25 px-2.5 py-1 rounded-full font-semibold">
+                    <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"/></svg>
+                    Product Unavailable
+                  </span>
+                <% } else if (isOOS) { %>
                   <span class="inline-flex items-center gap-1 text-[10px] bg-red-500/15 text-red-400 border border-red-500/25 px-2.5 py-1 rounded-full font-semibold">
                     <svg class="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"/></svg>
                     Out of Stock
@@ -155,10 +167,10 @@
               <!-- Price -->
               <div class="sm:text-right flex-shrink-0 sm:min-w-[100px]">
                 <p class="text-white font-bold text-lg leading-none mb-1">
-                  ₹<%= price.toLocaleString('en-IN') %>
+                  ₹<%= finalPrice.toLocaleString('en-IN') %>
                 </p>
-                <% if (discPct > 0) { %>
-                  <p class="text-slate-500 text-xs line-through mb-0.5">₹<%= regPrice.toLocaleString('en-IN') %></p>
+                <% if (offerPct > 0) { %>
+                  <p class="text-slate-500 text-xs line-through mb-0.5">₹<%= price.toLocaleString('en-IN') %></p>
                   <p class="text-green-400 text-xs font-semibold">Save ₹<%= saving.toLocaleString('en-IN') %></p>
                 <% } %>
               </div>

@@ -10,99 +10,87 @@ import * as productController from "../controllers/admin/product.controller.js";
 import * as orderController from "../controllers/admin/order.controller.js";
 import * as stockController from "../controllers/admin/stock.controller.js";
 import { createCoupon, deleteCoupon, getAllCoupons, toggleStatus, updateCoupon } from "../controllers/admin/coupon.controller.js";
-import { getSalesReport } from "../controllers/admin/sales-report.controller.js";
+import { getSalesReport, downloadSalesReportPDF, downloadSalesReportExcel } from "../controllers/admin/sales-report.controller.js";
 import { getAdminReferrals } from "../controllers/admin/referral.controller.js";
 
 const router = express.Router();
 
-// ═══ PUBLIC ADMIN ROUTES (Login) ═══
-router
-  .route("/login")
+// ═══ PUBLIC (Login) ═══
+router.route("/login")
   .get(noCache, isLogout, adminAuthController.getAdminLogin)
   .post(isLogout, adminAuthController.handleAdminLogin);
 
-// ═══ PROTECTED ADMIN ROUTES ═══
-// Everything below this line will automatically check for isAdmin
+// ═══ PROTECTED — all routes below require isAdmin ═══
 router.use(isAdmin);
 
 router.post("/logout", adminAuthController.handleAdminLogout);
 
+// ═══ DASHBOARD ═══
 router.get("/dashboard", noCache, dashboardController.showAdminDashboard);
 router.get("/dashboard/chart-data", dashboardController.getChartData);
 
+// ═══ CUSTOMERS ═══
 router.get("/customers", noCache, customersController.showCustomers);
 router.patch("/customers/:id/status", customersController.toggleCustomerStatus);
 
-// Categories
+// ═══ CATEGORIES ═══
 router.get("/categories", categoryCtrl.getCategory);
-router.post("/add-category", categoryCtrl.addCategory);
-router.put("/edit-category", categoryCtrl.editCategory);
-router.patch("/toggle-category/:id", categoryCtrl.toggleCategory);
-router.delete("/delete-category/:id", categoryCtrl.softDeleteCategory);
+router.post("/categories", categoryCtrl.addCategory);
+router.put("/categories", categoryCtrl.editCategory);
+router.patch("/categories/:id/toggle", categoryCtrl.toggleCategory);
+router.delete("/categories/:id", categoryCtrl.softDeleteCategory);
 
-// Route for deleting a specific image from a variant (imageUrl passed in request body)
-router.delete(
-  "/products/:productId/variants/:variantId/images",
-  productController.deleteVariantImage,
-);
-
-// Route for replacing a specific image in a variant
-router.put(
-  "/products/:productId/variants/:variantId/replace-image",
-  upload.single('image'),
-  productController.replaceVariantImage,
-);
-// Products
+// ═══ PRODUCTS ═══
 router.get("/products", noCache, productController.getProductPage);
 router.get("/products/check-name", productController.checkProductName);
 
-router
-  .route("/products/add")
+router.route("/products/add")
   .get(noCache, productController.getaddProducts)
   .post(upload2.any(), productController.postAddProducts);
 
-router
-  .route("/products/edit/:id")
+router.route("/products/edit/:id")
   .get(noCache, productController.geteditProduct)
   .put(upload.any(), productController.postEditProduct);
 
-router.patch("/products/delete/:id", productController.softDeleteProduct);
-router.patch("/products/toggle/:id", productController.toggleProductStatus);
+router.patch("/products/:id/delete", productController.softDeleteProduct);
+router.patch("/products/:id/toggle", productController.toggleProductStatus);
 
-// Orders
+router.delete("/products/:productId/variants/:variantId/images", productController.deleteVariantImage);
+router.put("/products/:productId/variants/:variantId/replace-image", upload.single('image'), productController.replaceVariantImage);
+
+// ═══ ORDERS ═══
 router.get("/orders", noCache, orderController.getOrders);
 router.get("/orders/:id", noCache, orderController.getOrderDetail);
 router.patch("/orders/:id/status", orderController.updateOrderStatus);
 router.patch("/orders/:id/return", orderController.handleReturn);
 router.patch("/orders/:id/restock", orderController.restockReturnedItems);
 
-// Stock / Inventory
+// ═══ STOCK ═══
 router.get("/stock", noCache, stockController.getStockPage);
 router.patch("/stock/:variantId", stockController.updateStock);
 
+// ═══ COUPONS ═══
+router.route("/coupons")
+  .get(getAllCoupons)
+  .post(createCoupon);
 
-// @route    GET /admin/coupons
-// @desc     Display the Coupon Management dashboard
-router.get('/coupons', getAllCoupons);
+router.route("/coupons/:id")
+  .put(updateCoupon)
+  .delete(deleteCoupon);
 
-// @route    POST /admin/coupons/add
-// @desc     Create a new coupon
-router.post('/coupons/add', createCoupon);
+router.patch("/coupons/:id/toggle", toggleStatus);
 
-// @route    PUT /admin/coupons/update/:id
-// @desc     Update coupon details (RESTful PUT)
-router.put('/coupons/update/:id', updateCoupon);
+// ═══ SALES REPORT ═══
+router.get("/sales-report", getSalesReport);
+router.get("/sales-report/download/pdf", downloadSalesReportPDF);
+router.get("/sales-report/download/excel", downloadSalesReportExcel);
 
-// @route    DELETE /admin/coupons/delete/:id
-// @desc     Delete a coupon (RESTful DELETE)
-router.delete('/coupons/delete/:id', deleteCoupon);
+// ═══ REFERRALS ═══
+router.get("/referrals", getAdminReferrals);
 
-router.patch('/coupons/toggle-status/:id', toggleStatus);
-
-// Sales Report
-router.get('/sales-report', getSalesReport);
-
-// Referrals
-router.get('/referrals', getAdminReferrals);
+// ═══ 404 CATCH-ALL (must be last) ═══
+router.use((req, res) => {
+  res.status(404).render("admin/404", { layout: "layouts/admin" });
+});
 
 export default router;

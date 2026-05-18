@@ -8,6 +8,7 @@ import User from '../models/user.model.js';
 import Coupon from '../models/coupon.model.js';
 import { MESSAGES } from '../constants/messages.constant.js';
 import { debitWalletService } from './wallet.service.js';
+import { calculateOfferPrice } from '../utils/offerPrice.util.js';
 
 const MAX_QTY = 10;
 
@@ -63,9 +64,12 @@ async function validateCartItems(cartItems) {
 // ─── Helper: compute order totals ────────────────────────────────────────────
 // Add discount as an optional parameter (default 0)
 function calcTotals(items, discount = 0) {
-  const subtotal = items.reduce((sum, { variant, qty }) => sum + variant.basePrice * qty, 0);
+  const subtotal = items.reduce((sum, { variant, qty, product, category }) => {
+    const offerResult = calculateOfferPrice(variant, category, product);
+    return sum + offerResult.finalPrice * qty;
+  }, 0);
   const shipping = subtotal >= 5000 ? 0 : 50;
-  const tax = Math.round((subtotal - discount) * 0.18); // Tax on discounted price
+  const tax = Math.round((subtotal - discount) * 0.18);
   const total = (subtotal - discount) + tax + shipping;
   
   return { subtotal, shipping, tax, total, discount };
@@ -85,25 +89,43 @@ export const getCheckoutDataService = async (userId) => {
     const { validItems, blockedItems, stockErrors } = await validateCartItems(cart.items);
 
     if (validItems.length === 0) {
+      // Remove all blocked items from cart since none are valid
+      cart.items = [];
+      await cart.save();
       return { success: false, message: MESSAGES.CHECKOUT.CART_UNAVAILABLE, blockedItems, stockErrors };
+    }
+
+    // Remove blocked items from cart so they don't cause issues during order placement
+    if (blockedItems.length > 0) {
+      const validVariantIds = validItems.map(v => v.variant._id.toString());
+      cart.items = cart.items.filter(item => 
+        validVariantIds.includes((item.variant._id || item.variant).toString())
+      );
+      await cart.save();
     }
 
     const totals    = calcTotals(validItems);
     const addresses = await Address.find({ userId }).sort({ isDefault: -1, createdAt: -1 }).lean();
 
-    const checkoutItems = validItems.map(({ item, product, variant, qty }) => ({
-      productId:    product._id,
-      variantId:    variant._id,
-      productName:  product.name,
-      brand:        product.brand,
-      color:        variant.color,
-      imageUrl:     variant.images?.[0]?.url || product.images?.[0]?.url || null,
-      quantity:     qty,
-      basePrice:    variant.basePrice,
-      regularPrice: variant.regularPrice ?? variant.basePrice,
-      finalPrice:   variant.finalPrice   ?? variant.basePrice,
-      itemTotal:    variant.basePrice * qty,
-    }));
+    const checkoutItems = validItems.map(({ item, product, variant, qty }) => {
+      const category = product?.category;
+      const offerResult = calculateOfferPrice(variant, category, product);
+      return {
+        productId:       product._id,
+        variantId:       variant._id,
+        productName:     product.name,
+        brand:           product.brand,
+        color:           variant.color,
+        imageUrl:        variant.images?.[0]?.url || product.images?.[0]?.url || null,
+        quantity:        qty,
+        basePrice:       variant.basePrice,
+        regularPrice:    variant.regularPrice ?? variant.basePrice,
+        finalPrice:      offerResult.finalPrice,
+        offerPercentage: offerResult.offerPercentage,
+        offerSource:     offerResult.offerSource,
+        itemTotal:       offerResult.finalPrice * qty,
+      };
+    });
 
     // Fetch available active coupons for the user
     const availableCoupons = await Coupon.find({
@@ -144,7 +166,8 @@ export const validateBuyNowService = async (productId, variantId, quantity = 1) 
     if (quantity > variant.stock)
       return { success: false, message: `Only ${variant.stock} items available` };
 
-    const subtotal = variant.basePrice * quantity;
+    const offerResult = calculateOfferPrice(variant, product.category, product);
+    const subtotal = offerResult.finalPrice * quantity;
     const shipping = subtotal >= 5000 ? 0 : 50;
     const tax      = Math.round(subtotal * 0.18);
     const total    = subtotal + tax + shipping;
@@ -155,9 +178,11 @@ export const validateBuyNowService = async (productId, variantId, quantity = 1) 
         item: {
           product: { _id: product._id, name: product.name, brand: product.brand, images: product.images },
           variant: { _id: variant._id, color: variant.color, basePrice: variant.basePrice,
-                     regularPrice: variant.regularPrice, finalPrice: variant.finalPrice, images: variant.images },
+                     regularPrice: variant.regularPrice, finalPrice: offerResult.finalPrice,
+                     offerPercentage: offerResult.offerPercentage, offerSource: offerResult.offerSource,
+                     images: variant.images },
           quantity,
-          price: variant.basePrice,
+          price: offerResult.finalPrice,
           subtotal,
         },
         totals: { subtotal, shipping, tax, total },
@@ -301,16 +326,18 @@ export const processCheckoutService = async ({
       if (!stockResult)
         return { success: false, message: 'Failed to reserve stock. Item may be out of stock.' };
 
+      const offerResult = calculateOfferPrice(variant, product.category, product);
+
       orderItems = [{
         product:      productId,
         variant:      variantId,
         productName:  product.name,
         variantColor: variant.color,
         imageUrl:     variant.images?.[0]?.url || product.images?.[0]?.url || '',
-        basePrice:    variant.basePrice,
+        basePrice:    offerResult.finalPrice,
         regularPrice: variant.regularPrice ?? variant.basePrice,
         quantity,
-        itemTotal:    variant.basePrice * quantity,
+        itemTotal:    offerResult.finalPrice * quantity,
       }];
 
     } else {
@@ -343,16 +370,19 @@ export const processCheckoutService = async ({
           return { success: false, message: `Failed to reserve stock for ${product.name}.` };
         }
 
+        const category = product?.category;
+        const offerResult = calculateOfferPrice(variant, category, product);
+
         orderItems.push({
           product:      product._id,
           variant:      variant._id,
           productName:  product.name,
           variantColor: variant.color,
           imageUrl:     variant.images?.[0]?.url || product.images?.[0]?.url || '',
-          basePrice:    variant.basePrice,
+          basePrice:    offerResult.finalPrice,
           regularPrice: variant.regularPrice ?? variant.basePrice,
           quantity:     qty,
-          itemTotal:    variant.basePrice * qty,
+          itemTotal:    offerResult.finalPrice * qty,
         });
       }
 
@@ -436,7 +466,7 @@ export const processCheckoutService = async ({
 // ─── Razorpay: create order AFTER signature verification ─────────────────────
 // Called only when Razorpay payment is confirmed — THEN deduct stock + clear cart
 // Uses atomic findOneAndUpdate (stock >= qty) — safe without replica set
-export const processRazorpayOrderService = async ({ userId, addressId, razorpayPaymentId, razorpayOrderId }) => {
+export const processRazorpayOrderService = async ({ userId, addressId, razorpayPaymentId, razorpayOrderId, couponCode = null, discount = 0 }) => {
   try {
     const address = await Address.findOne({ _id: addressId, userId });
     if (!address) return { success: false, message: MESSAGES.CHECKOUT.INVALID_ADDRESS };
@@ -503,16 +533,19 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
         };
       }
 
+      const category = product?.category;
+      const offerResult = calculateOfferPrice(variant, category, product);
+
       orderItems.push({
         product:      product._id,
         variant:      variant._id,
         productName:  product.name,
         variantColor: variant.color,
         imageUrl:     variant.images?.[0]?.url || product.images?.[0]?.url || '',
-        basePrice:    variant.basePrice,
+        basePrice:    offerResult.finalPrice,
         regularPrice: variant.regularPrice ?? variant.basePrice,
         quantity:     qty,
-        itemTotal:    variant.basePrice * qty,
+        itemTotal:    offerResult.finalPrice * qty,
       });
     }
 
@@ -523,8 +556,9 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
     // ── Create order ─────────────────────────────────────────────────────────
     const subtotal = orderItems.reduce((s, i) => s + i.itemTotal, 0);
     const shipping = subtotal >= 5000 ? 0 : 50;
-    const tax      = Math.round(subtotal * 0.18);
-    const total    = subtotal + tax + shipping;
+    const taxableAmount = Math.max(0, subtotal - discount);
+    const tax      = Math.round(taxableAmount * 0.18);
+    const total    = taxableAmount + tax + shipping;
 
     const order = new Order({
       user: userId,
@@ -542,7 +576,7 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
       paymentStatus:     'paid',
       razorpayOrderId,
       razorpayPaymentId,
-      subtotal, tax, shipping, total,
+      subtotal, discount, couponCode, tax, shipping, total,
       status: 'pending',
     });
 

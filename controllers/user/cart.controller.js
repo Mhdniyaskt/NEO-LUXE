@@ -2,11 +2,13 @@
 import asyncHandler from '../../utils/asyncHandler.util.js';
 import Cart from '../../models/cart.model.js';
 import Variant from '../../models/variant.model.js';
+import Product from '../../models/product.model.js';
 import {
   getCartService,
   addToCartService,
   clearCartService
 } from '../../services/cart.service.js';
+import { calculateOfferPrice } from '../../utils/offerPrice.util.js';
 
 // ─── GET /cart ───────────────────────────────────────────────────────────────
 export const getCart = asyncHandler(async (req, res) => {
@@ -111,13 +113,19 @@ export const updateQty = asyncHandler(async (req, res) => {
 
   const cartResult = await getCartService(userId);
 
+  // Calculate offer price for this item
+  const product = await Product.findById(item.product).populate('category').lean();
+  const offerResult = calculateOfferPrice(variant, product?.category, product);
+
   return res.json({
     success:      true,
     quantity:     newQty,
     stock:        variant.stock,
-    itemSubtotal: variant.basePrice * newQty,
+    itemSubtotal: offerResult.finalPrice * newQty,
     basePrice:    variant.basePrice,
-    finalPrice:   variant.basePrice,
+    finalPrice:   offerResult.finalPrice,
+    regularPrice: variant.regularPrice,
+    offerPercentage: offerResult.offerPercentage,
     ...(cartResult.success ? cartResult.cart.summary : {})
   });
 });

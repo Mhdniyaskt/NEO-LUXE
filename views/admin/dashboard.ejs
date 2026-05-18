@@ -14,14 +14,9 @@
 
       <!-- Header -->
       <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div class="flex items-center gap-4">
-          <button onclick="toggleSidebar()" class="lg:hidden text-white bg-slate-800 p-2 rounded-lg">
-            <i class="fas fa-bars"></i>
-          </button>
-          <div>
-            <h2 class="text-xl md:text-2xl font-bold text-white uppercase tracking-tight">Dashboard</h2>
-            <p class="text-slate-500 text-xs md:text-sm">Real-time business overview.</p>
-          </div>
+        <div>
+          <h2 class="text-xl md:text-2xl font-bold text-white uppercase tracking-tight">Dashboard</h2>
+          <p class="text-slate-500 text-xs md:text-sm">Real-time business overview.</p>
         </div>
         <!-- Chart filter buttons -->
         <div id="chartFilters" class="flex bg-slate-900 rounded-full p-1 text-[10px] font-bold uppercase border border-slate-800">
@@ -221,7 +216,6 @@
 <script>
   let revenueChart;
 
-  // ── Load chart data via API ─────────────────────────────────────────────────
   async function loadChart(filter) {
     // Update active button
     document.querySelectorAll('#chartFilters button').forEach(btn => {
@@ -240,32 +234,16 @@
       if (!json.success) return;
 
       const chartData = json.data;
-      let labels = [];
-      let values = [];
-
-      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      const days   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-      if (filter === 'yearly') {
-        labels = chartData.map(d => d._id.toString());
-        values = chartData.map(d => d.total);
-      } else if (filter === 'monthly') {
-        labels = chartData.map(d => months[(d._id.month || 1) - 1] + ' ' + (d._id.year || ''));
-        values = chartData.map(d => d.total);
-      } else if (filter === 'weekly') {
-        labels = chartData.map(d => days[(d._id || 1) - 1] || 'Day');
-        values = chartData.map(d => d.total);
-      } else {
-        labels = chartData.map(d => {
-          const dt = new Date(d._id);
-          return dt.toLocaleDateString('en-IN', { day:'numeric', month:'short' });
-        });
-        values = chartData.map(d => d.total);
-      }
+      const labels = chartData.map(d => d.label);
+      const values = chartData.map(d => d.total);
 
       // Update total display
       const total = values.reduce((s, v) => s + v, 0);
-      document.getElementById('chartTotal').textContent = '₹' + (total >= 1000 ? (total/1000).toFixed(1) + 'k' : total);
+      document.getElementById('chartTotal').textContent = total >= 100000
+        ? '₹' + (total / 100000).toFixed(1) + 'L'
+        : total >= 1000
+          ? '₹' + (total / 1000).toFixed(1) + 'k'
+          : '₹' + total;
 
       // Update chart
       if (revenueChart) revenueChart.destroy();
@@ -297,13 +275,14 @@
           plugins: { legend: { display: false } },
           scales: {
             y: {
+              beginAtZero: true,
               grid: { color: 'rgba(30,41,59,0.5)', drawBorder: false },
               ticks: { color: '#64748b', font: { size: 10 },
-                callback: v => v >= 1000 ? (v/1000).toFixed(0) + 'k' : v }
+                callback: v => v >= 100000 ? (v/100000).toFixed(1) + 'L' : v >= 1000 ? (v/1000).toFixed(0) + 'k' : v }
             },
             x: {
               grid: { display: false },
-              ticks: { color: '#64748b', font: { size: 10 } }
+              ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }
             }
           }
         }

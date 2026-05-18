@@ -85,12 +85,12 @@ export const getProductsService = async (filters = {}) => {
         product.minPrice = Math.min(...prices);
         product.maxPrice = Math.max(...prices);
         product.totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
-        product.bestOffer = Math.max(...variants.map(v => v.offerPercentage || 0));
+        product.bestOffer = product.offerPercentage || 0;
       } else {
         product.minPrice = 0;
         product.maxPrice = 0;
         product.totalStock = 0;
-        product.bestOffer = 0;
+        product.bestOffer = product.offerPercentage || 0;
       }
 
       // Filter by price range
@@ -177,7 +177,7 @@ export const getProductByIdService = async (productId, isAdmin = false) => {
       product.minPrice = Math.min(...prices);
       product.maxPrice = Math.max(...prices);
       product.totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
-      product.bestOffer = Math.max(...variants.map(v => v.offerPercentage || 0));
+      product.bestOffer = product.offerPercentage || 0;
     }
 
     // Get related products (same category, different product)
@@ -213,6 +213,8 @@ export const createProductService = async (productData, files = []) => {
       caseSize,
       strapType,
       movementType,
+      offerPercentage,
+      offerExpiryDate,
       isListed = true,
       variants = []
     } = productData;
@@ -284,6 +286,8 @@ export const createProductService = async (productData, files = []) => {
         strapType:    strapType?.trim()    || '',
         movementType: movementType?.trim() || '',
       },
+      offerPercentage: Math.min(Math.max(parseInt(offerPercentage) || 0, 0), 100),
+      offerExpiryDate: offerExpiryDate || null,
       isActive: isListed === 'on' || isListed === 'true' || isListed === true,
     });
 
@@ -359,11 +363,14 @@ export const updateProductService = async (productId, updateData, files = []) =>
     const {
       name, brand, category, description,
       caseSize, strapType, movementType, isActive,
+      offerPercentage, offerExpiryDate,
     } = updateData;
 
     if (!name?.trim() || !brand?.trim() || !category || !description?.trim()) {
       return { success: false, message: 'Name, brand, category and description are required' };
     }
+
+    const productOfferPct = Math.min(Math.max(parseInt(offerPercentage) || 0, 0), 100);
 
     await Product.findByIdAndUpdate(productId, {
       name:        name.trim(),
@@ -375,6 +382,8 @@ export const updateProductService = async (productId, updateData, files = []) =>
         strapType:    strapType?.trim()    || '',
         movementType: movementType?.trim() || '',
       },
+      offerPercentage: productOfferPct,
+      offerExpiryDate: offerExpiryDate || null,
       isActive: isActive === 'on' || isActive === 'true' || isActive === true,
     });
 
@@ -422,14 +431,12 @@ export const updateProductService = async (productId, updateData, files = []) =>
 
     // ── 5. Process each variant ───────────────────────────────────────
     for (const [idx, vData] of variantEntries) {
-      const { _id, color, basePrice, regularPrice, stock, offerPercentage, offerExpiryDate } = vData;
+      const { _id, color, basePrice, regularPrice, stock } = vData;
       if (!color?.trim()) continue;
 
       const parsedBase    = parseFloat(basePrice)    || 0;
       const parsedRegular = parseFloat(regularPrice) || parsedBase;
       const parsedStock   = parseInt(stock, 10)      || 0;
-      const parsedOffer   = parseInt(offerPercentage, 10) || 0;
-      const parsedExpiry  = offerExpiryDate ? new Date(offerExpiryDate) : null;
 
       // ── 5a. Upload new cropped images to Cloudinary ────────────────
       const newImages = [];
@@ -457,8 +464,6 @@ export const updateProductService = async (productId, updateData, files = []) =>
         variant.basePrice       = parsedBase;
         variant.regularPrice    = parsedRegular;
         variant.stock           = parsedStock;
-        variant.offerPercentage = parsedOffer;
-        variant.offerExpiryDate = parsedExpiry;
 
         // Calculate final image count BEFORE modifying to validate
         const remainingAfterDelete = variant.images.filter(img => !urlsToDelete.includes(img.url));
@@ -512,8 +517,6 @@ export const updateProductService = async (productId, updateData, files = []) =>
           basePrice:       parsedBase,
           regularPrice:    parsedRegular,
           stock:           parsedStock,
-          offerPercentage: parsedOffer,
-          offerExpiryDate: parsedExpiry,
           images:          newImages,
           isActive:        true,
           isDeleted:       false,

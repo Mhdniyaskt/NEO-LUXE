@@ -127,15 +127,10 @@
           </div>
 
           <div class="flex items-center gap-3">
-            <span class="text-3xl font-bold text-white">₹<%= defaultVariant.basePrice.toLocaleString('en-IN') %></span>
-            <% if (defaultVariant.regularPrice > defaultVariant.basePrice) { %>
-              <span class="text-slate-500 line-through text-lg">₹<%= defaultVariant.regularPrice.toLocaleString('en-IN') %></span>
-              <%
-                const discPct = Math.round(
-                  (defaultVariant.regularPrice - defaultVariant.basePrice) / defaultVariant.regularPrice * 100
-                );
-              %>
-              <span class="bg-red-500/20 text-red-400 text-xs font-bold px-2.5 py-1 rounded-md">−<%= discPct %>% OFF</span>
+            <span class="text-3xl font-bold text-white">₹<%= defaultVariant.finalPrice.toLocaleString('en-IN') %></span>
+            <% if (defaultVariant.appliedOffer > 0) { %>
+              <span class="text-slate-500 line-through text-lg">₹<%= defaultVariant.salePrice.toLocaleString('en-IN') %></span>
+              <span class="bg-red-500/20 text-red-400 text-xs font-bold px-2.5 py-1 rounded-md">−<%= defaultVariant.appliedOffer %>% OFF</span>
             <% } %>
           </div>
 
@@ -252,8 +247,7 @@
                   ['Strap Type',     product.specifications?.strapType      ],
                   ['Movement Type',  product.specifications?.movementType   ],
                   ['Color',          defaultVariant.color                   ],
-                  ['Sale Price',     '₹' + defaultVariant.basePrice.toLocaleString('en-IN')],
-                  ['Regular Price',  '₹' + defaultVariant.regularPrice.toLocaleString('en-IN')],
+                  ['Price',          '₹' + defaultVariant.basePrice.toLocaleString('en-IN')],
                   ['Stock',          defaultVariant.stock + ' units'        ],
                 ];
               %>
@@ -297,10 +291,9 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <% recommendations.forEach((rec) => {
             const rv         = rec.variant;
-            const salePrice  = rv ? rv.basePrice    : 0;
-            const regPrice   = rv ? rv.regularPrice : 0;
-            const rdiscPct   = (regPrice > salePrice && regPrice > 0)
-                                 ? Math.round((regPrice - salePrice) / regPrice * 100) : 0;
+            const recSalePrice  = rv ? rv.basePrice    : 0;
+            const recFinalPrice = rv ? (rv.finalPrice ?? recSalePrice) : 0;
+            const rdiscPct   = rv ? (rv.appliedOffer ?? 0) : 0;
             const recImg     = rv && rv.images && rv.images.length ? rv.images[0].url : null;
           %>
           <a href="/shop/<%= rec._id %>"
@@ -331,9 +324,9 @@
               <p class="text-[10px] text-slate-500 uppercase tracking-widest mb-1"><%= rec.brand %></p>
               <h3 class="text-white text-sm font-bold truncate mb-2 group-hover:text-cyan-400 transition"><%= rec.name %></h3>
               <div class="flex items-baseline gap-2">
-                <span class="text-white font-bold">₹<%= salePrice.toLocaleString('en-IN') %></span>
-                <% if (regPrice > salePrice) { %>
-                  <span class="text-slate-600 text-xs line-through">₹<%= regPrice.toLocaleString('en-IN') %></span>
+                <span class="text-white font-bold">₹<%= recFinalPrice.toLocaleString('en-IN') %></span>
+                <% if (rdiscPct > 0) { %>
+                  <span class="text-slate-600 text-xs line-through">₹<%= recSalePrice.toLocaleString('en-IN') %></span>
                 <% } %>
               </div>
             </div>
@@ -395,7 +388,7 @@
       // kept for any legacy inline calls — real feedback comes from layout toast
     }
 
-    // ── Buy Now — fetch first, show error toast on failure, submit form on success ──
+    // ── Buy Now — navigate to buy-now checkout page ──
     async function handleBuyNow() {
       const btn  = document.getElementById('buyNowBtn');
       const form = document.getElementById('buyNowForm');
@@ -407,65 +400,40 @@
       btn.textContent = '…';
 
       try {
-        const res  = await fetch('/checkout/buy-now', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ productId, variantId }),
+        // Check if user is logged in by making a quick validation request
+        const res = await fetch(`/buy-now/${productId}/${variantId}`, {
+          method: 'GET',
+          redirect: 'follow',
         });
 
-        if (res.status === 401) {
-          Swal.fire({
-            icon:              'info',
-            title:             'Login Required',
-            text:              'Please login to purchase this item.',
-            showCancelButton:  true,
-            confirmButtonText: 'Login',
-            cancelButtonText:  'Continue Browsing',
-            confirmButtonColor:'#06b6d4',
-            cancelButtonColor: '#1e2640',
-            background:        '#0f1526',
-            color:             '#e2e8f0',
-          }).then(r => { if (r.isConfirmed) window.location.href = '/login'; });
-          return;
-        }
-
-        // Success — server rendered the checkout page; navigate via normal form POST
-        if (res.ok && res.redirected) {
+        if (res.redirected) {
+          // Redirected to login or another page
           window.location.href = res.url;
           return;
         }
 
-        // Try to parse JSON (error responses)
+        if (res.ok) {
+          // Success — navigate to the buy-now page
+          window.location.href = `/buy-now/${productId}/${variantId}`;
+          return;
+        }
+
+        // Error response
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
-          if (data.success) {
-            // Should not happen (success renders HTML), but handle gracefully
-            window.location.href = data.redirect || '/checkout';
-            return;
-          }
-          // Show error message — stay on page
           Swal.fire({
-            icon:               'warning',
-            title:              'Cannot Proceed',
-            text:               data.message,
-            confirmButtonColor: '#06b6d4',
-            background:         '#0f1526',
-            color:              '#e2e8f0',
+            icon: 'warning', title: 'Cannot Proceed', text: data.message || 'Something went wrong',
+            confirmButtonColor: '#06b6d4', background: '#0f1526', color: '#e2e8f0',
           });
         } else {
-          // Server returned HTML (checkout page) — follow via form submit
-          form.submit();
-          return;
+          // Server returned HTML error page — just navigate
+          window.location.href = `/buy-now/${productId}/${variantId}`;
         }
       } catch {
         Swal.fire({
-          icon:               'error',
-          title:              'Error',
-          text:               'Something went wrong. Please try again.',
-          confirmButtonColor: '#06b6d4',
-          background:         '#0f1526',
-          color:              '#e2e8f0',
+          icon: 'error', title: 'Error', text: 'Something went wrong. Please try again.',
+          confirmButtonColor: '#06b6d4', background: '#0f1526', color: '#e2e8f0',
         });
       } finally {
         btn.disabled    = false;

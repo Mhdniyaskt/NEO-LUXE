@@ -178,7 +178,7 @@
       </svg>`;
 
       try {
-        const res  = await fetch('/cart/add', {
+        const res  = await fetch('/cart', {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({ productId, variantId, quantity }),

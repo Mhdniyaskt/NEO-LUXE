@@ -121,8 +121,8 @@
           const atMin       = item.quantity <= 1;
           const salePrice   = variant.basePrice;
           const regPrice    = variant.regularPrice;
-          const discPct     = (regPrice > salePrice && regPrice > 0)
-                                ? Math.round((regPrice - salePrice) / regPrice * 100) : 0;
+          const discPct     = variant.appliedOffer || 0;
+          const itemFinalPrice = variant.finalPrice || salePrice;
         %>
         <div id="row-<%= variant._id %>"
              data-blocked="<%= isBlocked %>"
@@ -198,11 +198,11 @@
                 <!-- Price -->
                 <div class="flex items-baseline gap-2">
                   <span class="text-white font-bold text-base sm:text-lg">
-                    ₹<%= salePrice.toLocaleString('en-IN') %>
+                    ₹<%= itemFinalPrice.toLocaleString('en-IN') %>
                   </span>
-                  <% if (regPrice > salePrice) { %>
+                  <% if (discPct > 0) { %>
                     <span class="text-slate-600 text-xs line-through">
-                      ₹<%= regPrice.toLocaleString('en-IN') %>
+                      ₹<%= salePrice.toLocaleString('en-IN') %>
                     </span>
                   <% } %>
                 </div>
@@ -227,7 +227,7 @@
                     <p class="text-[10px] text-slate-500 uppercase tracking-wider">Subtotal</p>
                     <p id="itemSub-<%= variant._id %>"
                        class="font-bold text-sm <%= isBlocked ? 'text-red-400' : 'text-cyan-400' %>">
-                      ₹<%= (salePrice * item.quantity).toLocaleString('en-IN') %>
+                      ₹<%= (itemFinalPrice * item.quantity).toLocaleString('en-IN') %>
                     </p>
                   </div>
                 </div>
@@ -379,7 +379,7 @@
   async function removeItem(variantId) {
     const row = document.getElementById('row-' + variantId);
     try {
-      const res  = await fetch('/cart/remove/' + variantId, { method: 'DELETE' });
+      const res  = await fetch('/cart/' + variantId, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         row.classList.add('item-removing');

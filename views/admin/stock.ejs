@@ -39,9 +39,6 @@
           <h1 class="text-2xl font-bold text-white tracking-tight">Stock Management</h1>
           <p class="text-slate-500 text-sm mt-1">Monitor and update inventory levels for all watch variants.</p>
         </div>
-        <button onclick="toggleSidebar()" class="lg:hidden bg-slate-900 border border-slate-800 p-2.5 rounded-xl text-white">
-          <i class="fas fa-bars"></i>
-        </button>
       </div>
 
       <!-- Summary cards -->
@@ -270,10 +267,6 @@
 </div>
 
 <script>
-  function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('-translate-x-full');
-  }
-
   // ── Real-time input validation ─────────────────────────────────────────────
   function validateStockInput(input) {
     const variantId = input.id.replace('stock-input-', '');

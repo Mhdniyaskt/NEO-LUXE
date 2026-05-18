@@ -214,7 +214,7 @@
             </div>
             <% if (order.discount && order.discount > 0) { %>
               <div class="flex justify-between items-center">
-                <span class="text-emerald-400">Discount</span>
+                <span class="text-emerald-400">Coupon Discount<%= order.couponCode ? ' (' + order.couponCode + ')' : '' %></span>
                 <span class="text-emerald-400 font-semibold">−₹<%= order.discount.toLocaleString('en-IN') %></span>
               </div>
             <% } %>

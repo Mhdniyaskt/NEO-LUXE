@@ -169,7 +169,7 @@
                 <button onclick="toggleModal('addCouponModal')" class="h-10 w-10 flex items-center justify-center rounded-full bg-white/5 text-slate-500 hover:text-white transition-colors"><i class="fas fa-times"></i></button>
             </div>
             
-            <form id="addCouponForm" action="/admin/coupons/add" method="POST" class="space-y-6" onsubmit="return validateAddForm(event)">
+            <form id="addCouponForm" action="/admin/coupons" method="POST" class="space-y-6" onsubmit="return validateAddForm(event)">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="space-y-2">
                         <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Title (Display Name)</label>
@@ -338,7 +338,7 @@
         const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
 
         try {
-            const response = await fetch(`/admin/coupons/toggle-status/${id}`, {
+            const response = await fetch(`/admin/coupons/${id}/toggle`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
@@ -468,7 +468,7 @@
         const data = Object.fromEntries(new FormData(form).entries());
 
         try {
-            const response = await fetch(`/admin/coupons/update/${couponId}`, {
+            const response = await fetch(`/admin/coupons/${couponId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -561,7 +561,7 @@
         if (!result.isConfirmed) return;
 
         try {
-            const response = await fetch(`/admin/coupons/delete/${couponId}`, { method: 'DELETE' });
+            const response = await fetch(`/admin/coupons/${couponId}`, { method: 'DELETE' });
             if (response.ok) {
                 await Swal.fire({
                     title: 'Deleted!',

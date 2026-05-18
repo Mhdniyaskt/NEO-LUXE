@@ -28,31 +28,33 @@ export const getDashboardStats = async () => {
   };
 };
 
-// ─── Revenue chart data (by filter: yearly/monthly/weekly/daily) ─────────────
+// ─── Revenue chart data (by filter: yearly/monthly/weekly) ───────────────────
 export const getRevenueChartData = async (filter = 'monthly') => {
-  const now   = new Date();
-  let matchStage, groupStage, labels;
+  const now = new Date();
+  let matchStage, groupStage;
 
   if (filter === 'yearly') {
-    // Last 5 years
-    const startYear = now.getFullYear() - 4;
-    matchStage = { createdAt: { $gte: new Date(`${startYear}-01-01`) }, paymentStatus: 'paid', status: { $nin: ['cancelled'] } };
-    groupStage = { _id: { $year: '$createdAt' }, total: { $sum: '$total' }, count: { $sum: 1 } };
+    // Current year, month-wise (Jan to Dec)
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+    matchStage = { createdAt: { $gte: startOfYear, $lte: endOfYear }, paymentStatus: 'paid', status: { $nin: ['cancelled'] } };
+    groupStage = { _id: { $month: '$createdAt' }, total: { $sum: '$total' }, count: { $sum: 1 } };
   } else if (filter === 'monthly') {
-    // Last 12 months
-    const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-    matchStage = { createdAt: { $gte: start }, paymentStatus: 'paid', status: { $nin: ['cancelled'] } };
-    groupStage = { _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } }, total: { $sum: '$total' }, count: { $sum: 1 } };
-  } else if (filter === 'weekly') {
-    // Last 7 days
-    const start = new Date(); start.setDate(start.getDate() - 6); start.setHours(0,0,0,0);
-    matchStage = { createdAt: { $gte: start }, paymentStatus: 'paid', status: { $nin: ['cancelled'] } };
-    groupStage = { _id: { $dayOfWeek: '$createdAt' }, total: { $sum: '$total' }, count: { $sum: 1 } };
+    // Current month, date-wise (1 to 28/30/31)
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    matchStage = { createdAt: { $gte: startOfMonth, $lte: endOfMonth }, paymentStatus: 'paid', status: { $nin: ['cancelled'] } };
+    groupStage = { _id: { $dayOfMonth: '$createdAt' }, total: { $sum: '$total' }, count: { $sum: 1 } };
   } else {
-    // Daily — last 30 days
-    const start = new Date(); start.setDate(start.getDate() - 29); start.setHours(0,0,0,0);
-    matchStage = { createdAt: { $gte: start }, paymentStatus: 'paid', status: { $nin: ['cancelled'] } };
-    groupStage = { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, total: { $sum: '$total' }, count: { $sum: 1 } };
+    // Weekly: current week (Mon to Sun)
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+    const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMon, 0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+    sunday.setHours(23, 59, 59, 999);
+    matchStage = { createdAt: { $gte: monday, $lte: sunday }, paymentStatus: 'paid', status: { $nin: ['cancelled'] } };
+    groupStage = { _id: { $dayOfWeek: '$createdAt' }, total: { $sum: '$total' }, count: { $sum: 1 } };
   }
 
   const data = await Order.aggregate([
@@ -61,7 +63,35 @@ export const getRevenueChartData = async (filter = 'monthly') => {
     { $sort: { _id: 1 } },
   ]);
 
-  return data;
+  // Build complete result with zeros for missing slots
+  if (filter === 'yearly') {
+    // 12 months
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const result = months.map((label, i) => {
+      const found = data.find(d => d._id === i + 1);
+      return { label, total: found ? found.total : 0, count: found ? found.count : 0 };
+    });
+    return result;
+  } else if (filter === 'monthly') {
+    // Days in current month
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const result = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const found = data.find(item => item._id === d);
+      result.push({ label: d.toString(), total: found ? found.total : 0, count: found ? found.count : 0 });
+    }
+    return result;
+  } else {
+    // Weekly: Mon to Sun
+    // MongoDB $dayOfWeek: 1=Sun, 2=Mon, 3=Tue, 4=Wed, 5=Thu, 6=Fri, 7=Sat
+    const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const dayMap = [2, 3, 4, 5, 6, 7, 1]; // Mon=2, Tue=3, ..., Sun=1
+    const result = dayLabels.map((label, i) => {
+      const found = data.find(d => d._id === dayMap[i]);
+      return { label, total: found ? found.total : 0, count: found ? found.count : 0 };
+    });
+    return result;
+  }
 };
 
 // ─── Best selling products (Top 10) ──────────────────────────────────────────

@@ -70,8 +70,8 @@
                                 <th class="px-6 py-5">Watch Details</th>
                                 <th class="px-6 py-5">Brand</th>
                                 <th class="px-6 py-5">Category</th>
-                                <th class="px-6 py-5"> Price</th>
-                                
+                                <th class="px-6 py-5">Price</th>
+                                <th class="px-6 py-5">Offer</th>
                                 <th class="px-6 py-5">Total Stock</th>
                                 <th class="px-6 py-5">Status</th>
                                 <th class="px-6 py-5 text-right">Actions</th>
@@ -104,7 +104,14 @@
                                     <td class="px-6 py-4">
                                         <div class="font-bold text-cyan-400">₹<%= product.minPrice ? product.minPrice.toLocaleString() : 'N/A' %></div>
                                     </td>
-                                   
+                                    <td class="px-6 py-4">
+                                        <% if (product.bestOffer > 0) { %>
+                                            <div class="text-xs font-bold text-amber-400"><%= product.bestOffer %>%</div>
+                                            <span class="text-[8px] font-black text-green-400 border border-green-500/30 bg-green-500/5 px-1 py-0.5 rounded">ACTIVE</span>
+                                        <% } else { %>
+                                            <span class="text-[9px] text-slate-600">No Offer</span>
+                                        <% } %>
+                                    </td>
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-2">
                                             <span class="text-white font-medium"><%= product.totalStock %></span>
@@ -198,7 +205,7 @@
         if (!result.isConfirmed) return;
 
         try {
-            const res  = await fetch(`/admin/products/toggle/${id}`, { method: 'PATCH' });
+            const res  = await fetch(`/admin/products/${id}/toggle`, { method: 'PATCH' });
             const data = await res.json();
 
             if (data.success) {
@@ -247,7 +254,7 @@
             // Show a loading state while the request processes
             Swal.showLoading();
 
-            const response = await fetch(`/admin/products/delete/${id}`, {
+            const response = await fetch(`/admin/products/${id}/delete`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' }
             });

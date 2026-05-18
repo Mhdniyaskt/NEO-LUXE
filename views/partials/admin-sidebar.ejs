@@ -11,68 +11,65 @@
     </div>
 
     <nav class="flex-1 space-y-1 overflow-y-auto">
-        <a href="/admin/dashboard" 
+        <a href="/admin/dashboard" onclick="closeSidebarMobile()"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'dashboard' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
             <i class="fas fa-th-large w-5 text-center text-sm flex-shrink-0 <%= path === 'dashboard' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
             <span class="text-sm font-medium">Dashboard</span>
             <% if (path === 'dashboard') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
         </a>
 
-        <a href="/admin/customers" 
+        <a href="/admin/customers" onclick="closeSidebarMobile()"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'customers' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
             <i class="fas fa-users w-5 text-center text-sm flex-shrink-0 <%= path === 'customers' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
             <span class="text-sm font-medium">Customers</span>
             <% if (path === 'customers') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
         </a>
 
-        <a href="/admin/categories" 
+        <a href="/admin/categories" onclick="closeSidebarMobile()"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'categories' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
             <i class="fas fa-layer-group w-5 text-center text-sm flex-shrink-0 <%= path === 'categories' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
             <span class="text-sm font-medium">Categories</span>
             <% if (path === 'categories') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
         </a>
 
-        <a href="/admin/products" 
+        <a href="/admin/products" onclick="closeSidebarMobile()"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'watches' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
             <i class="fas fa-clock w-5 text-center text-sm flex-shrink-0 <%= path === 'watches' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
             <span class="text-sm font-medium">Watches</span>
             <% if (path === 'watches') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
         </a>
 
-        <a href="/admin/orders" 
+        <a href="/admin/orders" onclick="closeSidebarMobile()"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'orders' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
             <i class="fas fa-shopping-bag w-5 text-center text-sm flex-shrink-0 <%= path === 'orders' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
             <span class="text-sm font-medium">Orders</span>
             <% if (path === 'orders') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
         </a>
 
-        <a href="/admin/stock" 
+        <a href="/admin/stock" onclick="closeSidebarMobile()"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'stock' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
-            <i class="fas fa-boxes w-5 text-center text-sm flex-shrink-0 <%= path === 'stock' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
+            <i class="fas fa-boxes-stacked w-5 text-center text-sm flex-shrink-0 <%= path === 'stock' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
             <span class="text-sm font-medium">Stock</span>
             <% if (path === 'stock') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
         </a>
 
-        <!-- Coupons Link -->
-<a href="/admin/coupons" 
-   class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'coupons' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
-    <i class="fas fa-ticket-alt w-5 text-center text-sm flex-shrink-0 <%= path === 'coupons' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
-    <span class="text-sm font-medium">Coupons</span>
-    <% if (path === 'coupons') { %>
-        <span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
-    <% } %>
-</a>
+        <a href="/admin/coupons" onclick="closeSidebarMobile()"
+           class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'coupons' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
+            <i class="fas fa-ticket w-5 text-center text-sm flex-shrink-0 <%= path === 'coupons' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
+            <span class="text-sm font-medium">Coupons</span>
+            <% if (path === 'coupons') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
+        </a>
 
-        <a href="/admin/sales-report" 
+        <a href="/admin/sales-report" onclick="closeSidebarMobile()"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'sales-report' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
-            <i class="fas fa-chart-line w-5 text-center text-sm flex-shrink-0 <%= path === 'sales-report' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
+            <i class="fas fa-chart-pie w-5 text-center text-sm flex-shrink-0 <%= path === 'sales-report' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
             <span class="text-sm font-medium">Sales Reports</span>
             <% if (path === 'sales-report') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
         </a>
 
-        <a href="/admin/referrals" 
+        <a href="/admin/referrals" onclick="closeSidebarMobile()"
            class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group <%= path === 'referrals' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent' %>">
-            <i class="fas fa-user-friends w-5 text-center text-sm flex-shrink-0 <%= path === 'referrals' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
+            <i class="fas fa-share-nodes w-5 text-center text-sm flex-shrink-0 <%= path === 'referrals' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-white' %>"></i>
             <span class="text-sm font-medium">Referrals</span>
             <% if (path === 'referrals') { %><span class="ml-auto w-1.5 h-1.5 rounded-full bg-cyan-400"></span><% } %>
         </a>
@@ -88,11 +85,19 @@
     </div>
 </aside>
 
-<!-- Mobile overlay — shared by all pages that include this partial -->
+<!-- Mobile top bar with hamburger — visible only on small screens -->
+<div id="mobile-topbar" class="fixed top-0 left-0 right-0 z-40 bg-[#05070A]/95 backdrop-blur-md border-b border-slate-800/60 px-4 py-3 flex items-center justify-between lg:hidden">
+    <button onclick="toggleSidebar()" class="text-white bg-slate-800 border border-slate-700 p-2 rounded-lg">
+        <i class="fas fa-bars text-sm"></i>
+    </button>
+    <span class="text-sm font-bold text-white uppercase tracking-wider">Neo-Luxe</span>
+    <div class="w-8"></div>
+</div>
+
+<!-- Mobile overlay -->
 <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden lg:hidden"></div>
 
 <script>
-  // Sidebar toggle — defined once here so every page that includes this partial gets it
   if (typeof window._sidebarToggleBound === 'undefined') {
     window._sidebarToggleBound = true;
     window.toggleSidebar = function() {
@@ -100,6 +105,16 @@
       const overlay = document.getElementById('sidebar-overlay');
       sidebar.classList.toggle('-translate-x-full');
       if (overlay) overlay.classList.toggle('hidden');
+    };
+    window.closeSidebarMobile = function() {
+      if (window.innerWidth < 1024) {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        if (!sidebar.classList.contains('-translate-x-full')) {
+          sidebar.classList.add('-translate-x-full');
+          if (overlay) overlay.classList.add('hidden');
+        }
+      }
     };
   }
 </script>

@@ -2,6 +2,7 @@ import asyncHandler from '../../utils/asyncHandler.util.js';
 import Product from '../../models/product.model.js';
 import Variant from '../../models/variant.model.js';
 import Category from '../../models/category.model.js';
+import { calculateOfferPrice } from '../../utils/offerPrice.util.js';
 
 export const getProducts = asyncHandler(async (req, res) => {
   const {
@@ -9,7 +10,7 @@ export const getProducts = asyncHandler(async (req, res) => {
     category,
     brand,
     price,
-    sort = 'az',   // ← was missing from destructuring — caused sort to always be undefined
+    sort = 'az',
     page = 1,
   } = req.query;
 
@@ -21,7 +22,7 @@ export const getProducts = asyncHandler(async (req, res) => {
     isListed: true,
     isDeleted: false,
   })
-    .select('_id name')
+    .select('_id name offerPercentage offerExpiryDate')
     .lean();
 
   const listedIds = listedCategories.map((c) => c._id);
@@ -41,7 +42,7 @@ export const getProducts = asyncHandler(async (req, res) => {
     productFilter.brand = { $regex: `^${brand.trim()}$`, $options: 'i' };
   }
 
-  // 3. Variant filter — price only (strap removed)
+  // 3. Variant filter — price only
   const variantFilter = { isActive: true, isDeleted: false };
 
   if (price) {
@@ -54,16 +55,14 @@ export const getProducts = asyncHandler(async (req, res) => {
 
   // 4. Fetch matching products
   const rawProducts = await Product.find(productFilter)
-    .populate({ path: 'category', select: 'name', match: { isListed: true } })
+    .populate({ path: 'category', select: 'name offerPercentage offerExpiryDate', match: { isListed: true } })
     .lean();
 
-  // 5. Attach best variant to each product
-  //    Priority: cheapest IN-STOCK variant → if all OOS, show cheapest OOS variant (card will be disabled)
+  // 5. Attach best variant with offer pricing
   const withVariants = await Promise.all(
     rawProducts.map(async (product) => {
       if (!product.category) return null;
 
-      // Try to find the cheapest in-stock variant first
       let variant = await Variant.findOne({
         ...variantFilter,
         product: product._id,
@@ -72,7 +71,6 @@ export const getProducts = asyncHandler(async (req, res) => {
         .sort({ regularPrice: 1 })
         .lean();
 
-      // Fall back to cheapest OOS variant so the product still appears (greyed out)
       if (!variant) {
         variant = await Variant.findOne({
           ...variantFilter,
@@ -84,16 +82,14 @@ export const getProducts = asyncHandler(async (req, res) => {
 
       if (!variant) return null;
 
-      variant.finalPrice   = variant.basePrice ?? variant.regularPrice ?? 0;
-      variant.salePrice    = variant.basePrice ?? 0;
-      variant.regularPrice = variant.regularPrice ?? 0;
-      variant.appliedOffer =
-        variant.regularPrice && variant.basePrice && variant.regularPrice > variant.basePrice
-          ? Math.round((variant.regularPrice - variant.basePrice) / variant.regularPrice * 100)
-          : 0;
-
-      variant.displayImage =
-        variant.images && variant.images.length > 0
+      // Apply offer pricing
+      const offerResult = calculateOfferPrice(variant, product.category, product);
+      variant.finalPrice      = offerResult.finalPrice;
+      variant.salePrice       = offerResult.salePrice;
+      variant.regularPrice    = offerResult.regularPrice;
+      variant.appliedOffer    = offerResult.offerPercentage;  // 0 if no active offer
+      variant.offerSource     = offerResult.offerSource;
+      variant.displayImage    = variant.images && variant.images.length > 0
           ? variant.images[0].url
           : null;
 
@@ -103,7 +99,7 @@ export const getProducts = asyncHandler(async (req, res) => {
 
   const finalProducts = withVariants.filter(Boolean);
 
-  // 6. Sort — 4 options only (no strap / new / popular)
+  // 6. Sort
   const sorters = {
     lowToHigh: (a, b) => a.variant.finalPrice - b.variant.finalPrice,
     highToLow: (a, b) => b.variant.finalPrice - a.variant.finalPrice,
@@ -147,21 +143,18 @@ export const getProductDetails = asyncHandler(async (req, res) => {
   const { id }        = req.params;
   const { variantId } = req.query;
 
-  // ── 1. Fetch product (including inactive/unlisted to show proper message) ──
   const product = await Product.findOne({
     _id:       id,
-    isDeleted: false,          // hard-deleted → still redirect
+    isDeleted: false,
   }).populate({
     path:   'category',
-    select: 'name isListed isDeleted',
+    select: 'name isListed isDeleted offerPercentage offerExpiryDate',
   });
 
-  // Hard deleted or doesn't exist → redirect
   if (!product) {
     return res.redirect('/shop');
   }
 
-  // ── 2. Determine if product is blocked and why ───────────────────
   let unavailableReason = null;
 
   if (!product.isActive) {
@@ -172,8 +165,6 @@ export const getProductDetails = asyncHandler(async (req, res) => {
     unavailableReason = `The category "${product.category.name}" is currently unlisted.`;
   }
 
-  // Only redirect to unavailable for product/category issues.
-  // OOS or inactive variants still show the detail page — user can see the product.
   if (unavailableReason) {
     return res.status(410).render('user/product-unavailable', {
       layout:  'layouts/user',
@@ -182,7 +173,6 @@ export const getProductDetails = asyncHandler(async (req, res) => {
     });
   }
 
-  // ── 3. Check at least one variant exists (not deleted) ───────────
   const anyVariant = await Variant.exists({ product: product._id, isDeleted: false });
   if (!anyVariant) {
     return res.status(410).render('user/product-unavailable', {
@@ -192,23 +182,29 @@ export const getProductDetails = asyncHandler(async (req, res) => {
     });
   }
 
-  // ── 4. Fetch all non-deleted variants (includes OOS + inactive) ──
   let variants = await Variant.find({
     product:   product._id,
     isDeleted: false,
   })
-    .sort({ isActive: -1, createdAt: -1 })  // active variants first
+    .sort({ isActive: -1, createdAt: -1 })
     .lean();
 
-  // Attach pricing helpers
-  variants = variants.map((v) => ({
-    ...v,
-    finalPrice:   v.basePrice,
-    appliedOffer: 0,
-  }));
+  // Apply offer pricing to each variant
+  variants = variants.map((v) => {
+    const offerResult = calculateOfferPrice(v, product.category, product);
+    return {
+      ...v,
+      finalPrice:      offerResult.finalPrice,
+      salePrice:       offerResult.salePrice,
+      appliedOffer:    offerResult.offerPercentage,  // 0 if no active offer
+      offerSource:     offerResult.offerSource,
+      regularPrice:    offerResult.regularPrice,
+      productOffer:    offerResult.productOffer,
+      categoryOffer:   offerResult.categoryOffer,
+    };
+  });
 
-  // ── 5. Resolve default variant ───────────────────────────────────
-  // Prefer: requested variantId → first active+in-stock → first active → first overall
+  // Resolve default variant
   let defaultVariant = null;
   if (variantId) {
     defaultVariant = variants.find((v) => v._id.toString() === variantId);
@@ -220,13 +216,14 @@ export const getProductDetails = asyncHandler(async (req, res) => {
       variants[0];
   }
 
-  // ── 6. Related products ──────────────────────────────────────────
+  // Related products with offer pricing
   const relatedRaw = await Product.find({
     category:  product.category._id,
     _id:       { $ne: id },
     isActive:  true,
     isDeleted: false,
   })
+    .populate({ path: 'category', select: 'name offerPercentage offerExpiryDate' })
     .limit(4)
     .lean();
 
@@ -240,20 +237,21 @@ export const getProductDetails = asyncHandler(async (req, res) => {
 
       if (!variant) return null;
 
+      const offerResult = calculateOfferPrice(variant, p.category, p);
       return {
         ...p,
-        category: product.category,
-        variant:  {
+        variant: {
           ...variant,
-          finalPrice:   variant.basePrice,
-          regularPrice: variant.regularPrice,
-          appliedOffer: 0,
+          finalPrice:   offerResult.finalPrice,
+          salePrice:    offerResult.salePrice,
+          regularPrice: offerResult.regularPrice,
+          appliedOffer: offerResult.offerPercentage,
+          offerSource:  offerResult.offerSource,
         },
       };
     })
   );
 
-  // ── 7. Render ────────────────────────────────────────────────────
   res.render('user/product-details', {
     layout:          'layouts/user',
     product,

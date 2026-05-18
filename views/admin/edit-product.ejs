@@ -100,33 +100,18 @@
                                 <h4 class="text-cyan-500 font-bold text-xs uppercase tracking-widest mb-6">Variant #<%= index + 1 %></h4>
                                 <input type="hidden" name="variants[<%=index%>][_id]" value="<%= variant._id %>">
 
-                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                                     <div>
                                         <label class="label-style">Color</label>
                                         <input type="text" name="variants[<%=index%>][color]" value="<%= variant.color %>" class="input-field">
                                     </div>
                                     <div>
-                                        <label class="label-style">Regular Price (MRP)</label>
-                                        <input type="number" name="variants[<%=index%>][regularPrice]" value="<%= variant.regularPrice %>" class="input-field" required>
-                                    </div>
-                                    <div>
                                         <label class="label-style">Sale Price</label>
-                                        <input type="number" name="variants[<%=index%>][basePrice]" value="<%= variant.basePrice %>" class="input-field">
+                                        <input type="number" name="variants[<%=index%>][basePrice]" value="<%= variant.basePrice %>" class="input-field" required>
                                     </div>
                                     <div>
                                         <label class="label-style">Stock</label>
                                         <input type="number" name="variants[<%=index%>][stock]" value="<%= variant.stock %>" class="input-field">
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                    <div>
-                                        <label class="label-style text-amber-400">Offer % (0 = no offer)</label>
-                                        <input type="number" name="variants[<%=index%>][offerPercentage]" value="<%= variant.offerPercentage || 0 %>" min="0" max="90" class="input-field">
-                                    </div>
-                                    <div>
-                                        <label class="label-style text-amber-400">Offer Expiry Date</label>
-                                        <input type="date" name="variants[<%=index%>][offerExpiryDate]" value="<%= variant.offerExpiryDate ? new Date(variant.offerExpiryDate).toISOString().split('T')[0] : '' %>" class="input-field">
                                     </div>
                                 </div>
 
@@ -169,7 +154,7 @@
                         </div>
                     </div>
 
-                    <div class="col-span-12 lg:col-span-4 space-y-8">
+                    <div class="col-span-12 lg:col-span-4">
                         <div class="card-bg rounded-2xl p-8 sticky top-4">
                             <h3 class="text-lg font-bold text-white mb-6 border-b border-slate-800 pb-4">Specifications</h3>
                             <div class="space-y-4">
@@ -185,14 +170,33 @@
                                     <label class="label-style">Movement</label>
                                     <input type="text" name="movementType" value="<%= product.specifications.movementType %>" class="input-field">
                                 </div>
-                                <div class="flex items-center gap-2">
+                            </div>
+
+                            <h3 class="text-lg font-bold text-white mt-8 mb-6 border-b border-slate-800 pb-4">
+                                <i class="fas fa-tags text-amber-400 mr-2"></i>Product Offer
+                            </h3>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="label-style text-amber-400">Offer Percentage</label>
+                                    <input type="number" name="offerPercentage" min="0" max="100" value="<%= product.offerPercentage || 0 %>" class="input-field" placeholder="0">
+                                    <p class="text-[10px] text-slate-500 mt-1">Enter 0 for no offer. Applies to all variants.</p>
+                                </div>
+                                <div>
+                                    <label class="label-style text-amber-400">Offer Expiry Date</label>
+                                    <input type="date" name="offerExpiryDate" value="<%= product.offerExpiryDate ? new Date(product.offerExpiryDate).toISOString().split('T')[0] : '' %>" class="input-field">
+                                    <p class="text-[10px] text-slate-500 mt-1">Required if offer percentage is above 0.</p>
+                                </div>
+                            </div>
+
+                            <div class="pt-6 mt-6 border-t border-slate-800">
+                                <div class="flex items-center gap-3 mb-6">
                                     <input type="checkbox" name="isActive" id="isActive" value="true" <%= product.isActive ? 'checked' : '' %> class="w-4 h-4 accent-cyan-500">
                                     <label for="isActive" class="text-sm">Active / Listed in Store</label>
                                 </div>
+                                <button type="submit" class="w-full bg-cyan-500 text-slate-900 py-4 rounded-xl font-black text-xs uppercase tracking-widest custom-glow hover:bg-cyan-400">
+                                    Update Product
+                                </button>
                             </div>
-                            <button type="submit" class="w-full mt-8 bg-cyan-500 text-slate-900 py-4 rounded-xl font-black text-xs uppercase tracking-widest custom-glow hover:bg-cyan-400">
-                                Update Product
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -253,9 +257,8 @@
                     <i class="fas fa-trash mr-1"></i> Remove Variant
                 </button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div><label class="label-style">Color</label><input type="text" name="variants[${index}][color]" placeholder="e.g. Midnight Blue" class="input-field" required></div>
-                <div><label class="label-style">Regular Price</label><input type="number" name="variants[${index}][regularPrice]" class="input-field" required></div>
                 <div><label class="label-style">Sale Price</label><input type="number" name="variants[${index}][basePrice]" class="input-field" required></div>
                 <div><label class="label-style">Stock</label><input type="number" name="variants[${index}][stock]" value="0" class="input-field" required></div>
             </div>
@@ -522,7 +525,6 @@
         for (const card of existingVariantCards) {
             const idx = card.dataset.variantIndex;
             const color = card.querySelector(`[name="variants[${idx}][color]"]`)?.value.trim() || '';
-            const regularPrice = Number(card.querySelector(`[name="variants[${idx}][regularPrice]"]`)?.value);
             const basePrice = Number(card.querySelector(`[name="variants[${idx}][basePrice]"]`)?.value);
             const stock = Number(card.querySelector(`[name="variants[${idx}][stock]"]`)?.value);
             const label = color || `Variant ${parseInt(idx) + 1}`;
@@ -531,9 +533,7 @@
             if (seenColors.includes(color.toLowerCase())) return err(`Duplicate color "${color}". Each variant must have a unique color.`);
             seenColors.push(color.toLowerCase());
 
-            if (isNaN(regularPrice) || regularPrice <= 0) return err(`${label}: Regular price must be greater than 0.`);
             if (isNaN(basePrice) || basePrice <= 0) return err(`${label}: Sale price must be greater than 0.`);
-            if (basePrice > regularPrice) return err(`${label}: Sale price cannot exceed regular price.`);
             if (isNaN(stock) || stock < 0) return err(`${label}: Stock cannot be negative.`);
 
             // ── IMAGE VALIDATION: Each variant must have 1-5 images ──
@@ -552,7 +552,6 @@
             if (!idMatch) continue;
             const idx = idMatch[1];
             const color = card.querySelector(`[name="variants[${idx}][color]"]`)?.value.trim() || '';
-            const regularPrice = Number(card.querySelector(`[name="variants[${idx}][regularPrice]"]`)?.value);
             const basePrice = Number(card.querySelector(`[name="variants[${idx}][basePrice]"]`)?.value);
             const stock = Number(card.querySelector(`[name="variants[${idx}][stock]"]`)?.value);
             const label = color || 'New Variant';
@@ -561,9 +560,7 @@
             if (seenColors.includes(color.toLowerCase())) return err(`Duplicate color "${color}". Each variant must have a unique color.`);
             seenColors.push(color.toLowerCase());
 
-            if (isNaN(regularPrice) || regularPrice <= 0) return err(`${label}: Regular price must be greater than 0.`);
             if (isNaN(basePrice) || basePrice <= 0) return err(`${label}: Sale price must be greater than 0.`);
-            if (basePrice > regularPrice) return err(`${label}: Sale price cannot exceed regular price.`);
             if (isNaN(stock) || stock < 0) return err(`${label}: Stock cannot be negative.`);
 
             const count = (variantImagesData[idx] || []).length;

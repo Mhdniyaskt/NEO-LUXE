@@ -1,21 +1,25 @@
 /**
  * Calculate the effective offer price for a variant.
- * Compares product-level offer (on variant) vs category-level offer.
- * Applies the LARGER percentage discount.
+ * Compares product-level offer and category-level offer.
+ * Applies the LARGER percentage discount on the SALE PRICE (basePrice).
  *
- * @param {Object} variant - Variant document (with offerPercentage, offerExpiryDate, basePrice, regularPrice)
+ * IMPORTANT: Offer is applied on salePrice (basePrice), NOT regularPrice.
+ * The difference between regularPrice and basePrice is NOT an offer — it's just the sale price.
+ *
+ * @param {Object} variant - Variant document (with basePrice, regularPrice)
  * @param {Object} category - Category document (with offerPercentage, offerExpiryDate)
- * @returns {Object} { finalPrice, offerPercentage, offerSource, regularPrice, basePrice }
+ * @param {Object} product - Product document (with offerPercentage, offerExpiryDate)
+ * @returns {Object} { finalPrice, offerPercentage, offerSource, salePrice, regularPrice }
  */
-export function calculateOfferPrice(variant, category = null) {
+export function calculateOfferPrice(variant, category = null, product = null) {
   const now = new Date();
-  const regularPrice = variant.regularPrice || variant.basePrice;
-  const basePrice    = variant.basePrice; // manually set sale price
+  const salePrice    = variant.basePrice;      // the base selling price
+  const regularPrice = variant.regularPrice || variant.basePrice;  // MRP
 
-  // Product-specific offer (on variant)
+  // Product-level offer
   let productOffer = 0;
-  if (variant.offerPercentage > 0 && variant.offerExpiryDate && new Date(variant.offerExpiryDate) > now) {
-    productOffer = variant.offerPercentage;
+  if (product && product.offerPercentage > 0 && product.offerExpiryDate && new Date(product.offerExpiryDate) > now) {
+    productOffer = product.offerPercentage;
   }
 
   // Category offer
@@ -24,25 +28,26 @@ export function calculateOfferPrice(variant, category = null) {
     categoryOffer = category.offerPercentage;
   }
 
-  // Apply the LARGER offer
+  // Apply the LARGEST active offer
   const bestOffer = Math.max(productOffer, categoryOffer);
-  const offerSource = bestOffer === 0 ? 'none'
-    : (productOffer >= categoryOffer ? 'product' : 'category');
-
-  // Calculate final price: apply offer % on regularPrice (MRP)
-  let finalPrice = basePrice; // default to sale price
+  let offerSource = 'none';
   if (bestOffer > 0) {
-    const offerPrice = Math.round(regularPrice * (1 - bestOffer / 100));
-    // Use the lower of: manual sale price OR offer-calculated price
-    finalPrice = Math.min(basePrice, offerPrice);
+    offerSource = productOffer >= categoryOffer ? 'product' : 'category';
+  }
+
+  // Calculate final price: apply offer % on SALE PRICE (basePrice)
+  let finalPrice = salePrice; // default — no offer
+  if (bestOffer > 0) {
+    const discountAmount = Math.round(salePrice * bestOffer / 100);
+    finalPrice = salePrice - discountAmount;
   }
 
   return {
     finalPrice,
-    offerPercentage: bestOffer,
-    offerSource,
-    regularPrice,
-    basePrice,
+    offerPercentage: bestOffer,   // 0 means no active offer
+    offerSource,                  // 'none', 'product', or 'category'
+    salePrice,                    // basePrice — the price before offer discount
+    regularPrice,                 // MRP
     productOffer,
     categoryOffer,
   };

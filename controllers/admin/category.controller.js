@@ -32,13 +32,21 @@ export const getCategory = asyncHandler(async (req, res) => {
 
 // ── POST /admin/add-category ─────────────────────────────────────────────────
 export const addCategory = asyncHandler(async (req, res) => {
-    const { name, description } = req.body;
+    const { name, description, offerPercentage, offerExpiryDate } = req.body;
 
     if (!name || name.trim().length < 3) {
         return res.status(400).json({ success: false, message: 'Category name must be at least 3 characters' });
     }
     if (!description || description.trim().length < 10) {
         return res.status(400).json({ success: false, message: 'Please provide a description (min 10 chars)' });
+    }
+
+    const offerPct = Number(offerPercentage) || 0;
+    if (offerPct < 0 || offerPct > 100) {
+        return res.status(400).json({ success: false, message: 'Offer percentage must be between 0 and 100' });
+    }
+    if (offerPct > 0 && !offerExpiryDate) {
+        return res.status(400).json({ success: false, message: 'Offer expiry date is required when offer percentage is set' });
     }
 
     const trimmedName = name.trim();
@@ -61,11 +69,18 @@ export const addCategory = asyncHandler(async (req, res) => {
         await Category.findByIdAndUpdate(deletedSlot._id, {
             name:        trimmedName,
             description: trimmedDesc,
+            offerPercentage: offerPct,
+            offerExpiryDate: offerExpiryDate || null,
             isDeleted:   false,
             isListed:    true,
         });
     } else {
-        await Category.create({ name: trimmedName, description: trimmedDesc });
+        await Category.create({
+            name: trimmedName,
+            description: trimmedDesc,
+            offerPercentage: offerPct,
+            offerExpiryDate: offerExpiryDate || null,
+        });
     }
 
     res.status(201).json({ success: true, message: 'Category added successfully' });
@@ -113,6 +128,16 @@ export const editCategory = asyncHandler(async (req, res) => {
 
     category.name        = trimmedName;
     category.description = trimmedDesc;
+
+    // Save offer fields
+    const offerPct = Number(req.body.offerPercentage) || 0;
+    category.offerPercentage = Math.min(Math.max(offerPct, 0), 100);
+    category.offerExpiryDate = req.body.offerExpiryDate || null;
+
+    // Validation: if offer > 0, expiry date is required
+    if (category.offerPercentage > 0 && !category.offerExpiryDate) {
+        return res.status(400).json({ success: false, message: 'Offer expiry date is required when offer percentage is set' });
+    }
 
     try {
         await category.save();

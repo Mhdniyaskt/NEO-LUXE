@@ -3,6 +3,7 @@ import Product from '../models/product.model.js';
 import Variant from '../models/variant.model.js';
 import Cart from '../models/cart.model.js';
 import { MESSAGES } from '../constants/messages.constant.js';
+import { calculateOfferPrice } from '../utils/offerPrice.util.js';
 
 // ─── Get user wishlist with product details ──────────────────────────────────
 export const getWishlistService = async (userId, page = 1, limit = 12) => {
@@ -56,7 +57,8 @@ export const getWishlistService = async (userId, page = 1, limit = 12) => {
           name: product.name,
           brand: product.brand,
           images: product.images,
-          category: product.category
+          category: product.category,
+          isActive: product.isActive,
         },
         variant: {
           _id: variant._id,
@@ -64,7 +66,12 @@ export const getWishlistService = async (userId, page = 1, limit = 12) => {
           basePrice: variant.basePrice,
           finalPrice: variant.finalPrice,
           stock: variant.stock,
-          images: variant.images
+          images: variant.images,
+          isActive: variant.isActive,
+          appliedOffer: (() => {
+            const offerResult = calculateOfferPrice(variant, product.category, product);
+            return offerResult.offerPercentage;
+          })(),
         },
         allVariants,
         isAvailable,
