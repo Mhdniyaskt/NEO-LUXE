@@ -131,6 +131,11 @@
                                                         class="absolute -top-2 -right-2 bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg z-10 delete-btn">
                                                     <i class="fas fa-times"></i>
                                                 </button>
+                                                <button type="button"
+                                                        onclick="replaceImage(<%= index %>, <%= imgIdx %>, '<%= img.url %>')"
+                                                        class="absolute -bottom-2 -right-2 bg-cyan-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition shadow-lg z-10 replace-btn">
+                                                    <i class="fas fa-sync-alt"></i>
+                                                </button>
                                             </div>
                                         <% }) %>
                                     </div>
@@ -410,9 +415,74 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // UNDO DELETION MARK (optional — click on greyed image to undo)
+    // REPLACE EXISTING IMAGE (mark old for deletion + open cropper for new)
     // ═══════════════════════════════════════════════════════════════════════════
-    // Not implemented to keep it simple — user can cancel and re-edit
+    const replacementMap = {}; // { variantIndex: [{ oldUrl, blob, id }] }
+
+    function replaceImage(variantIndex, imgIdx, imageUrl) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = () => {
+            if (!input.files[0]) return;
+
+            // Open cropper for the new image
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const modal = document.getElementById('cropperModal');
+                const image = document.getElementById('cropperImage');
+                image.src = e.target.result;
+                modal.style.display = 'flex';
+                if (cropper) cropper.destroy();
+                cropper = new Cropper(image, {
+                    aspectRatio: 1, viewMode: 1, guides: true,
+                    background: false, autoCropArea: 1, responsive: true
+                });
+                document.getElementById('cropButton').onclick = () => {
+                    const canvas = cropper.getCroppedCanvas({ width: 800, height: 800 });
+                    canvas.toBlob((blob) => {
+                        // Mark old image for deletion
+                        if (!markedForDeletion[variantIndex]) markedForDeletion[variantIndex] = [];
+                        if (!markedForDeletion[variantIndex].includes(imageUrl)) {
+                            markedForDeletion[variantIndex].push(imageUrl);
+                        }
+
+                        // Store replacement with position info
+                        if (!replacementMap[variantIndex]) replacementMap[variantIndex] = [];
+                        const replId = Date.now();
+                        replacementMap[variantIndex].push({ oldUrl: imageUrl, blob, id: replId, position: imgIdx });
+
+                        // Update the thumbnail in-place (show new image in same spot)
+                        const thumb = document.getElementById(`imgThumb_${variantIndex}_${imgIdx}`);
+                        if (thumb) thumb.src = canvas.toDataURL('image/jpeg');
+
+                        // Hide delete/replace buttons, show "replaced" style
+                        const wrapper = document.getElementById(`imgWrap_${variantIndex}_${imgIdx}`);
+                        if (wrapper) {
+                            wrapper.classList.remove('marked-for-deletion');
+                            wrapper.style.border = '2px solid #06b6d4';
+                            wrapper.dataset.replaced = 'true';
+                            const delBtn = wrapper.querySelector('.delete-btn');
+                            if (delBtn) delBtn.style.display = 'none';
+                            const repBtn = wrapper.querySelector('.replace-btn');
+                            if (repBtn) repBtn.style.display = 'none';
+                        }
+
+                        closeCropper();
+                        updateCounters(variantIndex);
+                        Swal.fire({
+                            toast: true, position: 'top-end', icon: 'success',
+                            title: 'Image replaced (saves on submit)',
+                            showConfirmButton: false, timer: 2000,
+                            background: '#0b1120', color: '#94a3b8',
+                        });
+                    }, 'image/jpeg', 0.9);
+                };
+            };
+            reader.readAsDataURL(input.files[0]);
+        };
+        input.click();
+    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // COUNTER UPDATES
@@ -463,7 +533,8 @@
             const deletedUrls = markedForDeletion[variantIndex] || [];
             allWraps.forEach(wrap => {
                 const url = wrap.dataset.imageUrl;
-                if (!deletedUrls.includes(url)) existingCount++;
+                // Count if not deleted, OR if it was replaced (replacement keeps the slot)
+                if (!deletedUrls.includes(url) || wrap.dataset.replaced === 'true') existingCount++;
             });
         }
         const newCount = (variantImagesData[variantIndex] || []).length;
@@ -578,6 +649,14 @@
         Object.keys(variantImagesData).forEach(variantIdx => {
             variantImagesData[variantIdx].forEach((imgObj, i) => {
                 formData.append(`variantImages_${variantIdx}`, imgObj.blob, `variant_${variantIdx}_${i}.jpg`);
+            });
+        });
+
+        // Append replacement images with position info
+        Object.keys(replacementMap).forEach(variantIdx => {
+            replacementMap[variantIdx].forEach((rep, i) => {
+                formData.append(`replaceImages_${variantIdx}`, rep.blob, `replace_${variantIdx}_pos${rep.position}_${i}.jpg`);
+                formData.append(`replacePositions_${variantIdx}`, rep.position.toString());
             });
         });
 

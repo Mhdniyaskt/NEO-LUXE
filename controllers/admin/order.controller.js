@@ -177,14 +177,38 @@ export const handleReturn = asyncHandler(async (req, res) => {
       return res.status(400).json({ success: false, message: 'No return request for this item.' });
     }
 
+    let refundAmount = 0;
+
     if (action === 'approve') {
       order.items[idx].returnStatus = 'approved';
-      // Credit this item's amount to wallet ONLY for online-paid orders
+      // Credit refund to wallet ONLY for online-paid orders
       const refundableMethods = ['razorpay', 'wallet'];
       if (order.paymentStatus === 'paid' && refundableMethods.includes(order.paymentMethod)) {
+        // Calculate proportional refund (item's share of the total paid)
+        const activeItems = order.items.filter(i => i.status !== 'cancelled');
+        const totalItemsValue = activeItems.reduce((s, i) => s + (i.itemTotal || 0), 0);
+        refundAmount = item.itemTotal;
+
+        if (totalItemsValue > 0) {
+          // If this is the only active item (or last active item being returned), refund the full order total
+          const otherActiveNotReturned = activeItems.filter(i => 
+            i !== item && i.returnStatus !== 'approved'
+          );
+          if (otherActiveNotReturned.length === 0) {
+            // Last/only item — refund full order total
+            refundAmount = order.total;
+          } else {
+            // Multiple items — refund proportional share (item price + proportional tax + proportional shipping)
+            const itemShare = item.itemTotal / totalItemsValue;
+            const proportionalTax = Math.round((order.tax || 0) * itemShare);
+            const proportionalShipping = Math.round((order.shipping || 0) * itemShare);
+            refundAmount = item.itemTotal + proportionalTax + proportionalShipping;
+          }
+        }
+
         await creditWalletService({
           userId:      order.user,
-          amount:      item.itemTotal,
+          amount:      refundAmount,
           description: `Refund for returned item "${item.productName}" — Order #${order._id.toString().slice(-8).toUpperCase()}`,
           orderId:     order._id,
           category:    'refund',
@@ -221,7 +245,7 @@ export const handleReturn = asyncHandler(async (req, res) => {
     return res.json({
       success: true,
       message: action === 'approve'
-        ? `Item return approved. ₹${item.itemTotal.toLocaleString('en-IN')} refunded to customer wallet.`
+        ? `Item return approved. ₹${refundAmount.toLocaleString('en-IN')} refunded to customer wallet.`
         : 'Item return request rejected.',
     });
   }
@@ -241,10 +265,8 @@ export const handleReturn = asyncHandler(async (req, res) => {
       }
     });
 
-    // Credit sum of all approved items to wallet via wallet service
-    const approvedAmount = order.items
-      .filter(i => i.returnStatus === 'approved')
-      .reduce((sum, i) => sum + i.itemTotal, 0);
+    // For full-order return, refund the full order total (what the customer actually paid)
+    const refundAmount = order.total;
 
     // Only refund to wallet for online-paid orders
     const refundableMethods = ['razorpay', 'wallet'];
@@ -252,7 +274,7 @@ export const handleReturn = asyncHandler(async (req, res) => {
     if (shouldRefund) {
       await creditWalletService({
         userId:      order.user,
-        amount:      approvedAmount,
+        amount:      refundAmount,
         description: `Refund for returned order #${order._id.toString().slice(-8).toUpperCase()}`,
         orderId:     order._id,
         category:    'refund',
@@ -266,7 +288,7 @@ export const handleReturn = asyncHandler(async (req, res) => {
     return res.json({
       success: true,
       message: shouldRefund
-        ? `Return approved. ₹${approvedAmount.toLocaleString('en-IN')} refunded to customer wallet.`
+        ? `Return approved. ₹${refundAmount.toLocaleString('en-IN')} refunded to customer wallet.`
         : 'Return approved.',
     });
   } else if (action === 'reject') {

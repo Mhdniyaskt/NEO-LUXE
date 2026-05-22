@@ -415,7 +415,6 @@ export const updateProductService = async (productId, updateData, files = []) =>
     }
 
     // ── 4. Collect images marked for deletion (per variant index) ─────
-    // deleteImages_<idx> stays as flat key (no brackets) so it's in updateData directly
     const deletionsByVariant = {};
     for (const [key, value] of Object.entries(updateData)) {
       const match = key.match(/^deleteImages_(.+)$/);
@@ -423,6 +422,24 @@ export const updateProductService = async (productId, updateData, files = []) =>
       const idx = match[1];
       const urls = Array.isArray(value) ? value : [value];
       deletionsByVariant[idx] = urls.filter(Boolean);
+    }
+
+    // ── 4b. Collect replacement images and their positions ────────────
+    const replaceFilesByVariant = {};
+    for (const file of files) {
+      const match = file.fieldname.match(/^replaceImages_(.+)$/);
+      if (!match) continue;
+      const idx = match[1];
+      if (!replaceFilesByVariant[idx]) replaceFilesByVariant[idx] = [];
+      replaceFilesByVariant[idx].push(file);
+    }
+    const replacePositionsByVariant = {};
+    for (const [key, value] of Object.entries(updateData)) {
+      const match = key.match(/^replacePositions_(.+)$/);
+      if (!match) continue;
+      const idx = match[1];
+      const positions = Array.isArray(value) ? value.map(Number) : [Number(value)];
+      replacePositionsByVariant[idx] = positions;
     }
 
     let uploadedCount = 0;
@@ -467,7 +484,8 @@ export const updateProductService = async (productId, updateData, files = []) =>
 
         // Calculate final image count BEFORE modifying to validate
         const remainingAfterDelete = variant.images.filter(img => !urlsToDelete.includes(img.url));
-        const finalImageCount = remainingAfterDelete.length + newImages.length;
+        const replaceCount = (replaceFilesByVariant[idx] || []).length;
+        const finalImageCount = remainingAfterDelete.length + newImages.length + replaceCount;
 
         if (finalImageCount < 1 || finalImageCount > 5) {
           return {
@@ -488,7 +506,28 @@ export const updateProductService = async (productId, updateData, files = []) =>
           deletedCount += removed.length;
         }
 
-        // Append new images
+        // Insert replacement images at their original positions
+        const replaceFiles = replaceFilesByVariant[idx] || [];
+        const replacePositions = replacePositionsByVariant[idx] || [];
+        if (replaceFiles.length > 0) {
+          for (let ri = 0; ri < replaceFiles.length; ri++) {
+            const file = replaceFiles[ri];
+            const position = replacePositions[ri] ?? variant.images.length;
+            if (!file.buffer || file.buffer.length === 0) continue;
+            try {
+              const result = await uploadBufferToCloudinary(file.buffer);
+              const newImg = { url: result.secure_url, isPrimary: false };
+              // Insert at the correct position
+              const insertAt = Math.min(position, variant.images.length);
+              variant.images.splice(insertAt, 0, newImg);
+              uploadedCount++;
+            } catch (err) {
+              console.error(`[updateProduct] Cloudinary replace upload failed for variant ${idx}:`, err.message);
+            }
+          }
+        }
+
+        // Append new images (non-replacement additions)
         if (newImages.length > 0) {
           newImages.forEach(img => variant.images.push(img));
         }
