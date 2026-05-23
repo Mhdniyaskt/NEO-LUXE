@@ -66,9 +66,7 @@ export const loadHome = async (req, res) => {
         image:       v.images?.[0]?.url || null,
         salePrice:   v.basePrice,
         regPrice:    v.regularPrice,
-        discPct:     v.regularPrice > v.basePrice
-                       ? Math.round((v.regularPrice - v.basePrice) / v.regularPrice * 100)
-                       : 0,
+        discPct:     0,
       },
     });
     if (bestSellers.length === 8) break;
