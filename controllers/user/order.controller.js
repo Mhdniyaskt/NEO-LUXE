@@ -26,7 +26,7 @@ export const getOrders = asyncHandler(async (req, res) => {
       layout: 'layouts/user'
     });
   }
-
+  res.locals.activePage = 'orders';
   res.render('user/orders', {
     layout: 'layouts/user',
     path: 'orders',
