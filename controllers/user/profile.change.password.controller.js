@@ -10,7 +10,7 @@ export const showChangePassword = asyncHandler(async (req, res) => {
     const user = await User.findById(req.session.user.id);
     if (!user || user.googleId) return res.redirect("/profile");
    
-    return res.render("user/change-Password",{ layout: "layouts/user" });
+    return res.render("user/change-password",{ layout: "layouts/user", user });
 });
 
 
