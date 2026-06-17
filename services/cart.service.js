@@ -4,24 +4,25 @@ import Product from '../models/product.model.js';
 import Wishlist from '../models/wishlist.model.js';
 import { MESSAGES } from '../constants/messages.constant.js';
 import { calculateOfferPrice } from '../utils/offerPrice.util.js';
+import { calcOrderTotals, calcSubtotal } from '../utils/orderCalc.util.js';
 
 const MAX_QTY = 10;   // max quantity per variant line
 const MAX_ITEMS = 5;  // max distinct products in cart
 
 // ─── Helper: recalculate cart totals from a populated cart ───────────────────
 function calcSummary(items) {
-  let subtotal = 0;
-  for (const item of items) {
+  const orderItems = items.map(item => {
     const product  = item.product;
     const variant  = item.variant;
     const category = product?.category;
     const offerResult = calculateOfferPrice(variant, category, product);
-    subtotal += offerResult.finalPrice * item.quantity;
-  }
-  const shipping = subtotal >= 5000 ? 0 : 50;
-  const tax = Math.round(subtotal * 0.18);
-  const total = subtotal + tax + shipping;
-  return { subtotal, tax, shipping, discount: 0, total };
+    return {
+      itemTotal: offerResult.finalPrice * item.quantity
+    };
+  });
+  
+  const subtotal = calcSubtotal(orderItems);
+  return calcOrderTotals(subtotal, 0); // No discount in cart summary
 }
 
 // ─── Validate cart items against live stock/availability ─────────────────────

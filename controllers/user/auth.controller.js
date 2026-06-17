@@ -9,6 +9,7 @@ import {
 import Product from "../../models/product.model.js";
 import Variant from "../../models/variant.model.js";
 import Category from "../../models/category.model.js";
+import { calculateOfferPrice } from "../../utils/offerPrice.util.js";
 
 // HOME
 export const loadHome = async (req, res) => {
@@ -59,14 +60,19 @@ export const loadHome = async (req, res) => {
       .sort({ basePrice: 1 })
       .lean();
     if (!v) continue;
+
+    // Apply offer pricing — only show discount if active product/category offer exists
+    const offerResult = calculateOfferPrice(v, p.category, p);
+
     bestSellers.push({
       ...p,
       variant: {
         ...v,
-        image:       v.images?.[0]?.url || null,
-        salePrice:   v.basePrice,
-        regPrice:    v.regularPrice,
-        discPct:     0,
+        image:        v.images?.[0]?.url || null,
+        salePrice:    offerResult.salePrice,
+        finalPrice:   offerResult.finalPrice,
+        discPct:      offerResult.offerPercentage,  // 0 if no active offer
+        offerSource:  offerResult.offerSource,
       },
     });
     if (bestSellers.length === 8) break;

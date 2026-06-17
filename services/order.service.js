@@ -5,6 +5,7 @@ import Product from '../models/product.model.js';
 import Cart from '../models/cart.model.js';
 import { MESSAGES } from '../constants/messages.constant.js';
 import { creditWalletService } from './wallet.service.js';
+import { calcOrderTotals, calcSubtotal } from '../utils/orderCalc.util.js';
 
 // ─── Helper: Calculate order totals ──────────────────────────────────────────
 function calculateOrderTotals(items) {
@@ -13,11 +14,8 @@ function calculateOrderTotals(items) {
     return sum + (price * item.quantity);
   }, 0);
   
-  const shipping = subtotal >= 5000 ? 0 : 50;
-  const tax = Math.round(subtotal * 0.18);
-  const total = subtotal + tax + shipping;
-  
-  return { subtotal, shipping, tax, total };
+  // Use shared utility for consistency
+  return calcOrderTotals(subtotal, 0); // No discount in this legacy function
 }
 
 // ─── Validate and prepare order items ────────────────────────────────────────

@@ -164,28 +164,82 @@ export const cancelOrderItem = asyncHandler(async (req, res) => {
 
   await order.save();
 
-  // ── Refund this item to wallet if order was paid online ──────────────
+  // ── Refund to wallet if order was paid online ──────────────────────
+  // Rule: Always refund THIS item's proportional share of total paid.
+  // When last item is cancelled (allCancelled), do NOT refund order.total
+  // because previous items may have already been partially refunded.
+  // Instead, calculate the remaining unrefunded amount = total - sum of
+  // proportional refunds already credited for previously cancelled items.
   const refundableMethods = ['razorpay', 'wallet'];
   const wasPaid = order.paymentStatus === 'paid' && refundableMethods.includes(order.paymentMethod);
   if (wasPaid) {
+    let refundAmount;
+
+    const totalItemsValue = order.items.reduce((s, i) => s + (i.itemTotal || 0), 0);
+
+    if (allCancelled) {
+      // Last item being cancelled — check if this is the FIRST cancellation
+      // (i.e., no prior per-item refunds were issued for this order).
+      // Count how many items were already cancelled BEFORE this one.
+      const previouslyCancelledCount = order.items.filter(
+        (i, idx) => idx !== itemIdx && i.status === 'cancelled'
+      ).length;
+
+      if (previouslyCancelledCount === 0) {
+        // No prior cancellations — safe to refund full order total
+        refundAmount = order.total;
+      } else {
+        // Prior cancellations already gave proportional refunds.
+        // Only refund THIS item's proportional share to avoid double-refunding.
+        if (totalItemsValue > 0) {
+          const itemShare           = item.itemTotal / totalItemsValue;
+          const proportionalTax     = Math.round((order.tax      || 0) * itemShare);
+          const proportionalShip    = Math.round((order.shipping || 0) * itemShare);
+          const proportionalDisc    = Math.round((order.discount || 0) * itemShare);
+          refundAmount = Math.max(0, item.itemTotal + proportionalTax + proportionalShip - proportionalDisc);
+        } else {
+          refundAmount = item.itemTotal;
+        }
+      }
+    } else {
+      // Partial cancellation — proportional share of total paid
+      if (totalItemsValue > 0) {
+        const itemShare           = item.itemTotal / totalItemsValue;
+        const proportionalTax     = Math.round((order.tax      || 0) * itemShare);
+        const proportionalShipping = Math.round((order.shipping || 0) * itemShare);
+        const proportionalDiscount = Math.round((order.discount || 0) * itemShare);
+        refundAmount = Math.max(0, item.itemTotal + proportionalTax + proportionalShipping - proportionalDiscount);
+      } else {
+        refundAmount = item.itemTotal;
+      }
+    }
+
     await creditWalletService({
       userId:      order.user,
-      amount:      item.itemTotal,
-      description: `Refund for cancelled item "${item.productName}" — Order #${order._id.toString().slice(-8).toUpperCase()}`,
+      amount:      refundAmount,
+      description: allCancelled
+        ? `Full refund for cancelled order #${order._id.toString().slice(-8).toUpperCase()}`
+        : `Refund for cancelled item "${item.productName}" — Order #${order._id.toString().slice(-8).toUpperCase()}`,
       orderId:     order._id,
       category:    'cancellation',
     });
+
+    const refundMsg = ` ₹${refundAmount.toLocaleString('en-IN')} refunded to your wallet.`;
+
+    return res.json({
+      success: true,
+      message: allCancelled
+        ? `All items cancelled. Order has been cancelled.${refundMsg}`
+        : `Item cancelled and stock restored.${refundMsg}`
+    });
   }
 
-  const refundMsg = wasPaid
-    ? ` ₹${item.itemTotal.toLocaleString('en-IN')} refunded to your wallet.`
-    : '';
-
+  // No refund for COD orders
   return res.json({
     success: true,
     message: allCancelled
-      ? `All items cancelled. Order has been cancelled.${refundMsg}`
-      : `Item cancelled and stock restored.${refundMsg}`
+      ? 'All items cancelled. Order has been cancelled.'
+      : 'Item cancelled and stock restored.'
   });
 });
 
@@ -254,7 +308,7 @@ export const getPaymentFailed = asyncHandler(async (req, res) => {
 
   if (reason === 'outofstock') {
     title   = 'Product Out of Stock';
-    message = 'The product went out of stock while your payment was being processed. Your payment has been automatically refunded. It will appear in your account within 5–7 business days.';
+    message = 'The product went out of stock while your payment was being processed. Your payment has been instantly refunded to your wallet.';
   }
 
   res.render('user/payment-failed', {

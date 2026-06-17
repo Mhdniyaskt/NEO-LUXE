@@ -15,6 +15,7 @@ import Cart from "./models/cart.model.js";
 import Wishlist from "./models/wishlist.model.js";
 import { HTTP_STATUS } from "./constants/http-status.constant.js";
 import { MESSAGES } from "./constants/messages.constant.js";
+import dateHelpers from "./utils/dateFormat.util.js";
 
 dotenv.config();
 
@@ -66,6 +67,9 @@ app.use(methodOverride("_method"));
 
 // Inject cart + wishlist counts into every response for logged-in users
 app.use(async (req, res, next) => {
+  // ── Date formatting helpers — available in all EJS views as `fmt.*` ──────
+  res.locals.fmt = dateHelpers;
+
   res.locals.cartCount     = 0;
   res.locals.wishlistCount = 0;
   if (req.session?.user?.id) {

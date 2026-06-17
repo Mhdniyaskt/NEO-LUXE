@@ -78,7 +78,7 @@
                   <div class="flex items-center gap-3">
                     <span class="status-badge status-<%= order.status %>"><%= order.status %></span>
                     <p class="text-slate-500 text-[10px]">
-                      <%= new Date(order.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) %>
+                      <%= fmt.formatDateShort(order.createdAt) %>
                     </p>
                   </div>
                 </div>
@@ -106,7 +106,7 @@
                       <%= order.items[0].productName %><%= order.items.length > 1 ? ` +${order.items.length - 1} more` : '' %>
                     </p>
                     <p class="text-slate-500 text-xs mt-0.5">
-                      Purchased on <%= new Date(order.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) %>
+                      Purchased on <%= fmt.formatDateShort(order.createdAt) %>
                     </p>
                   </div>
                   <% } %>

@@ -18,12 +18,16 @@ export const createCoupon = async (data) => {
         throw new Error('Coupon code already exists');
     }
 
-    // Expiry date must be in the future
+    // Expiry date must be a valid date and at least tomorrow
     const expiry = new Date(data.expiryDate);
-    const today  = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (expiry <= today) {
-        throw new Error('Expiry date must be a future date');
+    if (isNaN(expiry.getTime())) {
+        throw new Error('Invalid expiry date provided');
+    }
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    if (expiry < tomorrow) {
+        throw new Error('Expiry date must be a future date (from tomorrow onwards)');
     }
 
     const couponData = {
@@ -48,17 +52,22 @@ export const createCoupon = async (data) => {
  */
 export const updateCoupon = async (id, data) => {
     const expiry = new Date(data.expiryDate);
-    const today  = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    // Expiry must be today or future (allow today so admin can set same-day expiry)
-    if (expiry < today) {
-        throw new Error('Expiry date must be today or a future date');
+    // Validate: expiry must be a valid date
+    if (isNaN(expiry.getTime())) {
+        throw new Error('Invalid expiry date provided');
     }
 
-    // Re-derive status from the new expiry date
-    const newStatus = expiry <= new Date() ? 'expired' : 'active';
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
 
+    // Expiry must be at least tomorrow
+    if (expiry < tomorrow) {
+        throw new Error('Expiry date must be a future date (from tomorrow onwards)');
+    }
+
+    // Status is always 'active' when expiry is in the future (pre-save hook will mark expired if needed)
     const couponData = {
         ...data,
         discount:   Number(data.discount),
@@ -66,7 +75,7 @@ export const updateCoupon = async (id, data) => {
         minSpend:   Number(data.minSpend),
         usageLimit: Number(data.usageLimit),
         expiryDate: expiry,
-        status:     newStatus,
+        status:     'active',   // reactivates expired coupons when a future date is set
     };
 
     // Use findById + save so the pre('save') hook also runs
@@ -86,9 +95,11 @@ export const deleteCoupon = async (id) => {
 
 /**
  * VALIDATE COUPON (For Checkout Side)
- * Logic for calculating discounts and checking constraints
+ * @param {string} code       - Coupon code
+ * @param {number} subtotal   - Product subtotal (pre-tax, pre-shipping) — used to calculate discount %
+ * @param {number} orderTotal - Full order total (subtotal + tax + shipping) — used for minSpend check
  */
-export const validateCoupon = async (code, orderAmount) => {
+export const validateCoupon = async (code, subtotal, orderTotal = subtotal) => {
     const coupon = await Coupon.findOne({ 
         code: code.toUpperCase(), 
         status: 'active' 
@@ -106,13 +117,13 @@ export const validateCoupon = async (code, orderAmount) => {
         throw new Error('Coupon usage limit reached');
     }
 
-    // Check Minimum Spend
-    if (orderAmount < coupon.minSpend) {
-        throw new Error(`Minimum spend of ₹${coupon.minSpend} required`);
+    // Check Minimum Spend against the full order total (what the customer pays)
+    if (orderTotal < coupon.minSpend) {
+        throw new Error(`Minimum order of ₹${coupon.minSpend} required to use this coupon`);
     }
 
-    // Calculate Discount
-    let discountAmount = (orderAmount * coupon.discount) / 100;
+    // Calculate Discount — % applied to subtotal (product value only, excluding tax/shipping)
+    let discountAmount = (subtotal * coupon.discount) / 100;
     
     // Apply Max Cap (₹)
     if (coupon.maxCap > 0 && discountAmount > coupon.maxCap) {
@@ -122,7 +133,7 @@ export const validateCoupon = async (code, orderAmount) => {
     return {
         coupon,
         discountAmount,
-        finalAmount: orderAmount - discountAmount
+        finalAmount: orderTotal - discountAmount
     };
 };
 

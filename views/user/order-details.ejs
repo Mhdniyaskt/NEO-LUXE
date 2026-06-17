@@ -92,7 +92,7 @@
             </span>
             <span class="sbadge s-<%= order.paymentStatus %>"><%= order.paymentStatus %></span>
             <span class="text-slate-500 text-xs">
-              Placed on <%= new Date(order.createdAt).toLocaleString('en-IN',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}) %>
+              Placed on <%= fmt.formatDate(order.createdAt) %>
             </span>
           </div>
         </div>
@@ -123,7 +123,7 @@
           <div>
             <p class="text-red-400 font-bold text-sm">Order Cancelled</p>
             <p class="text-slate-500 text-xs mt-0.5">
-              <%= new Date(order.updatedAt).toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) %>
+              <%= fmt.formatDate(order.updatedAt) %>
             </p>
             <% const displayCancelReason = order.cancelReason || order.cancellationReason; %>
             <% if (displayCancelReason) { %>
@@ -164,7 +164,7 @@
               <p class="text-[10px] font-bold mt-2 <%= done ? 'text-white' : 'text-gray-600' %> text-center whitespace-nowrap"><%= step.label %></p>
               <% if (current) { %>
                 <p class="text-[9px] text-cyan-400 mt-0.5 text-center whitespace-nowrap">
-                  <%= new Date(i === 0 ? order.createdAt : order.updatedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) %>
+                  <%= fmt.formatDateOnly(i === 0 ? order.createdAt : order.updatedAt) %>
                 </p>
               <% } %>
             </div>
@@ -184,7 +184,7 @@
               </div>
               <p class="text-[10px] font-bold mt-2 text-orange-400 text-center">Returned</p>
               <p class="text-[9px] text-orange-400/70 mt-0.5 text-center">
-                <%= new Date(order.updatedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short'}) %>
+                <%= fmt.formatDateOnly(order.updatedAt) %>
               </p>
             </div>
           <% } %>
@@ -401,7 +401,7 @@
             <% if (order.paymentStatus === 'paid' || order.paymentStatus === 'refunded') { %>
               <div class="flex justify-between items-center">
                 <span class="text-slate-400">Date</span>
-                <span class="text-slate-300 text-xs"><%= new Date(order.updatedAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) %></span>
+                <span class="text-slate-300 text-xs"><%= fmt.formatDateShort(order.updatedAt) %></span>
               </div>
             <% } %>
           </div>

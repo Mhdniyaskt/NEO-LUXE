@@ -1,14 +1,13 @@
 import Cart from '../models/cart.model.js';
 import Variant from '../models/variant.model.js';
 import Product from '../models/product.model.js';
-import Category from '../models/category.model.js';
 import Address from '../models/address.model.js';
 import Order from '../models/order.model.js';
-import User from '../models/user.model.js';
 import Coupon from '../models/coupon.model.js';
 import { MESSAGES } from '../constants/messages.constant.js';
 import { debitWalletService } from './wallet.service.js';
 import { calculateOfferPrice } from '../utils/offerPrice.util.js';
+import { calcOrderTotals, calcSubtotal } from '../utils/orderCalc.util.js';
 
 const MAX_QTY = 10;
 
@@ -19,7 +18,6 @@ async function validateCartItems(cartItems) {
   const stockErrors  = [];
 
   for (const item of cartItems) {
-    // item.product and item.variant may be either ObjectIds or populated documents
     const productId = item.product?._id || item.product;
     const variantId = item.variant?._id || item.variant;
 
@@ -28,24 +26,19 @@ async function validateCartItems(cartItems) {
     const category = product?.category;
 
     if (!product || product.isDeleted || !variant || variant.isDeleted || !category) {
-      blockedItems.push({ item, reason: 'Product no longer exists' });
-      continue;
+      blockedItems.push({ item, reason: 'Product no longer exists' }); continue;
     }
     if (!product.isActive) {
-      blockedItems.push({ item, reason: `"${product.name}" is currently unlisted` });
-      continue;
+      blockedItems.push({ item, reason: `"${product.name}" is currently unlisted` }); continue;
     }
     if (!category.isListed) {
-      blockedItems.push({ item, reason: `Category "${category.name}" is unlisted` });
-      continue;
+      blockedItems.push({ item, reason: `Category "${category.name}" is unlisted` }); continue;
     }
     if (!variant.isActive) {
-      blockedItems.push({ item, reason: `A variant of "${product.name}" is unavailable` });
-      continue;
+      blockedItems.push({ item, reason: `A variant of "${product.name}" is unavailable` }); continue;
     }
     if (variant.stock === 0) {
-      blockedItems.push({ item, reason: `"${product.name}" is out of stock` });
-      continue;
+      blockedItems.push({ item, reason: `"${product.name}" is out of stock` }); continue;
     }
 
     let qty = item.quantity;
@@ -61,18 +54,52 @@ async function validateCartItems(cartItems) {
   return { validItems, blockedItems, stockErrors };
 }
 
-// ─── Helper: compute order totals ────────────────────────────────────────────
-// Add discount as an optional parameter (default 0)
-function calcTotals(items, discount = 0) {
-  const subtotal = items.reduce((sum, { variant, qty, product, category }) => {
+// ─── Resolve a coupon code → verified discount amount ────────────────────────
+// Returns { discountAmount, couponId, couponCode } or throws on invalid coupon.
+// Does NOT increment usedCount — that happens only when the order is saved.
+async function resolveCoupon(code, subtotal) {
+  if (!code) return { discountAmount: 0, couponId: null, couponCode: null };
+
+  const coupon = await Coupon.findOne({
+    code:       code.trim().toUpperCase(),
+    status:     'active',
+    expiryDate: { $gt: new Date() },
+  });
+
+  if (!coupon)                          throw new Error('Invalid or expired coupon');
+  if (coupon.usedCount >= coupon.usageLimit) throw new Error('Coupon usage limit reached');
+
+  // minSpend check uses the pre-tax subtotal (product value only)
+  if (subtotal < coupon.minSpend)
+    throw new Error(`Minimum order of ₹${coupon.minSpend} required to use this coupon`);
+
+  // Discount % applied to subtotal, capped at maxCap
+  let discountAmount = (subtotal * coupon.discount) / 100;
+  if (coupon.maxCap > 0 && discountAmount > coupon.maxCap) discountAmount = coupon.maxCap;
+
+  return {
+    discountAmount: Math.round(discountAmount),
+    couponId:       coupon._id,
+    couponCode:     coupon.code,
+  };
+}
+
+// ─── Build orderItems array from validItems ───────────────────────────────────
+function buildOrderItems(validItems) {
+  return validItems.map(({ product, variant, category, qty }) => {
     const offerResult = calculateOfferPrice(variant, category, product);
-    return sum + offerResult.finalPrice * qty;
-  }, 0);
-  const shipping = subtotal >= 5000 ? 0 : 50;
-  const tax = Math.round((subtotal - discount) * 0.18);
-  const total = (subtotal - discount) + tax + shipping;
-  
-  return { subtotal, shipping, tax, total, discount };
+    return {
+      product:      product._id,
+      variant:      variant._id,
+      productName:  product.name,
+      variantColor: variant.color,
+      imageUrl:     variant.images?.[0]?.url || product.images?.[0]?.url || '',
+      basePrice:    offerResult.finalPrice,
+      regularPrice: variant.regularPrice ?? variant.basePrice,
+      quantity:     qty,
+      itemTotal:    offerResult.finalPrice * qty,
+    };
+  });
 }
 
 // ─── Get checkout page data ───────────────────────────────────────────────────
@@ -82,33 +109,32 @@ export const getCheckoutDataService = async (userId) => {
       .populate({ path: 'items.product', populate: { path: 'category' } })
       .populate('items.variant');
 
-    if (!cart || cart.items.length === 0) {
+    if (!cart || cart.items.length === 0)
       return { success: false, message: MESSAGES.CART.EMPTY };
-    }
 
     const { validItems, blockedItems, stockErrors } = await validateCartItems(cart.items);
 
     if (validItems.length === 0) {
-      // Remove all blocked items from cart since none are valid
       cart.items = [];
       await cart.save();
       return { success: false, message: MESSAGES.CHECKOUT.CART_UNAVAILABLE, blockedItems, stockErrors };
     }
 
-    // Remove blocked items from cart so they don't cause issues during order placement
     if (blockedItems.length > 0) {
       const validVariantIds = validItems.map(v => v.variant._id.toString());
-      cart.items = cart.items.filter(item => 
+      cart.items = cart.items.filter(item =>
         validVariantIds.includes((item.variant._id || item.variant).toString())
       );
       await cart.save();
     }
 
-    const totals    = calcTotals(validItems);
-    const addresses = await Address.find({ userId }).sort({ isDefault: -1, createdAt: -1 }).lean();
+    // Use shared utility for totals
+    const tempItems  = buildOrderItems(validItems);
+    const subtotal   = calcSubtotal(tempItems);
+    const totals     = calcOrderTotals(subtotal, 0);   // no coupon yet on page load
+    const addresses  = await Address.find({ userId }).sort({ isDefault: -1, createdAt: -1 }).lean();
 
-    const checkoutItems = validItems.map(({ item, product, variant, qty }) => {
-      const category = product?.category;
+    const checkoutItems = validItems.map(({ product, variant, category, qty }) => {
       const offerResult = calculateOfferPrice(variant, category, product);
       return {
         productId:       product._id,
@@ -127,11 +153,10 @@ export const getCheckoutDataService = async (userId) => {
       };
     });
 
-    // Fetch available active coupons for the user
     const availableCoupons = await Coupon.find({
-      status: 'active',
+      status:     'active',
       expiryDate: { $gt: new Date() },
-      $expr: { $lt: ['$usedCount', '$usageLimit'] },
+      $expr:      { $lt: ['$usedCount', '$usageLimit'] },
     }).select('title code discount maxCap minSpend usageLimit usedCount expiryDate').lean();
 
     return {
@@ -167,25 +192,25 @@ export const validateBuyNowService = async (productId, variantId, quantity = 1) 
       return { success: false, message: `Only ${variant.stock} items available` };
 
     const offerResult = calculateOfferPrice(variant, product.category, product);
-    const subtotal = offerResult.finalPrice * quantity;
-    const shipping = subtotal >= 5000 ? 0 : 50;
-    const tax      = Math.round(subtotal * 0.18);
-    const total    = subtotal + tax + shipping;
+    const subtotal    = offerResult.finalPrice * quantity;
+    const totals      = calcOrderTotals(subtotal, 0);
 
     return {
       success: true,
       buyNow: {
         item: {
           product: { _id: product._id, name: product.name, brand: product.brand, images: product.images },
-          variant: { _id: variant._id, color: variant.color, basePrice: variant.basePrice,
-                     regularPrice: variant.regularPrice, finalPrice: offerResult.finalPrice,
-                     offerPercentage: offerResult.offerPercentage, offerSource: offerResult.offerSource,
-                     images: variant.images },
+          variant: {
+            _id: variant._id, color: variant.color, basePrice: variant.basePrice,
+            regularPrice: variant.regularPrice, finalPrice: offerResult.finalPrice,
+            offerPercentage: offerResult.offerPercentage, offerSource: offerResult.offerSource,
+            images: variant.images,
+          },
           quantity,
-          price: offerResult.finalPrice,
+          price:    offerResult.finalPrice,
           subtotal,
         },
-        totals: { subtotal, shipping, tax, total },
+        totals,
       },
     };
   } catch (error) {
@@ -193,27 +218,7 @@ export const validateBuyNowService = async (productId, variantId, quantity = 1) 
     return { success: false, message: MESSAGES.CHECKOUT.VALIDATE_FAILED };
   }
 };
-export const validateCouponService = async (userId, couponCode, subtotal) => {
-  try {
-    const coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true });
 
-    if (!coupon) return { success: false, message: "Invalid coupon code" };
-    if (new Date() > coupon.expiryDate) return { success: false, message: "Coupon expired" };
-    if (subtotal < coupon.minPurchase) return { success: false, message: `Minimum purchase of ₹${coupon.minPurchase} required` };
-
-    // Check if user has used this coupon before
-    const used = await Order.findOne({ user: userId, couponCode: couponCode.toUpperCase() });
-    if (used) return { success: false, message: "Coupon already used" };
-
-    return { 
-      success: true, 
-      discount: coupon.discountAmount,
-      code: coupon.code 
-    };
-  } catch (error) {
-    return { success: false, message: "Error validating coupon" };
-  }
-};
 // ─── Validate checkout (address + cart/items) — no side effects ───────────────
 export const validateCheckoutService = async (userId, addressId, items = null) => {
   try {
@@ -221,7 +226,6 @@ export const validateCheckoutService = async (userId, addressId, items = null) =
     if (!address) return { success: false, message: MESSAGES.CHECKOUT.INVALID_ADDRESS };
 
     if (items) {
-      // Buy-now validation
       if (items.length !== 1) return { success: false, message: MESSAGES.CHECKOUT.BUY_NOW_ONE_ITEM };
       const { productId, variantId, quantity } = items[0];
       const product = await Product.findById(productId).populate('category');
@@ -233,7 +237,6 @@ export const validateCheckoutService = async (userId, addressId, items = null) =
       if (variant.stock < quantity)
         return { success: false, message: `Insufficient stock. Available: ${variant.stock}` };
     } else {
-      // Cart validation
       const cart = await Cart.findOne({ user: userId })
         .populate({ path: 'items.product', populate: { path: 'category' } })
         .populate('items.variant');
@@ -277,23 +280,59 @@ export const getCartTotalsService = async (userId) => {
     if (blockedItems.length > 0)
       return { success: false, message: MESSAGES.CHECKOUT.ITEMS_UNAVAILABLE };
 
-    return { success: true, totals: calcTotals(validItems) };
+    const tempItems = buildOrderItems(validItems);
+    const subtotal  = calcSubtotal(tempItems);
+    return { success: true, totals: calcOrderTotals(subtotal, 0) };
   } catch (error) {
     console.error('getCartTotalsService error:', error);
     return { success: false, message: MESSAGES.CHECKOUT.PREPARE_FAILED };
   }
 };
 
-// ─── COD: create order + deduct stock + clear cart ────────────────────────────
-// Add couponCode and discount to the destructuring arguments
-export const processCheckoutService = async ({ 
-  userId, 
-  addressId, 
-  paymentMethod, 
-  items, 
-  isBuyNow = false,
-  couponCode = null, // New
-  discount = 0       // New
+// ─── Core: deduct stock + build orderItems (shared by COD/Wallet/Razorpay) ───
+async function deductStockAndBuildItems(validItems) {
+  const orderItems = [];
+
+  for (const { product, variant, category, qty } of validItems) {
+    const stockResult = await Variant.findOneAndUpdate(
+      { _id: variant._id, stock: { $gte: qty } },
+      { $inc: { stock: -qty } },
+      { new: true }
+    );
+
+    if (!stockResult) {
+      // Rollback all items already deducted in this loop
+      for (const deducted of orderItems) {
+        await Variant.findByIdAndUpdate(deducted.variant, { $inc: { stock: deducted.quantity } });
+      }
+      return { success: false, outOfStock: true, message: `"${product.name}" went out of stock. Please update your cart.` };
+    }
+
+    const offerResult = calculateOfferPrice(variant, category, product);
+    orderItems.push({
+      product:      product._id,
+      variant:      variant._id,
+      productName:  product.name,
+      variantColor: variant.color,
+      imageUrl:     variant.images?.[0]?.url || product.images?.[0]?.url || '',
+      basePrice:    offerResult.finalPrice,
+      regularPrice: variant.regularPrice ?? variant.basePrice,
+      quantity:     qty,
+      itemTotal:    offerResult.finalPrice * qty,
+    });
+  }
+
+  return { success: true, orderItems };
+}
+
+// ─── COD / Wallet: create order + deduct stock + clear cart ──────────────────
+export const processCheckoutService = async ({
+  userId,
+  addressId,
+  paymentMethod,
+  items,
+  isBuyNow  = false,
+  couponCode = null,
 }) => {
   try {
     const address = await Address.findOne({ _id: addressId, userId });
@@ -301,19 +340,20 @@ export const processCheckoutService = async ({
 
     let orderItems = [];
 
+    // ── Build order items + deduct stock ─────────────────────────────────────
     if (isBuyNow) {
       if (!items || items.length !== 1)
         return { success: false, message: MESSAGES.CHECKOUT.BUY_NOW_ONE_ITEM };
 
       const { productId, variantId, quantity } = items[0];
-      const product = await Product.findById(productId).populate('category');
-      const variant = await Variant.findById(variantId);
+      const product  = await Product.findById(productId).populate('category');
+      const variant  = await Variant.findById(variantId);
 
       if (!product || product.isDeleted || !product.isActive)
         return { success: false, message: MESSAGES.PRODUCT.NOT_AVAILABLE };
       if (!variant || variant.isDeleted || !variant.isActive)
         return { success: false, message: MESSAGES.PRODUCT.VARIANT_UNAVAILABLE };
-      if (!product.category || !product.category.isListed)
+      if (!product.category?.isListed)
         return { success: false, message: MESSAGES.PRODUCT.CATEGORY_UNAVAILABLE };
       if (variant.stock < quantity)
         return { success: false, message: `Insufficient stock. Available: ${variant.stock}` };
@@ -327,7 +367,6 @@ export const processCheckoutService = async ({
         return { success: false, message: 'Failed to reserve stock. Item may be out of stock.' };
 
       const offerResult = calculateOfferPrice(variant, product.category, product);
-
       orderItems = [{
         product:      productId,
         variant:      variantId,
@@ -352,56 +391,46 @@ export const processCheckoutService = async ({
 
       if (validItems.length === 0)
         return { success: false, message: MESSAGES.CHECKOUT.CART_UNAVAILABLE };
-
       if (blockedItems.length > 0)
         return { success: false, message: `${MESSAGES.CHECKOUT.ITEMS_UNAVAILABLE}: ${blockedItems.map(b => b.reason).join(', ')}` };
 
-      for (const { product, variant, qty } of validItems) {
-        const stockResult = await Variant.findOneAndUpdate(
-          { _id: variant._id, stock: { $gte: qty } },
-          { $inc: { stock: -qty } },
-          { new: true }
-        );
-        if (!stockResult) {
-          // If one item fails, we should technically roll back previous items in this loop
-          for (const rolledBack of orderItems) {
-             await Variant.findByIdAndUpdate(rolledBack.variant, { $inc: { stock: rolledBack.quantity } });
-          }
-          return { success: false, message: `Failed to reserve stock for ${product.name}.` };
-        }
-
-        const category = product?.category;
-        const offerResult = calculateOfferPrice(variant, category, product);
-
-        orderItems.push({
-          product:      product._id,
-          variant:      variant._id,
-          productName:  product.name,
-          variantColor: variant.color,
-          imageUrl:     variant.images?.[0]?.url || product.images?.[0]?.url || '',
-          basePrice:    offerResult.finalPrice,
-          regularPrice: variant.regularPrice ?? variant.basePrice,
-          quantity:     qty,
-          itemTotal:    offerResult.finalPrice * qty,
-        });
-      }
+      const stockResult = await deductStockAndBuildItems(validItems);
+      if (!stockResult.success) return stockResult;
+      orderItems = stockResult.orderItems;
 
       cart.items = [];
       await cart.save();
     }
 
-    // ─── UPDATED CALCULATION LOGIC ──────────────────────────────────────────
-    const subtotal = orderItems.reduce((s, i) => s + i.itemTotal, 0);
-    const shipping = subtotal >= 5000 ? 0 : 50;
-    
-    // Tax is usually calculated on the discounted taxable value
-    const taxableAmount = Math.max(0, subtotal - discount); 
-    const tax = Math.round(taxableAmount * 0.18);
-    const total = taxableAmount + tax + shipping;
+    // ── Resolve coupon server-side (NEVER trust client discount amount) ───────
+    const subtotal = calcSubtotal(orderItems);
+    let discountAmount = 0;
+    let resolvedCouponCode = null;
+
+    if (couponCode) {
+      try {
+        const resolved = await resolveCoupon(couponCode, subtotal);
+        discountAmount     = resolved.discountAmount;
+        resolvedCouponCode = resolved.couponCode;
+
+        // Increment usedCount only when the order is actually being placed
+        if (resolved.couponId) {
+          await Coupon.findByIdAndUpdate(resolved.couponId, { $inc: { usedCount: 1 } });
+        }
+      } catch (couponErr) {
+        // Coupon became invalid between apply and order placement — proceed without discount
+        console.warn(`Coupon "${couponCode}" rejected at order time:`, couponErr.message);
+        discountAmount     = 0;
+        resolvedCouponCode = null;
+      }
+    }
+
+    // ── Single shared calculation ─────────────────────────────────────────────
+    const totals = calcOrderTotals(subtotal, discountAmount);
 
     const order = new Order({
-      user: userId,
-      items: orderItems,
+      user:    userId,
+      items:   orderItems,
       shippingAddress: {
         fullName:     address.fullName,
         phone:        address.phone,
@@ -413,34 +442,43 @@ export const processCheckoutService = async ({
       },
       paymentMethod,
       paymentStatus: 'pending',
-      subtotal,
-      discount,      // Added to Schema
-      couponCode,    // Added to Schema
-      tax,
-      shipping,
-      total,
-      status: 'pending',
+      subtotal:   totals.subtotal,
+      discount:   totals.discount,
+      couponCode: resolvedCouponCode || '',
+      tax:        totals.tax,
+      shipping:   totals.shipping,
+      total:      totals.total,
+      status:     'pending',
     });
 
     await order.save();
 
-    // ── Wallet payment: debit balance immediately ─────────────────────
+    // ── Wallet: debit the SAME total we just saved ────────────────────────────
     if (paymentMethod === 'wallet') {
       const debit = await debitWalletService({
         userId,
-        amount:       total,
+        amount:      totals.total,
         description: `Payment for order #${order._id.toString().slice(-8).toUpperCase()}`,
-        orderId:      order._id,
-        category:     'purchase',
+        orderId:     order._id,
+        category:    'purchase',
       });
+
       if (!debit.success) {
-        // Roll back: delete order and restore stock
+        // Rollback: delete order + restore stock
         await order.deleteOne();
         for (const oi of orderItems) {
           await Variant.findByIdAndUpdate(oi.variant, { $inc: { stock: oi.quantity } });
         }
+        // Also undo usedCount increment if coupon was applied
+        if (resolvedCouponCode) {
+          await Coupon.findOneAndUpdate(
+            { code: resolvedCouponCode },
+            { $inc: { usedCount: -1 } }
+          );
+        }
         return { success: false, message: debit.message };
       }
+
       order.paymentStatus = 'paid';
       await order.save();
     }
@@ -464,9 +502,13 @@ export const processCheckoutService = async ({
 };
 
 // ─── Razorpay: create order AFTER signature verification ─────────────────────
-// Called only when Razorpay payment is confirmed — THEN deduct stock + clear cart
-// Uses atomic findOneAndUpdate (stock >= qty) — safe without replica set
-export const processRazorpayOrderService = async ({ userId, addressId, razorpayPaymentId, razorpayOrderId, couponCode = null, discount = 0 }) => {
+export const processRazorpayOrderService = async ({
+  userId,
+  addressId,
+  razorpayPaymentId,
+  razorpayOrderId,
+  couponCode = null,
+}) => {
   try {
     const address = await Address.findOne({ _id: addressId, userId });
     if (!address) return { success: false, message: MESSAGES.CHECKOUT.INVALID_ADDRESS };
@@ -481,10 +523,7 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
     const { validItems, blockedItems } = await validateCartItems(cart.items);
 
     if (validItems.length === 0) {
-      // Check if the reason is stock-related — return outOfStock for better UX
-      const stockIssue = blockedItems.some(b => 
-        b.reason.includes('out of stock') || b.reason.includes('stock')
-      );
+      const stockIssue = blockedItems.some(b => b.reason.includes('stock'));
       return {
         success:    false,
         outOfStock: stockIssue,
@@ -495,9 +534,7 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
     }
 
     if (blockedItems.length > 0) {
-      const stockIssue = blockedItems.some(b => 
-        b.reason.includes('out of stock') || b.reason.includes('stock')
-      );
+      const stockIssue = blockedItems.some(b => b.reason.includes('stock'));
       return {
         success:    false,
         outOfStock: stockIssue,
@@ -508,61 +545,40 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
     }
 
     // ── Atomic stock deduction ────────────────────────────────────────────────
-    // findOneAndUpdate with { stock: { $gte: qty } } is a SINGLE atomic MongoDB
-    // operation. If two requests race, only one can succeed — the other gets null.
-    // This prevents overselling WITHOUT needing transactions/replica sets.
-    const orderItems = [];
-    for (const { item, product, variant, qty } of validItems) {
-      const stockResult = await Variant.findOneAndUpdate(
-        { _id: variant._id, stock: { $gte: qty } },
-        { $inc: { stock: -qty } },
-        { new: true }
-      );
+    const stockResult = await deductStockAndBuildItems(validItems);
+    if (!stockResult.success) return stockResult;
+    const orderItems = stockResult.orderItems;
 
-      if (!stockResult) {
-        // Stock insufficient — rollback any items already deducted in this loop
-        for (const deducted of orderItems) {
-          await Variant.findByIdAndUpdate(deducted.variant, {
-            $inc: { stock: deducted.quantity }
-          });
-        }
-        return {
-          success:    false,
-          outOfStock: true,
-          message:    `"${product.name}" went out of stock during payment. Please update your cart.`,
-        };
-      }
-
-      const category = product?.category;
-      const offerResult = calculateOfferPrice(variant, category, product);
-
-      orderItems.push({
-        product:      product._id,
-        variant:      variant._id,
-        productName:  product.name,
-        variantColor: variant.color,
-        imageUrl:     variant.images?.[0]?.url || product.images?.[0]?.url || '',
-        basePrice:    offerResult.finalPrice,
-        regularPrice: variant.regularPrice ?? variant.basePrice,
-        quantity:     qty,
-        itemTotal:    offerResult.finalPrice * qty,
-      });
-    }
-
-    // ── Clear cart ────────────────────────────────────────────────────────────
     cart.items = [];
     await cart.save();
 
-    // ── Create order ─────────────────────────────────────────────────────────
-    const subtotal = orderItems.reduce((s, i) => s + i.itemTotal, 0);
-    const shipping = subtotal >= 5000 ? 0 : 50;
-    const taxableAmount = Math.max(0, subtotal - discount);
-    const tax      = Math.round(taxableAmount * 0.18);
-    const total    = taxableAmount + tax + shipping;
+    // ── Resolve coupon server-side ────────────────────────────────────────────
+    const subtotal = calcSubtotal(orderItems);
+    let discountAmount = 0;
+    let resolvedCouponCode = null;
+
+    if (couponCode) {
+      try {
+        const resolved = await resolveCoupon(couponCode, subtotal);
+        discountAmount     = resolved.discountAmount;
+        resolvedCouponCode = resolved.couponCode;
+
+        if (resolved.couponId) {
+          await Coupon.findByIdAndUpdate(resolved.couponId, { $inc: { usedCount: 1 } });
+        }
+      } catch (couponErr) {
+        console.warn(`Coupon "${couponCode}" rejected at Razorpay order time:`, couponErr.message);
+        discountAmount     = 0;
+        resolvedCouponCode = null;
+      }
+    }
+
+    // ── Single shared calculation ─────────────────────────────────────────────
+    const totals = calcOrderTotals(subtotal, discountAmount);
 
     const order = new Order({
-      user: userId,
-      items: orderItems,
+      user:    userId,
+      items:   orderItems,
       shippingAddress: {
         fullName:     address.fullName,
         phone:        address.phone,
@@ -576,8 +592,13 @@ export const processRazorpayOrderService = async ({ userId, addressId, razorpayP
       paymentStatus:     'paid',
       razorpayOrderId,
       razorpayPaymentId,
-      subtotal, discount, couponCode, tax, shipping, total,
-      status: 'pending',
+      subtotal:   totals.subtotal,
+      discount:   totals.discount,
+      couponCode: resolvedCouponCode || '',
+      tax:        totals.tax,
+      shipping:   totals.shipping,
+      total:      totals.total,
+      status:     'pending',
     });
 
     await order.save();

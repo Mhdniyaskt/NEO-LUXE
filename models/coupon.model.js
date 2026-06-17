@@ -67,12 +67,17 @@ couponSchema.virtual('daysLeft').get(function() {
 
 /**
  * Middleware to auto-update status before saving
+ * - Marks expired if expiryDate is in the past
+ * - Reactivates to 'active' if expiryDate is in the future and status was 'expired'
  */
 couponSchema.pre('save', function() {
     const today = new Date();
     
     if (this.expiryDate < today) {
         this.status = 'expired';
+    } else if (this.status === 'expired') {
+        // Expiry was updated to a future date — reactivate
+        this.status = 'active';
     } else if (this.usedCount >= this.usageLimit) {
         this.status = 'inactive';
     }

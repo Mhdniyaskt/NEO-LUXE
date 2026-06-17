@@ -26,10 +26,9 @@ export const getAllCoupons = async (req, res) => {
 export const createCoupon = async (req, res) => {
     try {
         await couponService.createCoupon(req.body);
-        res.redirect('/admin/coupons');
+        res.status(201).json({ success: true, message: 'Coupon created successfully' });
     } catch (error) {
-        // Tip: Use req.flash('error', error.message) for better UX
-        res.status(400).send(error.message);
+        res.status(400).json({ success: false, message: error.message });
     }
 };
 

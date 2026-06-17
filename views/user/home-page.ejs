@@ -185,7 +185,7 @@
                   </svg>
                 </div>
               <% } %>
-              <!-- Discount badge -->
+              <!-- Discount badge — only when active offer exists -->
               <% if (p.variant.discPct > 0) { %>
                 <div class="absolute top-3 right-3 bg-red-500 text-white text-[10px]
                             font-black px-2 py-0.5 rounded-md shadow-lg">
@@ -208,10 +208,10 @@
               </p>
               <div class="flex justify-between items-center">
                 <div>
-                  <span class="font-bold text-base">₹<%= p.variant.salePrice.toLocaleString('en-IN') %></span>
-                  <% if (p.variant.regPrice > p.variant.salePrice) { %>
+                  <span class="font-bold text-base">₹<%= (p.variant.finalPrice || p.variant.salePrice).toLocaleString('en-IN') %></span>
+                  <% if (p.variant.discPct > 0) { %>
                     <span class="text-gray-600 text-xs line-through ml-1.5">
-                      ₹<%= p.variant.regPrice.toLocaleString('en-IN') %>
+                      ₹<%= p.variant.salePrice.toLocaleString('en-IN') %>
                     </span>
                   <% } %>
                 </div>

@@ -550,15 +550,15 @@
   async function handleCodOrder(btn) {
     setLoading(btn, selectedPayment === 'wallet' ? 'Processing Payment…' : 'Placing Order…');
     try {
-      const couponCode = document.getElementById('appliedCouponCode')?.textContent || '';
+      const couponCode = document.getElementById('appliedCouponCode')?.textContent?.trim() || '';
       const res  = await fetch('/checkout/place-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          addressId: selectedAddressId, 
+          addressId:     selectedAddressId, 
           paymentMethod: selectedPayment,
-          couponCode: couponCode || undefined,
-          discount: appliedDiscount || 0,
+          couponCode:    couponCode || undefined,
+          // discount is NOT sent — server resolves it from couponCode
         }),
       });
       const data = await res.json();
@@ -596,14 +596,14 @@
 
     try {
       // Step 1 — validate cart + create Razorpay order (NO DB order, NO stock deduction)
-      const couponCode = document.getElementById('appliedCouponCode')?.textContent || '';
+      const couponCode = document.getElementById('appliedCouponCode')?.textContent?.trim() || '';
       const res  = await fetch('/checkout/razorpay/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          addressId: selectedAddressId,
+          addressId:  selectedAddressId,
           couponCode: couponCode || undefined,
-          discount: appliedDiscount || 0,
+          // discount is NOT sent — server resolves it from couponCode
         }),
       });
       const data = await res.json();
@@ -647,9 +647,55 @@
               // Payment verified + order created → go to confirmation
               window.location.href = verifyData.redirect;
             } else if (verifyData.outOfStock) {
-              // Race condition — stock ran out, refund initiated automatically
-              // Redirect to payment-failed page with proper message
-              window.location.href = '/payment-failed?reason=outofstock';
+              // Race condition — stock ran out during payment
+              const refundAmt = verifyData.refundAmount
+                ? `₹${verifyData.refundAmount.toLocaleString('en-IN')}`
+                : 'the payment amount';
+
+              if (verifyData.walletCredited) {
+                // Instant wallet credit succeeded
+                await Swal.fire({
+                  title: 'Out of Stock - Refund Processed',
+                  html: `<div class="text-center">
+                           <p class="text-slate-300 text-sm mb-4">The product went out of stock while your payment was being processed.</p>
+                           <div class="bg-green-500/10 border border-green-500/20 rounded-lg p-4 mb-4">
+                             <p class="text-green-400 font-bold text-lg">✓ ${refundAmt} Instantly Credited</p>
+                             <p class="text-green-300 text-sm">Available in your wallet now</p>
+                           </div>
+                           <p class="text-slate-400 text-xs">No waiting period • Ready to use immediately</p>
+                         </div>`,
+                  icon: 'info',
+                  confirmButtonText: 'View Wallet',
+                  showCancelButton: true,
+                  cancelButtonText: 'Continue Shopping',
+                  confirmButtonColor: '#10b981',
+                  cancelButtonColor: '#374151',
+                  background: '#0a0f18',
+                  color: '#e2e8f0',
+                }).then(r => {
+                  window.location.href = r.isConfirmed ? '/wallet' : '/cart';
+                });
+              } else {
+                // Wallet credit failed, fallback to Razorpay refund
+                await Swal.fire({
+                  title: 'Out of Stock - Refund Processing',
+                  html: `<div class="text-center">
+                           <p class="text-slate-300 text-sm mb-4">The product went out of stock while your payment was being processed.</p>
+                           <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 mb-4">
+                             <p class="text-yellow-400 font-bold text-base">⏳ Refund Being Processed</p>
+                             <p class="text-yellow-300 text-sm">${refundAmt} will be refunded to your original payment method</p>
+                           </div>
+                           <p class="text-slate-400 text-xs">Processing time: 5-7 business days</p>
+                         </div>`,
+                  icon: 'warning',
+                  confirmButtonText: 'Continue Shopping',
+                  confirmButtonColor: '#06b6d4',
+                  background: '#0a0f18',
+                  color: '#e2e8f0',
+                }).then(() => {
+                  window.location.href = '/cart';
+                });
+              }
             } else {
               // Any other verification failure — show message and go to cart
               await Swal.fire({
@@ -719,65 +765,15 @@
       resetBtn(btn);
     }
   }
-  // ── Coupon Logic ──────────────────────────────────────────────────
-function toggleCouponModal() {
-  const modal = document.getElementById('couponModal');
-  modal.classList.toggle('hidden');
-}
-
-function selectCoupon(code) {
-  document.getElementById('couponCode').value = code;
-  toggleCouponModal();
-}
-
-async function applyCoupon() {
-  const code = document.getElementById('couponCode').value.trim();
-  const btn = document.getElementById('applyCouponBtn');
-  const msg = document.getElementById('couponMessage');
-
-  if (!code) return;
-
-  setLoading(btn, '...');
-  
-  try {
-    const res = await fetch('/checkout/apply-coupon', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ couponCode: code, subtotal: <%= totals.subtotal %> })
-    });
-    
-    const data = await res.json();
-    resetBtn(btn);
-    btn.innerText = "Apply"; // Reset text back from "Place Order" icon
-
-    if (data.success) {
-      msg.className = "mt-2 text-[10px] font-medium text-green-400";
-      msg.innerText = `Coupon applied! You saved ₹${data.discount}`;
-      msg.classList.remove('hidden');
-      
-      // Update the UI totals
-      document.getElementById('couponDiscountRow').classList.remove('hidden');
-      document.getElementById('couponDiscountValue').innerText = `−₹${data.discount.toLocaleString('en-IN')}`;
-      
-      // Update the Grand Total (Recalculated on Server and returned)
-      // Assuming your server returns the new total
-      // document.querySelector('.text-cyan-400.text-xl').innerText = `₹${data.newTotal.toLocaleString('en-IN')}`;
-      
-      // Optional: Refresh page to get exact calculations from server
-      // window.location.reload(); 
-    } else {
-      msg.className = "mt-2 text-[10px] font-medium text-red-400";
-      msg.innerText = data.message;
-      msg.classList.remove('hidden');
-    }
-  } catch (err) {
-    resetBtn(btn);
-    btn.innerText = "Apply";
-  }
-}
+    // (duplicate coupon block removed — active implementation is below)
 
   // ── Coupon functions ──────────────────────────────────────────────────────
+  // Snapshot the server-computed breakdown so we can recalculate client-side
+  // using the SAME formula as calcTotals() in checkout.service.js:
+  //   total = subtotal + tax + shipping - couponDiscount
   const SUBTOTAL = <%= totals.subtotal %>;
+  const TAX      = <%= totals.tax %>;
+  const SHIPPING = <%= totals.shipping %>;
   let appliedDiscount = 0;
 
   function toggleAvailableCoupons() {
@@ -808,7 +804,9 @@ async function applyCoupon() {
       const res  = await fetch('/checkout/apply-coupon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, subtotal: SUBTOTAL }),
+        // Send subtotal for discount calculation.
+        // Also send the full order total for minSpend validation.
+        body: JSON.stringify({ code, subtotal: SUBTOTAL, orderTotal: SUBTOTAL + TAX + SHIPPING }),
       });
       const data = await res.json();
 
@@ -858,9 +856,10 @@ async function applyCoupon() {
   }
 
   function updateTotalWithDiscount() {
-    const originalTotal = <%= totals.total %>;
-    const newTotal = Math.max(0, originalTotal - appliedDiscount);
-    const totalEl = document.querySelector('[data-checkout-total]');
+    // Mirror server formula: subtotal + tax + shipping - couponDiscount
+    // (tax is on full subtotal — coupon is a post-tax discount, same as calcTotals())
+    const newTotal = Math.max(0, SUBTOTAL + TAX + SHIPPING - appliedDiscount);
+    const totalEl  = document.querySelector('[data-checkout-total]');
     if (totalEl) totalEl.textContent = '₹' + newTotal.toLocaleString('en-IN');
   }
 </script>

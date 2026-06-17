@@ -11,7 +11,10 @@ import {
 } from "../../services/checkout.service.js";
 import { getUserAddressesService } from "../../services/address.service.js";
 import { getOrderByIdService } from "../../services/order.service.js";
-import { validateCoupon } from "../../services/coupon.service.js";
+import { creditWalletService } from "../../services/wallet.service.js";
+import { calcOrderTotals, calcSubtotal, validateCalculationInputs } from "../../utils/orderCalc.util.js";
+import { validateOrderCalculation, debugOrderCalculation } from "../../utils/calculation.validator.js";
+import Coupon from "../../models/coupon.model.js";
 import User from "../../models/user.model.js";
 import PDFDocument from "pdfkit";
 
@@ -53,28 +56,17 @@ export const getCheckout = asyncHandler(async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// POST /checkout/place-order  — COD only
+// POST /checkout/place-order  — COD / Wallet
 // ═══════════════════════════════════════════════════════════════════════════════
 export const placeOrder = asyncHandler(async (req, res) => {
   const userId = req.session.user.id;
-  const { addressId, paymentMethod, couponCode, discount } = req.body;
+  const { addressId, paymentMethod, couponCode } = req.body;
 
   if (!addressId || !paymentMethod)
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Address and payment method are required",
-      });
+    return res.status(400).json({ success: false, message: "Address and payment method are required" });
 
-  // Only COD and wallet go through this route — Razorpay has its own flow
   if (!["cod", "wallet"].includes(paymentMethod))
-    return res
-      .status(400)
-      .json({
-        success: false,
-        message: "Use the Razorpay flow for online payments",
-      });
+    return res.status(400).json({ success: false, message: "Use the Razorpay flow for online payments" });
 
   const validation = await validateCheckoutService(userId, addressId);
   if (!validation.success) return res.status(400).json(validation);
@@ -83,18 +75,18 @@ export const placeOrder = asyncHandler(async (req, res) => {
     userId,
     addressId,
     paymentMethod,
-    isBuyNow: false,
+    isBuyNow:   false,
     couponCode: couponCode || null,
-    discount: parseInt(discount) || 0,
+    // discount is intentionally NOT forwarded — server resolves it from couponCode
   });
 
   if (result.success) {
     return res.json({
-      success: true,
-      message: result.message,
-      orderId: result.order._id,
+      success:     true,
+      message:     result.message,
+      orderId:     result.order._id,
       orderNumber: result.order.orderNumber,
-      redirect: `/orders/${result.order._id}`,
+      redirect:    `/orders/${result.order._id}`,
     });
   }
 
@@ -103,63 +95,82 @@ export const placeOrder = asyncHandler(async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /checkout/razorpay/create-order
-// Step 1 of Razorpay flow:
-//   - Validate cart + address (NO stock deduction, NO DB order)
-//   - Create a Razorpay order for the amount
-//   - Store addressId in session for use after verification
+// Step 1: Validate cart + address, compute amount server-side, create Razorpay order.
+// NO stock deduction, NO DB order created here.
 // ═══════════════════════════════════════════════════════════════════════════════
 export const createRazorpayOrder = asyncHandler(async (req, res) => {
   const userId = req.session.user.id;
-  const { addressId, couponCode, discount } = req.body;
+  const { addressId, couponCode } = req.body;
 
   if (!addressId)
-    return res
-      .status(400)
-      .json({ success: false, message: "Address is required" });
+    return res.status(400).json({ success: false, message: "Address is required" });
 
-  // Validate cart + address — no side effects
   const validation = await validateCheckoutService(userId, addressId);
   if (!validation.success) return res.status(400).json(validation);
 
-  // Get cart totals to know the amount — no side effects
+  // Get fresh cart totals — no side effects
   const totalsResult = await getCartTotalsService(userId);
   if (!totalsResult.success) return res.status(400).json(totalsResult);
 
-  // Apply coupon discount to the total
-  const couponDiscount = parseInt(discount) || 0;
-  const finalAmount = Math.max(0, totalsResult.totals.total - couponDiscount);
+  // Resolve coupon server-side so Razorpay amount matches what order service will use
+  let discountAmount = 0;
+  if (couponCode) {
+    try {
+      const coupon = await Coupon.findOne({
+        code:       couponCode.trim().toUpperCase(),
+        status:     'active',
+        expiryDate: { $gt: new Date() },
+      });
+      if (coupon && coupon.usedCount < coupon.usageLimit) {
+        const subtotal = totalsResult.totals.subtotal;
+        if (subtotal >= coupon.minSpend) {
+          let d = (subtotal * coupon.discount) / 100;
+          if (coupon.maxCap > 0 && d > coupon.maxCap) d = coupon.maxCap;
+          discountAmount = Math.round(d);
+        }
+      }
+    } catch { /* ignore — just use discountAmount = 0 */ }
+  }
 
-  // Create Razorpay order (amount in paise)
+  // Use shared utility so Razorpay amount = what will be saved in DB
+  const totals      = calcOrderTotals(totalsResult.totals.subtotal, discountAmount);
+  
+  // Validate calculation inputs
+  const calcValidation = validateCalculationInputs(totalsResult.totals.subtotal, discountAmount);
+  if (!calcValidation.isValid) {
+    return res.status(400).json({ success: false, message: calcValidation.error });
+  }
+  
+  const finalAmount = totals.total;
+
   let rzpOrder;
   try {
     rzpOrder = await razorpay.orders.create({
-      amount: Math.round(finalAmount * 100),
+      amount:   Math.round(finalAmount * 100),
       currency: "INR",
-      receipt: `ord_${userId.toString().slice(-8)}_${Date.now().toString().slice(-8)}`,
+      receipt:  `ord_${userId.toString().slice(-8)}_${Date.now().toString().slice(-8)}`,
     });
   } catch (rzpErr) {
     console.error("Razorpay order creation failed:", rzpErr);
     return res.status(500).json({
       success: false,
-      message:
-        "Payment gateway error. Please try again or use Cash on Delivery.",
+      message: "Payment gateway error. Please try again or use Cash on Delivery.",
     });
   }
 
-  // Store addressId and coupon in session so verify endpoint can use it
-  req.session.razorpayPending = { 
-    addressId, 
+  // Store only couponCode in session — discount will be re-resolved at verify time
+  req.session.razorpayPending = {
+    addressId,
     razorpayOrderId: rzpOrder.id,
-    couponCode: couponCode || null,
-    discount: couponDiscount,
+    couponCode:      couponCode || null,
   };
 
   return res.json({
-    success: true,
+    success:         true,
     razorpayOrderId: rzpOrder.id,
-    amount: rzpOrder.amount,
-    currency: rzpOrder.currency,
-    keyId: process.env.RAZORPAY_KEY_ID,
+    amount:          rzpOrder.amount,
+    currency:        rzpOrder.currency,
+    keyId:           process.env.RAZORPAY_KEY_ID,
   });
 });
 
@@ -210,11 +221,11 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   // ── Signature valid — NOW try to create order + deduct stock atomically ───
   const result = await processRazorpayOrderService({
     userId,
-    addressId: pending.addressId,
+    addressId:         pending.addressId,
     razorpayPaymentId: razorpay_payment_id,
-    razorpayOrderId: razorpay_order_id,
-    couponCode: pending.couponCode || null,
-    discount: pending.discount || 0,
+    razorpayOrderId:   razorpay_order_id,
+    couponCode:        pending.couponCode || null,
+    // discount is intentionally NOT forwarded — service resolves from couponCode
   });
 
   // Clear pending session data regardless of outcome
@@ -229,28 +240,73 @@ export const verifyRazorpayPayment = asyncHandler(async (req, res) => {
   }
 
   // ── Stock ran out (race condition) — user paid but we can't fulfil ────────
-  // Initiate automatic Razorpay refund
+  // Credit payment amount to wallet INSTANTLY instead of 5-7 day Razorpay refund
   if (result.outOfStock) {
+    // Get the Razorpay order amount (in paise → convert to rupees)
+    let amountToRefund = 0;
+    let walletCredited = false;
+    let walletBalance = 0;
+    
     try {
-      await razorpay.payments.refund(razorpay_payment_id, {
-        speed: "optimum", // 'normal' (5-7 days) or 'optimum' (instant if supported)
-        notes: { reason: "Out of stock — automatic refund" },
-      });
-      console.log(
-        `Auto-refund initiated for payment ${razorpay_payment_id} — stock exhausted`,
-      );
-    } catch (refundErr) {
-      // Refund failed — log it for manual processing, but still tell the user
-      console.error(
-        `REFUND FAILED for payment ${razorpay_payment_id}:`,
-        refundErr,
-      );
+      const rzpOrder = await razorpay.orders.fetch(razorpay_order_id);
+      amountToRefund = rzpOrder.amount / 100; // paise to rupees
+    } catch (fetchErr) {
+      console.error('Could not fetch Razorpay order amount:', fetchErr.message);
+      // Fallback: try to get from cart totals
+      const totalsResult = await getCartTotalsService(userId).catch(() => null);
+      if (totalsResult?.totals) {
+        amountToRefund = totalsResult.totals.total;
+      }
+    }
+
+    // Credit wallet instantly
+    if (amountToRefund > 0) {
+      try {
+        const walletResult = await creditWalletService({
+          userId,
+          amount: amountToRefund,
+          description: `Instant refund for out of stock item (Order: ${razorpay_order_id})`,
+          category: 'refund',
+        });
+        
+        if (walletResult.success) {
+          walletCredited = true;
+          walletBalance = walletResult.balance;
+          console.log(`✅ Wallet credited ₹${amountToRefund} for user ${userId} — stock exhausted during payment`);
+        } else {
+          throw new Error(walletResult.message || 'Wallet credit failed');
+        }
+      } catch (walletErr) {
+        console.error(`❌ Wallet credit failed for user ${userId}:`, walletErr.message);
+        
+        // Fallback to Razorpay refund if wallet credit fails
+        try {
+          const refundResult = await razorpay.payments.refund(razorpay_payment_id, {
+            speed: "optimum",
+            notes: { 
+              reason: "Out of stock during payment - wallet credit failed, processing Razorpay refund",
+              userId: userId.toString(),
+              originalAmount: amountToRefund
+            },
+          });
+          console.log(`⏳ Fallback: Razorpay refund initiated for payment ${razorpay_payment_id} - will take 5-7 business days`);
+        } catch (refundErr) {
+          console.error(`💥 CRITICAL: Both wallet credit AND Razorpay refund failed for payment ${razorpay_payment_id}:`, refundErr.message);
+          // Log this for manual intervention
+          console.error(`MANUAL INTERVENTION REQUIRED: User ${userId}, Payment ${razorpay_payment_id}, Amount ${amountToRefund}`);
+        }
+      }
     }
 
     return res.status(409).json({
       success: false,
       outOfStock: true,
-      message: result.message,
+      walletCredited,
+      refundAmount: amountToRefund,
+      walletBalance,
+      message: walletCredited 
+        ? `Product went out of stock during payment. ₹${amountToRefund.toLocaleString('en-IN')} has been instantly credited to your wallet.`
+        : `Product went out of stock during payment. Refund of ₹${amountToRefund.toLocaleString('en-IN')} will be processed to your original payment method in 5-7 business days.`,
     });
   }
 
@@ -271,33 +327,49 @@ export const handleRazorpayFailure = asyncHandler(async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // POST /checkout/apply-coupon
+// Uses the SAME coupon resolution logic as the order service so preview = saved
 // ═══════════════════════════════════════════════════════════════════════════════
 export const applyCoupon = asyncHandler(async (req, res) => {
   const { code, subtotal } = req.body;
 
-  if (!code || !subtotal) {
+  if (!code || !subtotal)
     return res.status(400).json({ success: false, message: 'Coupon code and subtotal are required' });
-  }
 
   try {
-    const result = await validateCoupon(code, Number(subtotal));
+    const sub = Number(subtotal);
 
-    // Store applied coupon in session to use during order placement
-    req.session.appliedCoupon = {
-      couponId:       result.coupon._id,
-      code:           result.coupon.code,
-      title:          result.coupon.title,
-      discount:       result.coupon.discount,
-      discountAmount: Math.round(result.discountAmount),
-      maxCap:         result.coupon.maxCap,
-    };
+    // Mirror exactly what resolveCoupon() does inside checkout.service.js
+    const coupon = await Coupon.findOne({
+      code:       code.trim().toUpperCase(),
+      status:     'active',
+      expiryDate: { $gt: new Date() },
+    });
+
+    if (!coupon) throw new Error('Invalid or expired coupon');
+    if (coupon.usedCount >= coupon.usageLimit) throw new Error('Coupon usage limit reached');
+    if (sub < coupon.minSpend) throw new Error(`Minimum order of ₹${coupon.minSpend} required to use this coupon`);
+
+    let discountAmount = (sub * coupon.discount) / 100;
+    if (coupon.maxCap > 0 && discountAmount > coupon.maxCap) discountAmount = coupon.maxCap;
+    discountAmount = Math.round(discountAmount);
+
+    // Compute what the totals will look like with this coupon applied
+    const totals = calcOrderTotals(sub, discountAmount);
+    
+    // Validate the calculation
+    const calcValidation = validateCalculationInputs(sub, discountAmount);
+    if (!calcValidation.isValid) {
+      return res.status(400).json({ success: false, message: calcValidation.error });
+    }
 
     return res.json({
       success:        true,
-      message:        `Coupon "${result.coupon.code}" applied! You save ₹${Math.round(result.discountAmount).toLocaleString('en-IN')}`,
-      discountAmount: Math.round(result.discountAmount),
-      couponCode:     result.coupon.code,
-      couponTitle:    result.coupon.title,
+      message:        `Coupon "${coupon.code}" applied! You save ₹${discountAmount.toLocaleString('en-IN')}`,
+      discountAmount,
+      couponCode:     coupon.code,
+      couponTitle:    coupon.title,
+      // Return the full breakdown so the checkout page can update all fields correctly
+      totals,
     });
   } catch (error) {
     return res.status(400).json({ success: false, message: error.message });
@@ -434,6 +506,32 @@ export const getOrderConfirmation = asyncHandler(async (req, res) => {
       .render("error", { message: "Order not found", layout: "layouts/user" });
   }
 
+  const { order } = result;
+  
+  // Validate and fix calculation discrepancies
+  const orderValidation = validateOrderCalculation(order);
+  if (!orderValidation.isValid) {
+    console.warn(`⚠️  Order ${orderId} has calculation discrepancies:`, orderValidation.discrepancies);
+    
+    // Log detailed debugging info
+    if (process.env.NODE_ENV === 'development') {
+      debugOrderCalculation(order);
+    }
+    
+    // Use corrected calculations for display
+    const correctedOrder = {
+      ...order,
+      ...orderValidation.corrected
+    };
+    
+    return res.render("user/order-confirmation", {
+      layout: "layouts/user",
+      path: "orders",
+      order: correctedOrder,
+      calculationWarning: "Order calculations have been corrected for display"
+    });
+  }
+
   res.render("user/order-confirmation", {
     layout: "layouts/user",
     path: "orders",
@@ -493,9 +591,12 @@ export const downloadInvoice = asyncHandler(async (req, res) => {
     (sum, i) => sum + (i.itemTotal || i.basePrice * i.quantity || 0),
     0,
   );
-  const shipping = subtotal >= 5000 ? 0 : 50;
-  const tax = Math.round(subtotal * 0.18);
-  const total = subtotal + shipping + tax;
+  // Scale coupon discount proportionally if some items were cancelled
+  const fullSubtotal  = order.subtotal || subtotal;
+  const scale         = fullSubtotal > 0 ? subtotal / fullSubtotal : 1;
+  const discount      = Math.round((order.discount || 0) * scale);
+  const invoiceTotals = calcOrderTotals(subtotal, discount);
+  const { shipping, tax, total } = invoiceTotals;
 
   const doc = new PDFDocument({ margin: 50, size: "A4" });
   res.setHeader("Content-Type", "application/pdf");
@@ -708,7 +809,15 @@ export const downloadInvoice = asyncHandler(async (req, res) => {
       width: valW,
       align: "right",
     });
-  y += 12;
+  y += 16;
+  if (discount > 0) {
+    const couponLabel = order.couponCode ? `Coupon (${order.couponCode})` : 'Coupon Discount';
+    doc.fillColor("#64748b").fontSize(9).font("Helvetica").text(couponLabel, totalsX, y);
+    doc.fillColor("#16a34a").fontSize(9).font("Helvetica")
+      .text(`-Rs.${discount.toLocaleString("en-IN")}`, valX, y, { width: valW, align: "right" });
+    y += 16;
+  }
+  y -= 4;
   doc.fillColor("#e2e8f0").rect(totalsX, y, 175, 1).fill();
   y += 12;
   doc
